@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { hasOpenAIKey } from "@/lib/openai.functions";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -71,7 +73,7 @@ interface AIService {
 }
 
 const aiServices: AIService[] = [
-  { id: "chatgpt", name: "ChatGPT", icon: MessageSquare, gradient: "from-[#10A37F] to-[#1FD0A3]", status: "connected", account: "studio@aicontent.io", lastSync: "Hace 4 min", category: "Lenguaje" },
+  { id: "chatgpt", name: "ChatGPT (OpenAI)", icon: MessageSquare, gradient: "from-[#10A37F] to-[#1FD0A3]", status: "disconnected", account: null, lastSync: null, category: "Lenguaje · Generador de Prompts" },
   { id: "google-ai", name: "Google AI Studio", icon: Sparkles, gradient: "from-[#4285F4] to-[#9B72CB]", status: "connected", account: "studio@aicontent.io", lastSync: "Hace 12 min", category: "Lenguaje" },
   { id: "gemini", name: "Gemini", icon: Gem, gradient: "from-[#8E6FF7] to-[#4285F4]", status: "connected", account: "creator@gmail.com", lastSync: "Hace 1 h", category: "Multimodal" },
   { id: "flow", name: "Flow", icon: Workflow, gradient: "from-[#FF6B35] to-[#F7C548]", status: "disconnected", account: null, lastSync: null, category: "Video" },
@@ -156,6 +158,25 @@ function MetaRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string
 function CentroIntegraciones() {
   const [ai, setAi] = useState<AIService[]>(aiServices);
   const [social, setSocial] = useState<SocialService[]>(socialServices);
+  const checkKey = useServerFn(hasOpenAIKey);
+
+  useEffect(() => {
+    checkKey()
+      .then((r) => {
+        setAi((prev) =>
+          prev.map((s) =>
+            s.id === "chatgpt"
+              ? r.configured
+                ? { ...s, status: "connected", account: "API Key configurada", lastSync: "Activo" }
+                : { ...s, status: "disconnected", account: null, lastSync: null }
+              : s,
+          ),
+        );
+      })
+      .catch(() => {
+        /* noop */
+      });
+  }, [checkKey]);
 
   const toggleAi = (id: string) =>
     setAi((prev) =>
