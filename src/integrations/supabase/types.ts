@@ -14,7 +14,389 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      analytics: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          metric: string
+          platform: string | null
+          user_id: string
+          value: number | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          metric: string
+          platform?: string | null
+          user_id: string
+          value?: number | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          metric?: string
+          platform?: string | null
+          user_id?: string
+          value?: number | null
+        }
+        Relationships: []
+      }
+      images: {
+        Row: {
+          created_at: string
+          id: string
+          is_favorite: boolean
+          model: string | null
+          project_id: string | null
+          prompt_id: string | null
+          resolution: string | null
+          title: string | null
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_favorite?: boolean
+          model?: string | null
+          project_id?: string | null
+          prompt_id?: string | null
+          resolution?: string | null
+          title?: string | null
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_favorite?: boolean
+          model?: string | null
+          project_id?: string | null
+          prompt_id?: string | null
+          resolution?: string | null
+          title?: string | null
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "images_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "images_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspirations: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_saved: boolean
+          reference_url: string | null
+          thumbnail_url: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_saved?: boolean
+          reference_url?: string | null
+          thumbnail_url?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_saved?: boolean
+          reference_url?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      integrations: {
+        Row: {
+          account_label: string | null
+          connected_at: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          provider: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_label?: string | null
+          connected_at?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          provider: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_label?: string | null
+          connected_at?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          provider?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      prompts: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string
+          duration: string | null
+          id: string
+          is_favorite: boolean
+          language: string | null
+          platform: string | null
+          project_id: string | null
+          style: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string
+          duration?: string | null
+          id?: string
+          is_favorite?: boolean
+          language?: string | null
+          platform?: string | null
+          project_id?: string | null
+          style?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string
+          duration?: string | null
+          id?: string
+          is_favorite?: boolean
+          language?: string | null
+          platform?: string | null
+          project_id?: string | null
+          style?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trends: {
+        Row: {
+          category: string | null
+          country: string | null
+          created_at: string
+          id: string
+          language: string | null
+          period: string | null
+          platform: string | null
+          ranking: number | null
+          source_url: string | null
+          thumbnail_url: string | null
+          title: string
+          user_id: string
+          views: number | null
+        }
+        Insert: {
+          category?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          language?: string | null
+          period?: string | null
+          platform?: string | null
+          ranking?: number | null
+          source_url?: string | null
+          thumbnail_url?: string | null
+          title: string
+          user_id: string
+          views?: number | null
+        }
+        Update: {
+          category?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          language?: string | null
+          period?: string | null
+          platform?: string | null
+          ranking?: number | null
+          source_url?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          user_id?: string
+          views?: number | null
+        }
+        Relationships: []
+      }
+      videos: {
+        Row: {
+          aspect_ratio: string | null
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          is_favorite: boolean
+          model: string | null
+          project_id: string | null
+          prompt_id: string | null
+          resolution: string | null
+          thumbnail_url: string | null
+          title: string | null
+          url: string
+          user_id: string
+        }
+        Insert: {
+          aspect_ratio?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          is_favorite?: boolean
+          model?: string | null
+          project_id?: string | null
+          prompt_id?: string | null
+          resolution?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          url: string
+          user_id: string
+        }
+        Update: {
+          aspect_ratio?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          is_favorite?: boolean
+          model?: string | null
+          project_id?: string | null
+          prompt_id?: string | null
+          resolution?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "videos_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "videos_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

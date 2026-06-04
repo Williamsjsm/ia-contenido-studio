@@ -9,38 +9,271 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PublicarRouteImport } from './routes/publicar'
+import { Route as IntegracionesRouteImport } from './routes/integraciones'
+import { Route as ConfiguracionRouteImport } from './routes/configuracion'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as InvestigarTendenciasRouteImport } from './routes/investigar.tendencias'
+import { Route as InvestigarInspiracionRouteImport } from './routes/investigar.inspiracion'
+import { Route as InvestigarAprendizajeRouteImport } from './routes/investigar.aprendizaje'
+import { Route as CrearVideoRouteImport } from './routes/crear.video'
+import { Route as CrearPromptsRouteImport } from './routes/crear.prompts'
+import { Route as CrearImagenRouteImport } from './routes/crear.imagen'
+import { Route as CrearFlowRouteImport } from './routes/crear.flow'
+import { Route as BibliotecaVideosRouteImport } from './routes/biblioteca.videos'
+import { Route as BibliotecaProyectosRouteImport } from './routes/biblioteca.proyectos'
+import { Route as BibliotecaPromptsRouteImport } from './routes/biblioteca.prompts'
+import { Route as BibliotecaImagenesRouteImport } from './routes/biblioteca.imagenes'
+import { Route as BibliotecaFavoritosRouteImport } from './routes/biblioteca.favoritos'
+import { Route as BibliotecaDescargasRouteImport } from './routes/biblioteca.descargas'
 
+const PublicarRoute = PublicarRouteImport.update({
+  id: '/publicar',
+  path: '/publicar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntegracionesRoute = IntegracionesRouteImport.update({
+  id: '/integraciones',
+  path: '/integraciones',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfiguracionRoute = ConfiguracionRouteImport.update({
+  id: '/configuracion',
+  path: '/configuracion',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InvestigarTendenciasRoute = InvestigarTendenciasRouteImport.update({
+  id: '/investigar/tendencias',
+  path: '/investigar/tendencias',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InvestigarInspiracionRoute = InvestigarInspiracionRouteImport.update({
+  id: '/investigar/inspiracion',
+  path: '/investigar/inspiracion',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InvestigarAprendizajeRoute = InvestigarAprendizajeRouteImport.update({
+  id: '/investigar/aprendizaje',
+  path: '/investigar/aprendizaje',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CrearVideoRoute = CrearVideoRouteImport.update({
+  id: '/crear/video',
+  path: '/crear/video',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CrearPromptsRoute = CrearPromptsRouteImport.update({
+  id: '/crear/prompts',
+  path: '/crear/prompts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CrearImagenRoute = CrearImagenRouteImport.update({
+  id: '/crear/imagen',
+  path: '/crear/imagen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CrearFlowRoute = CrearFlowRouteImport.update({
+  id: '/crear/flow',
+  path: '/crear/flow',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BibliotecaVideosRoute = BibliotecaVideosRouteImport.update({
+  id: '/biblioteca/videos',
+  path: '/biblioteca/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BibliotecaProyectosRoute = BibliotecaProyectosRouteImport.update({
+  id: '/biblioteca/proyectos',
+  path: '/biblioteca/proyectos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BibliotecaPromptsRoute = BibliotecaPromptsRouteImport.update({
+  id: '/biblioteca/prompts',
+  path: '/biblioteca/prompts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BibliotecaImagenesRoute = BibliotecaImagenesRouteImport.update({
+  id: '/biblioteca/imagenes',
+  path: '/biblioteca/imagenes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BibliotecaFavoritosRoute = BibliotecaFavoritosRouteImport.update({
+  id: '/biblioteca/favoritos',
+  path: '/biblioteca/favoritos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BibliotecaDescargasRoute = BibliotecaDescargasRouteImport.update({
+  id: '/biblioteca/descargas',
+  path: '/biblioteca/descargas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/configuracion': typeof ConfiguracionRoute
+  '/integraciones': typeof IntegracionesRoute
+  '/publicar': typeof PublicarRoute
+  '/biblioteca/descargas': typeof BibliotecaDescargasRoute
+  '/biblioteca/favoritos': typeof BibliotecaFavoritosRoute
+  '/biblioteca/imagenes': typeof BibliotecaImagenesRoute
+  '/biblioteca/prompts': typeof BibliotecaPromptsRoute
+  '/biblioteca/proyectos': typeof BibliotecaProyectosRoute
+  '/biblioteca/videos': typeof BibliotecaVideosRoute
+  '/crear/flow': typeof CrearFlowRoute
+  '/crear/imagen': typeof CrearImagenRoute
+  '/crear/prompts': typeof CrearPromptsRoute
+  '/crear/video': typeof CrearVideoRoute
+  '/investigar/aprendizaje': typeof InvestigarAprendizajeRoute
+  '/investigar/inspiracion': typeof InvestigarInspiracionRoute
+  '/investigar/tendencias': typeof InvestigarTendenciasRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/configuracion': typeof ConfiguracionRoute
+  '/integraciones': typeof IntegracionesRoute
+  '/publicar': typeof PublicarRoute
+  '/biblioteca/descargas': typeof BibliotecaDescargasRoute
+  '/biblioteca/favoritos': typeof BibliotecaFavoritosRoute
+  '/biblioteca/imagenes': typeof BibliotecaImagenesRoute
+  '/biblioteca/prompts': typeof BibliotecaPromptsRoute
+  '/biblioteca/proyectos': typeof BibliotecaProyectosRoute
+  '/biblioteca/videos': typeof BibliotecaVideosRoute
+  '/crear/flow': typeof CrearFlowRoute
+  '/crear/imagen': typeof CrearImagenRoute
+  '/crear/prompts': typeof CrearPromptsRoute
+  '/crear/video': typeof CrearVideoRoute
+  '/investigar/aprendizaje': typeof InvestigarAprendizajeRoute
+  '/investigar/inspiracion': typeof InvestigarInspiracionRoute
+  '/investigar/tendencias': typeof InvestigarTendenciasRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/configuracion': typeof ConfiguracionRoute
+  '/integraciones': typeof IntegracionesRoute
+  '/publicar': typeof PublicarRoute
+  '/biblioteca/descargas': typeof BibliotecaDescargasRoute
+  '/biblioteca/favoritos': typeof BibliotecaFavoritosRoute
+  '/biblioteca/imagenes': typeof BibliotecaImagenesRoute
+  '/biblioteca/prompts': typeof BibliotecaPromptsRoute
+  '/biblioteca/proyectos': typeof BibliotecaProyectosRoute
+  '/biblioteca/videos': typeof BibliotecaVideosRoute
+  '/crear/flow': typeof CrearFlowRoute
+  '/crear/imagen': typeof CrearImagenRoute
+  '/crear/prompts': typeof CrearPromptsRoute
+  '/crear/video': typeof CrearVideoRoute
+  '/investigar/aprendizaje': typeof InvestigarAprendizajeRoute
+  '/investigar/inspiracion': typeof InvestigarInspiracionRoute
+  '/investigar/tendencias': typeof InvestigarTendenciasRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/configuracion'
+    | '/integraciones'
+    | '/publicar'
+    | '/biblioteca/descargas'
+    | '/biblioteca/favoritos'
+    | '/biblioteca/imagenes'
+    | '/biblioteca/prompts'
+    | '/biblioteca/proyectos'
+    | '/biblioteca/videos'
+    | '/crear/flow'
+    | '/crear/imagen'
+    | '/crear/prompts'
+    | '/crear/video'
+    | '/investigar/aprendizaje'
+    | '/investigar/inspiracion'
+    | '/investigar/tendencias'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/configuracion'
+    | '/integraciones'
+    | '/publicar'
+    | '/biblioteca/descargas'
+    | '/biblioteca/favoritos'
+    | '/biblioteca/imagenes'
+    | '/biblioteca/prompts'
+    | '/biblioteca/proyectos'
+    | '/biblioteca/videos'
+    | '/crear/flow'
+    | '/crear/imagen'
+    | '/crear/prompts'
+    | '/crear/video'
+    | '/investigar/aprendizaje'
+    | '/investigar/inspiracion'
+    | '/investigar/tendencias'
+  id:
+    | '__root__'
+    | '/'
+    | '/configuracion'
+    | '/integraciones'
+    | '/publicar'
+    | '/biblioteca/descargas'
+    | '/biblioteca/favoritos'
+    | '/biblioteca/imagenes'
+    | '/biblioteca/prompts'
+    | '/biblioteca/proyectos'
+    | '/biblioteca/videos'
+    | '/crear/flow'
+    | '/crear/imagen'
+    | '/crear/prompts'
+    | '/crear/video'
+    | '/investigar/aprendizaje'
+    | '/investigar/inspiracion'
+    | '/investigar/tendencias'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ConfiguracionRoute: typeof ConfiguracionRoute
+  IntegracionesRoute: typeof IntegracionesRoute
+  PublicarRoute: typeof PublicarRoute
+  BibliotecaDescargasRoute: typeof BibliotecaDescargasRoute
+  BibliotecaFavoritosRoute: typeof BibliotecaFavoritosRoute
+  BibliotecaImagenesRoute: typeof BibliotecaImagenesRoute
+  BibliotecaPromptsRoute: typeof BibliotecaPromptsRoute
+  BibliotecaProyectosRoute: typeof BibliotecaProyectosRoute
+  BibliotecaVideosRoute: typeof BibliotecaVideosRoute
+  CrearFlowRoute: typeof CrearFlowRoute
+  CrearImagenRoute: typeof CrearImagenRoute
+  CrearPromptsRoute: typeof CrearPromptsRoute
+  CrearVideoRoute: typeof CrearVideoRoute
+  InvestigarAprendizajeRoute: typeof InvestigarAprendizajeRoute
+  InvestigarInspiracionRoute: typeof InvestigarInspiracionRoute
+  InvestigarTendenciasRoute: typeof InvestigarTendenciasRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/publicar': {
+      id: '/publicar'
+      path: '/publicar'
+      fullPath: '/publicar'
+      preLoaderRoute: typeof PublicarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integraciones': {
+      id: '/integraciones'
+      path: '/integraciones'
+      fullPath: '/integraciones'
+      preLoaderRoute: typeof IntegracionesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configuracion': {
+      id: '/configuracion'
+      path: '/configuracion'
+      fullPath: '/configuracion'
+      preLoaderRoute: typeof ConfiguracionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +281,118 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/investigar/tendencias': {
+      id: '/investigar/tendencias'
+      path: '/investigar/tendencias'
+      fullPath: '/investigar/tendencias'
+      preLoaderRoute: typeof InvestigarTendenciasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/investigar/inspiracion': {
+      id: '/investigar/inspiracion'
+      path: '/investigar/inspiracion'
+      fullPath: '/investigar/inspiracion'
+      preLoaderRoute: typeof InvestigarInspiracionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/investigar/aprendizaje': {
+      id: '/investigar/aprendizaje'
+      path: '/investigar/aprendizaje'
+      fullPath: '/investigar/aprendizaje'
+      preLoaderRoute: typeof InvestigarAprendizajeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/crear/video': {
+      id: '/crear/video'
+      path: '/crear/video'
+      fullPath: '/crear/video'
+      preLoaderRoute: typeof CrearVideoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/crear/prompts': {
+      id: '/crear/prompts'
+      path: '/crear/prompts'
+      fullPath: '/crear/prompts'
+      preLoaderRoute: typeof CrearPromptsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/crear/imagen': {
+      id: '/crear/imagen'
+      path: '/crear/imagen'
+      fullPath: '/crear/imagen'
+      preLoaderRoute: typeof CrearImagenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/crear/flow': {
+      id: '/crear/flow'
+      path: '/crear/flow'
+      fullPath: '/crear/flow'
+      preLoaderRoute: typeof CrearFlowRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/biblioteca/videos': {
+      id: '/biblioteca/videos'
+      path: '/biblioteca/videos'
+      fullPath: '/biblioteca/videos'
+      preLoaderRoute: typeof BibliotecaVideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/biblioteca/proyectos': {
+      id: '/biblioteca/proyectos'
+      path: '/biblioteca/proyectos'
+      fullPath: '/biblioteca/proyectos'
+      preLoaderRoute: typeof BibliotecaProyectosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/biblioteca/prompts': {
+      id: '/biblioteca/prompts'
+      path: '/biblioteca/prompts'
+      fullPath: '/biblioteca/prompts'
+      preLoaderRoute: typeof BibliotecaPromptsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/biblioteca/imagenes': {
+      id: '/biblioteca/imagenes'
+      path: '/biblioteca/imagenes'
+      fullPath: '/biblioteca/imagenes'
+      preLoaderRoute: typeof BibliotecaImagenesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/biblioteca/favoritos': {
+      id: '/biblioteca/favoritos'
+      path: '/biblioteca/favoritos'
+      fullPath: '/biblioteca/favoritos'
+      preLoaderRoute: typeof BibliotecaFavoritosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/biblioteca/descargas': {
+      id: '/biblioteca/descargas'
+      path: '/biblioteca/descargas'
+      fullPath: '/biblioteca/descargas'
+      preLoaderRoute: typeof BibliotecaDescargasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ConfiguracionRoute: ConfiguracionRoute,
+  IntegracionesRoute: IntegracionesRoute,
+  PublicarRoute: PublicarRoute,
+  BibliotecaDescargasRoute: BibliotecaDescargasRoute,
+  BibliotecaFavoritosRoute: BibliotecaFavoritosRoute,
+  BibliotecaImagenesRoute: BibliotecaImagenesRoute,
+  BibliotecaPromptsRoute: BibliotecaPromptsRoute,
+  BibliotecaProyectosRoute: BibliotecaProyectosRoute,
+  BibliotecaVideosRoute: BibliotecaVideosRoute,
+  CrearFlowRoute: CrearFlowRoute,
+  CrearImagenRoute: CrearImagenRoute,
+  CrearPromptsRoute: CrearPromptsRoute,
+  CrearVideoRoute: CrearVideoRoute,
+  InvestigarAprendizajeRoute: InvestigarAprendizajeRoute,
+  InvestigarInspiracionRoute: InvestigarInspiracionRoute,
+  InvestigarTendenciasRoute: InvestigarTendenciasRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
