@@ -16,7 +16,7 @@ export interface PromptItem {
   title: string;
   category: Category;
   platform: Platform;
-  date: string;
+  created_at: string;
   excerpt: string;
   favorite: boolean;
 }
