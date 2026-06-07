@@ -2,6 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,8 +46,20 @@ import {
   Zap,
   AlertCircle,
   X,
+  Save,
+  Copy,
+  Trash2,
+  RotateCcw,
+  Loader2,
 } from "lucide-react";
 import { FlowConnector } from "@/components/flow-connector";
+import {
+  saveFlowJob,
+  listFlowJobs,
+  deleteFlowJob,
+  duplicateFlowJob,
+  type FlowJob,
+} from "@/lib/flow-jobs.functions";
 
 const flowSearchSchema = z.object({
   from: fallback(z.string(), "").default(""),
@@ -80,7 +95,24 @@ const actions = [
   { id: "colors", label: "Mejorar colores", icon: Palette, hint: "Color grading IA" },
 ];
 
-const history = [
+const PRESETS: Array<{
+  id: string;
+  label: string;
+  duration: string;
+  resolution: string;
+  aspect: string;
+  model: string;
+}> = [
+  { id: "yt-shorts", label: "YouTube Shorts", duration: "15", resolution: "1080", aspect: "9:16", model: "veo3" },
+  { id: "tiktok", label: "TikTok", duration: "15", resolution: "1080", aspect: "9:16", model: "runway" },
+  { id: "reels", label: "Reels", duration: "15", resolution: "1080", aspect: "9:16", model: "pika" },
+  { id: "facebook", label: "Facebook", duration: "10", resolution: "1080", aspect: "1:1", model: "flow" },
+  { id: "cinematic", label: "Cinemático 16:9", duration: "8", resolution: "4k", aspect: "16:9", model: "veo3" },
+];
+
+const ASPECTS = ["9:16", "1:1", "4:3", "16:9"] as const;
+
+const historyMock = [
   {
     id: "v7",
     title: "Cinematic neon alley · v7",
@@ -144,20 +176,128 @@ const versions = [
 
 function FlowCenter() {
   const search = Route.useSearch();
+  const qc = useQueryClient();
   const [active, setActive] = useState("create");
   const [selected, setSelected] = useState("v7");
   const [strength, setStrength] = useState([72]);
   const [promptText, setPromptText] = useState("");
   const [showAlert, setShowAlert] = useState(false);
+  const [title, setTitle] = useState("");
+  const [model, setModel] = useState("veo3");
+  const [resolution, setResolution] = useState("1080");
+  const [duration, setDuration] = useState("8");
+  const [aspect, setAspect] = useState("16:9");
+  const [activePreset, setActivePreset] = useState<string | null>(null);
 
   useEffect(() => {
     if (search.from && search.prompt) {
       setPromptText(search.prompt);
       setShowAlert(true);
+      if (search.titulo) setTitle(search.titulo);
     }
   }, [search]);
 
-  const current = history.find((h) => h.id === selected) ?? history[0];
+  const current = historyMock.find((h) => h.id === selected) ?? historyMock[0];
+
+  // ── Flow jobs query ───────────────────────────────────────────
+  const fetchJobs = useServerFn(listFlowJobs);
+  const jobsQuery = useQuery({
+    queryKey: ["flow", "jobs"],
+    queryFn: () => fetchJobs(),
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["flow", "jobs"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
+  };
+
+  const save = useServerFn(saveFlowJob);
+  const saveMut = useMutation({
+    mutationFn: save,
+    onSuccess: (res) => {
+      if (res.ok) {
+        toast.success("Guardado en Flow");
+        invalidate();
+      } else {
+        toast.error(res.message);
+      }
+    },
+  });
+
+  const del = useServerFn(deleteFlowJob);
+  const delMut = useMutation({
+    mutationFn: del,
+    onSuccess: (res) => {
+      if (res.ok) {
+        toast.success("Eliminado");
+        invalidate();
+      } else {
+        toast.error(res.message);
+      }
+    },
+  });
+
+  const dup = useServerFn(duplicateFlowJob);
+  const dupMut = useMutation({
+    mutationFn: dup,
+    onSuccess: (res) => {
+      if (res.ok) {
+        toast.success("Duplicado");
+        invalidate();
+      } else {
+        toast.error(res.message);
+      }
+    },
+  });
+
+  function applyPreset(p: (typeof PRESETS)[number]) {
+    setActivePreset(p.id);
+    setDuration(p.duration);
+    setResolution(p.resolution);
+    setAspect(p.aspect);
+    setModel(p.model);
+    toast.message(`Preset aplicado: ${p.label}`);
+  }
+
+  function handleSave() {
+    if (!promptText.trim()) {
+      toast.error("Escribe un prompt antes de guardar.");
+      return;
+    }
+    saveMut.mutate({
+      data: {
+        title: title.trim() || promptText.trim().slice(0, 60),
+        prompt: promptText.trim(),
+        source_variant: search.variante || null,
+        platform: search.plataforma || activePreset || null,
+        category: search.categoria || null,
+        duration,
+        resolution,
+        aspect_ratio: aspect,
+        model,
+        status: "draft",
+      },
+    });
+  }
+
+  function handleReuse(job: FlowJob) {
+    setPromptText(job.prompt);
+    setTitle(job.title);
+    if (job.duration) setDuration(job.duration);
+    if (job.resolution) setResolution(job.resolution);
+    if (job.aspect_ratio) setAspect(job.aspect_ratio);
+    if (job.model) setModel(job.model);
+    toast.success("Prompt reutilizado");
+  }
+
+  async function handleCopy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Prompt copiado");
+    } catch {
+      toast.error("No se pudo copiar");
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 p-4 lg:p-8">
@@ -238,6 +378,33 @@ function FlowCenter() {
       </div>
 
       {/* 3-column workspace */}
+      {/* Presets */}
+      <Card className="surface-card border-border/60">
+        <CardContent className="flex flex-wrap items-center gap-2 p-3">
+          <span className="mr-1 text-[11px] uppercase tracking-wider text-muted-foreground">
+            Presets
+          </span>
+          {PRESETS.map((p) => {
+            const isOn = activePreset === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => applyPreset(p)}
+                className={[
+                  "rounded-md border px-2.5 py-1 text-xs font-medium transition",
+                  isOn
+                    ? "border-primary/50 bg-primary/10 text-primary"
+                    : "border-border/60 bg-background/40 text-muted-foreground hover:bg-background/80",
+                ].join(" ")}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-5 xl:grid-cols-[300px_1fr_340px]">
         {/* ───────── Left: Configuration ───────── */}
         <Card className="surface-card border-border/60">
@@ -249,7 +416,7 @@ function FlowCenter() {
           </CardHeader>
           <CardContent className="space-y-5">
             <Field label="Modelo" icon={Sparkles}>
-              <Select defaultValue="veo3">
+              <Select value={model} onValueChange={setModel}>
                 <SelectTrigger className="h-9 bg-background/60">
                   <SelectValue />
                 </SelectTrigger>
@@ -263,7 +430,7 @@ function FlowCenter() {
             </Field>
 
             <Field label="Resolución" icon={Aperture}>
-              <Select defaultValue="1080">
+              <Select value={resolution} onValueChange={setResolution}>
                 <SelectTrigger className="h-9 bg-background/60">
                   <SelectValue />
                 </SelectTrigger>
@@ -277,7 +444,7 @@ function FlowCenter() {
             </Field>
 
             <Field label="Duración" icon={Clock}>
-              <Select defaultValue="8">
+              <Select value={duration} onValueChange={setDuration}>
                 <SelectTrigger className="h-9 bg-background/60">
                   <SelectValue />
                 </SelectTrigger>
@@ -293,12 +460,14 @@ function FlowCenter() {
 
             <Field label="Relación de aspecto" icon={Maximize2}>
               <div className="grid grid-cols-4 gap-1.5">
-                {["9:16", "1:1", "4:3", "16:9"].map((r, i) => (
+                {ASPECTS.map((r) => (
                   <button
                     key={r}
+                    type="button"
+                    onClick={() => setAspect(r)}
                     className={[
                       "rounded-md border px-2 py-1.5 text-[11px] font-medium transition",
-                      i === 3
+                      aspect === r
                         ? "border-primary/50 bg-primary/10 text-primary"
                         : "border-border/60 bg-background/40 text-muted-foreground hover:bg-background/80",
                     ].join(" ")}
@@ -477,6 +646,17 @@ function FlowCenter() {
               <TabsContent value="prompt" className="mt-0 space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Título
+                  </Label>
+                  <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Mi job de Flow"
+                    className="flex h-9 w-full rounded-md border border-border/60 bg-background/60 px-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
                     Prompt utilizado
                   </Label>
                   <Textarea
@@ -508,7 +688,31 @@ function FlowCenter() {
                     ),
                   )}
                 </div>
-                <Button size="sm" variant="outline" className="w-full gap-1.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() => handleCopy(promptText)}
+                    disabled={!promptText.trim()}
+                  >
+                    <Copy className="h-3.5 w-3.5" /> Copiar prompt
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+                    onClick={handleSave}
+                    disabled={saveMut.isPending}
+                  >
+                    {saveMut.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
+                    Guardar en Flow
+                  </Button>
+                </div>
+                <Button size="sm" variant="ghost" className="w-full gap-1.5 text-muted-foreground">
                   <Wand2 className="h-3.5 w-3.5" /> Mejorar prompt
                 </Button>
               </TabsContent>
@@ -516,49 +720,115 @@ function FlowCenter() {
               <TabsContent value="history" className="mt-0">
                 <ScrollArea className="h-[440px] pr-2">
                   <div className="flex items-center gap-2 pb-2 text-xs text-muted-foreground">
-                    <History className="h-3.5 w-3.5" /> Generaciones recientes
+                    <History className="h-3.5 w-3.5" /> Historial guardado
+                    {jobsQuery.data ? (
+                      <span className="ml-auto text-[10px]">{jobsQuery.data.length}</span>
+                    ) : null}
                   </div>
-                  <div className="space-y-2">
-                    {history.map((h) => {
-                      const isSel = h.id === selected;
-                      return (
-                        <button
-                          key={h.id}
-                          onClick={() => setSelected(h.id)}
-                          className={[
-                            "flex w-full items-center gap-3 rounded-lg border p-2 text-left transition",
-                            isSel
-                              ? "border-primary/50 bg-primary/5"
-                              : "border-border/60 bg-background/40 hover:bg-background/80",
-                          ].join(" ")}
+                  {jobsQuery.isLoading ? (
+                    <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Cargando…
+                    </div>
+                  ) : jobsQuery.error ? (
+                    <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+                      No se pudo cargar el historial.
+                    </div>
+                  ) : !jobsQuery.data || jobsQuery.data.length === 0 ? (
+                    <div className="rounded-md border border-border/60 bg-background/40 p-4 text-center text-xs text-muted-foreground">
+                      Aún no has guardado prompts en Flow.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {jobsQuery.data.map((j) => (
+                        <div
+                          key={j.id}
+                          className="space-y-2 rounded-lg border border-border/60 bg-background/40 p-2.5 transition hover:bg-background/70"
                         >
-                          <div
-                            className="relative h-12 w-20 shrink-0 overflow-hidden rounded-md"
-                            style={{ background: h.thumb }}
-                          >
-                            {h.status === "rendering" ? (
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                                <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                          <div className="flex items-start gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-medium text-foreground">
+                                {j.title}
+                              </p>
+                              <p className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">
+                                {j.prompt}
+                              </p>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                <Badge
+                                  variant="outline"
+                                  className="h-4 border-border/60 bg-background/60 px-1.5 text-[9px]"
+                                >
+                                  {j.status}
+                                </Badge>
+                                {j.source_variant && (
+                                  <Badge
+                                    variant="outline"
+                                    className="h-4 border-border/60 bg-background/60 px-1.5 text-[9px]"
+                                  >
+                                    {j.source_variant}
+                                  </Badge>
+                                )}
+                                {j.model && (
+                                  <Badge
+                                    variant="outline"
+                                    className="h-4 border-border/60 bg-background/60 px-1.5 text-[9px]"
+                                  >
+                                    {j.model}
+                                  </Badge>
+                                )}
+                                {j.aspect_ratio && (
+                                  <Badge
+                                    variant="outline"
+                                    className="h-4 border-border/60 bg-background/60 px-1.5 text-[9px]"
+                                  >
+                                    {j.aspect_ratio}
+                                  </Badge>
+                                )}
                               </div>
-                            ) : (
-                              <Play className="absolute inset-0 m-auto h-4 w-4 fill-white/90 text-white/90" />
-                            )}
+                            </div>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs font-medium text-foreground">
-                              {h.title}
-                            </p>
-                            <p className="truncate text-[10px] text-muted-foreground">
-                              {h.model} · {h.duration} · {h.res}
-                            </p>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 flex-1 gap-1 px-2 text-[10px]"
+                              onClick={() => handleReuse(j)}
+                            >
+                              <RotateCcw className="h-3 w-3" /> Reutilizar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 w-7 p-0"
+                              onClick={() => handleCopy(j.prompt)}
+                              title="Copiar prompt"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 w-7 p-0"
+                              onClick={() => dupMut.mutate({ data: { id: j.id } })}
+                              disabled={dupMut.isPending}
+                              title="Duplicar"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                              onClick={() => delMut.mutate({ data: { id: j.id } })}
+                              disabled={delMut.isPending}
+                              title="Eliminar"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
                           </div>
-                          <span className="shrink-0 text-[10px] text-muted-foreground">
-                            {h.time}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </ScrollArea>
               </TabsContent>
 
