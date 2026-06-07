@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { z } from "zod";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,8 +41,19 @@ import {
   ChevronRight,
   Image as ImageIcon,
   Zap,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import { FlowConnector } from "@/components/flow-connector";
+
+const flowSearchSchema = z.object({
+  from: fallback(z.string(), "").default(""),
+  prompt: fallback(z.string(), "").default(""),
+  variante: fallback(z.string(), "").default(""),
+  titulo: fallback(z.string(), "").default(""),
+  plataforma: fallback(z.string(), "").default(""),
+  categoria: fallback(z.string(), "").default(""),
+});
 
 export const Route = createFileRoute("/crear/flow")({
   head: () => ({
@@ -53,6 +66,7 @@ export const Route = createFileRoute("/crear/flow")({
       },
     ],
   }),
+  validateSearch: zodValidator(flowSearchSchema),
   component: FlowCenter,
 });
 
@@ -129,9 +143,19 @@ const versions = [
 // ────────────────────────────── Page ─────────────────────────────────
 
 function FlowCenter() {
+  const search = Route.useSearch();
   const [active, setActive] = useState("create");
   const [selected, setSelected] = useState("v7");
   const [strength, setStrength] = useState([72]);
+  const [promptText, setPromptText] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
+
+  useEffect(() => {
+    if (search.from && search.prompt) {
+      setPromptText(search.prompt);
+      setShowAlert(true);
+    }
+  }, [search]);
 
   const current = history.find((h) => h.id === selected) ?? history[0];
 
