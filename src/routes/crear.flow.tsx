@@ -304,6 +304,11 @@ function FlowCenter() {
         aspect_ratio: aspect,
         model,
         status: "draft",
+        flow_points_estimate: flowPointsEstimate,
+        flow_mode: flowPoints.mode,
+        flow_media_type: flowPoints.mediaType,
+        flow_generation_mode: `${flowPoints.model}-${flowPoints.duration}s-x${flowPoints.variations}`,
+        variations: flowPoints.variations,
       },
     });
   }
