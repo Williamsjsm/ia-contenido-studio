@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useEffect, useState } from "react";
 import {
   Sparkles,
   ArrowRight,
@@ -18,7 +19,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
-import { LoadingState } from "@/components/state/loading-state";
 import { ErrorState } from "@/components/state/error-state";
 import { EmptyState } from "@/components/state/empty-state";
 import { getDashboardStats, type DashboardStats } from "@/lib/dashboard.functions";
@@ -36,22 +36,84 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+const DASHBOARD_SKELETON_TIMEOUT_MS = 2_500;
+
+const EMPTY_DASHBOARD_STATS: DashboardStats = {
+  total: 0,
+  favorites: 0,
+  thisWeek: 0,
+  topPlatform: null,
+  topCategory: null,
+  recent: [],
+};
+
+const EMPTY_PUBLICATION_STATS: PublicationStats = {
+  total: 0,
+  ready: 0,
+  published: 0,
+  draft: 0,
+  byPlatform: [],
+};
+
+function withClientTimeout<T>(promise: PromiseLike<T>, label: string): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) =>
+      window.setTimeout(() => reject(new Error(`${label} timed out after ${DASHBOARD_SKELETON_TIMEOUT_MS}ms`)), DASHBOARD_SKELETON_TIMEOUT_MS),
+    ),
+  ]);
+}
+
 function Index() {
+  const [showMetricsSkeleton, setShowMetricsSkeleton] = useState(true);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowMetricsSkeleton(false), DASHBOARD_SKELETON_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const fetchStats = useServerFn(getDashboardStats);
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["dashboard"],
-    queryFn: () => fetchStats(),
-    retry: 1,
+    queryFn: async () => {
+      console.info("dashboard query started");
+      try {
+        const result = await withClientTimeout(fetchStats(), "dashboard query");
+        console.info("dashboard query success");
+        return result;
+      } catch (queryError) {
+        console.error("dashboard query error", queryError);
+        throw queryError;
+      }
+    },
+    enabled: true,
+    retry: false,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
   const fetchPubs = useServerFn(getPublicationStats);
   const pubsQuery = useQuery({
     queryKey: ["publications", "stats"],
-    queryFn: () => fetchPubs(),
-    retry: 1,
+    queryFn: async () => {
+      console.info("dashboard query started", { scope: "publications" });
+      try {
+        const result = await withClientTimeout(fetchPubs(), "dashboard query publications");
+        console.info("dashboard query success", { scope: "publications" });
+        return result;
+      } catch (queryError) {
+        console.error("dashboard query error", queryError);
+        throw queryError;
+      }
+    },
+    enabled: true,
+    retry: false,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
-  const isEmpty = !!data && data.total === 0;
+  const isHardLoading = showMetricsSkeleton && isLoading && !data && !error;
+  const safeStats = data ?? EMPTY_DASHBOARD_STATS;
+  const safePublicationStats = pubsQuery.data ?? EMPTY_PUBLICATION_STATS;
+  const isEmpty = !error && !!data && data.total === 0;
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-8 p-5 sm:p-8 lg:space-y-10 xl:p-12">
@@ -71,30 +133,60 @@ function Index() {
         }
       />
 
-      {isLoading ? (
-        <LoadingState label="Cargando tu estudio…" />
-      ) : error ? (
-        <ErrorState
-          title="No pudimos cargar las métricas"
-          description="Reintenta en unos segundos."
-          detail={error instanceof Error ? error.message : String(error)}
-          onRetry={() => refetch()}
-        />
-      ) : !data ? null : isEmpty ? (
-        <>
-          <QuickActions />
-          <EmptyState
-            title="Aún no tienes prompts guardados"
-            description="Crea tu primer prompt con IA para ver tus métricas aparecer aquí."
-          />
-        </>
+      {isHardLoading ? (
+        <DashboardSkeleton />
       ) : (
         <>
-          <DashboardContent stats={data} />
-          {pubsQuery.data ? <PublicationStatsSection stats={pubsQuery.data} /> : null}
+          {error ? (
+            <ErrorState
+              title="No pudimos cargar las métricas"
+              description="Mostramos el Dashboard en modo seguro para que puedas seguir trabajando."
+              detail={error instanceof Error ? error.message : String(error)}
+              onRetry={() => refetch()}
+            />
+          ) : null}
+          {pubsQuery.error ? (
+            <ErrorState
+              title="No pudimos cargar las métricas de publicaciones"
+              description="Las demás secciones siguen disponibles."
+              detail={pubsQuery.error instanceof Error ? pubsQuery.error.message : String(pubsQuery.error)}
+              onRetry={() => pubsQuery.refetch()}
+            />
+          ) : null}
+          {isEmpty ? (
+            <>
+              <QuickActions />
+              <EmptyState
+                title="Aún no tienes prompts guardados"
+                description="Crea tu primer prompt con IA para ver tus métricas aparecer aquí."
+              />
+            </>
+          ) : (
+            <>
+              <DashboardContent stats={safeStats} />
+              <PublicationStatsSection stats={safePublicationStats} />
+            </>
+          )}
         </>
       )}
     </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <>
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Cargando métricas">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="surface-card animate-pulse p-5">
+            <div className="h-3 w-28 rounded-full bg-muted" />
+            <div className="mt-4 h-7 w-16 rounded-full bg-muted" />
+            <div className="mt-2 h-3 w-24 rounded-full bg-muted" />
+          </div>
+        ))}
+      </section>
+      <QuickActions compact />
+    </>
   );
 }
 
@@ -162,7 +254,7 @@ function DashboardContent({ stats }: { stats: DashboardStats }) {
               <li key={p.id}>
                 <Link
                   to="/biblioteca/prompts"
-                  className="flex items-center gap-3 py-3 transition-colors hover:bg-accent/40 -mx-2 px-2 rounded-md"
+                  className="-mx-2 flex items-center gap-3 rounded-md px-2 py-3 transition-colors hover:bg-accent/40"
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/60">
                     <Wand2 className="h-4 w-4 text-primary" />
