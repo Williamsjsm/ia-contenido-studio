@@ -470,6 +470,7 @@ function PromptDetailSheet({
             <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onEdit}>
               <Edit3 className="h-3.5 w-3.5" /> Editar
             </Button>
+            <SendToFlowButton prompt={prompt} />
             <Button
               size="sm"
               variant="outline"
