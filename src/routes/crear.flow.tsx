@@ -176,20 +176,128 @@ const versions = [
 
 function FlowCenter() {
   const search = Route.useSearch();
+  const qc = useQueryClient();
   const [active, setActive] = useState("create");
   const [selected, setSelected] = useState("v7");
   const [strength, setStrength] = useState([72]);
   const [promptText, setPromptText] = useState("");
   const [showAlert, setShowAlert] = useState(false);
+  const [title, setTitle] = useState("");
+  const [model, setModel] = useState("veo3");
+  const [resolution, setResolution] = useState("1080");
+  const [duration, setDuration] = useState("8");
+  const [aspect, setAspect] = useState("16:9");
+  const [activePreset, setActivePreset] = useState<string | null>(null);
 
   useEffect(() => {
     if (search.from && search.prompt) {
       setPromptText(search.prompt);
       setShowAlert(true);
+      if (search.titulo) setTitle(search.titulo);
     }
   }, [search]);
 
-  const current = history.find((h) => h.id === selected) ?? history[0];
+  const current = historyMock.find((h) => h.id === selected) ?? historyMock[0];
+
+  // ── Flow jobs query ───────────────────────────────────────────
+  const fetchJobs = useServerFn(listFlowJobs);
+  const jobsQuery = useQuery({
+    queryKey: ["flow", "jobs"],
+    queryFn: () => fetchJobs(),
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["flow", "jobs"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
+  };
+
+  const save = useServerFn(saveFlowJob);
+  const saveMut = useMutation({
+    mutationFn: save,
+    onSuccess: (res) => {
+      if (res.ok) {
+        toast.success("Guardado en Flow");
+        invalidate();
+      } else {
+        toast.error(res.message);
+      }
+    },
+  });
+
+  const del = useServerFn(deleteFlowJob);
+  const delMut = useMutation({
+    mutationFn: del,
+    onSuccess: (res) => {
+      if (res.ok) {
+        toast.success("Eliminado");
+        invalidate();
+      } else {
+        toast.error(res.message);
+      }
+    },
+  });
+
+  const dup = useServerFn(duplicateFlowJob);
+  const dupMut = useMutation({
+    mutationFn: dup,
+    onSuccess: (res) => {
+      if (res.ok) {
+        toast.success("Duplicado");
+        invalidate();
+      } else {
+        toast.error(res.message);
+      }
+    },
+  });
+
+  function applyPreset(p: (typeof PRESETS)[number]) {
+    setActivePreset(p.id);
+    setDuration(p.duration);
+    setResolution(p.resolution);
+    setAspect(p.aspect);
+    setModel(p.model);
+    toast.message(`Preset aplicado: ${p.label}`);
+  }
+
+  function handleSave() {
+    if (!promptText.trim()) {
+      toast.error("Escribe un prompt antes de guardar.");
+      return;
+    }
+    saveMut.mutate({
+      data: {
+        title: title.trim() || promptText.trim().slice(0, 60),
+        prompt: promptText.trim(),
+        source_variant: search.variante || null,
+        platform: search.plataforma || activePreset || null,
+        category: search.categoria || null,
+        duration,
+        resolution,
+        aspect_ratio: aspect,
+        model,
+        status: "draft",
+      },
+    });
+  }
+
+  function handleReuse(job: FlowJob) {
+    setPromptText(job.prompt);
+    setTitle(job.title);
+    if (job.duration) setDuration(job.duration);
+    if (job.resolution) setResolution(job.resolution);
+    if (job.aspect_ratio) setAspect(job.aspect_ratio);
+    if (job.model) setModel(job.model);
+    toast.success("Prompt reutilizado");
+  }
+
+  async function handleCopy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Prompt copiado");
+    } catch {
+      toast.error("No se pudo copiar");
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 p-4 lg:p-8">
