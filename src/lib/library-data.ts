@@ -68,14 +68,14 @@ const g = (a: string, b: string, c?: string) =>
     : `linear-gradient(135deg, ${a}, ${b})`;
 
 export const PROMPTS: PromptItem[] = [
-  { id: "p1", title: "Tigre cinemático en niebla volumétrica", category: "Cinemático", platform: "Midjourney", date: "2026-05-28", excerpt: "Hyperreal close-up of a bengal tiger, golden hour, volumetric fog…", favorite: true },
-  { id: "p2", title: "Influencer IA estilo editorial Vogue", category: "Branding", platform: "ChatGPT", date: "2026-05-26", excerpt: "Editorial portrait of an AI persona, soft beauty light, Hasselblad…", favorite: false },
-  { id: "p3", title: "Animales hechos de frutas — serie surreal", category: "Lifestyle", platform: "Midjourney", date: "2026-05-25", excerpt: "Surreal fruit-sculpted creatures, studio backdrop, dramatic rim light…", favorite: true },
-  { id: "p4", title: "Restauración 4K de foto antigua 1920", category: "Producto", platform: "Gemini", date: "2026-05-23", excerpt: "Restore vintage photograph, repair scratches, enhance dynamic range…", favorite: false },
-  { id: "p5", title: "Campaña verano — colores cálidos", category: "Marketing", platform: "ChatGPT", date: "2026-05-20", excerpt: "Summer campaign hero shots, terracotta + sand palette…", favorite: false },
-  { id: "p6", title: "Curiosidad científica — átomo macro", category: "Educativo", platform: "Veo", date: "2026-05-18", excerpt: "Macro shot of atom-like particles, scientific accuracy, glassy bokeh…", favorite: false },
-  { id: "p7", title: "Reel viral TikTok — POV cocina", category: "Social", platform: "Pika", date: "2026-05-15", excerpt: "POV cooking reel, fast cuts, warm tungsten, ASMR vibe…", favorite: true },
-  { id: "p8", title: "Logo brutalist con tipografía mono", category: "Branding", platform: "ChatGPT", date: "2026-05-12", excerpt: "Brutalist logo concept, monospace type, high contrast geometry…", favorite: false },
+  { id: "p1", title: "Tigre cinemático en niebla volumétrica", category: "Cinemático", platform: "Midjourney", created_at: "2026-05-28", excerpt: "Hyperreal close-up of a bengal tiger, golden hour, volumetric fog…", favorite: true },
+  { id: "p2", title: "Influencer IA estilo editorial Vogue", category: "Branding", platform: "ChatGPT", created_at: "2026-05-26", excerpt: "Editorial portrait of an AI persona, soft beauty light, Hasselblad…", favorite: false },
+  { id: "p3", title: "Animales hechos de frutas — serie surreal", category: "Lifestyle", platform: "Midjourney", created_at: "2026-05-25", excerpt: "Surreal fruit-sculpted creatures, studio backdrop, dramatic rim light…", favorite: true },
+  { id: "p4", title: "Restauración 4K de foto antigua 1920", category: "Producto", platform: "Gemini", created_at: "2026-05-23", excerpt: "Restore vintage photograph, repair scratches, enhance dynamic range…", favorite: false },
+  { id: "p5", title: "Campaña verano — colores cálidos", category: "Marketing", platform: "ChatGPT", created_at: "2026-05-20", excerpt: "Summer campaign hero shots, terracotta + sand palette…", favorite: false },
+  { id: "p6", title: "Curiosidad científica — átomo macro", category: "Educativo", platform: "Veo", created_at: "2026-05-18", excerpt: "Macro shot of atom-like particles, scientific accuracy, glassy bokeh…", favorite: false },
+  { id: "p7", title: "Reel viral TikTok — POV cocina", category: "Social", platform: "Pika", created_at: "2026-05-15", excerpt: "POV cooking reel, fast cuts, warm tungsten, ASMR vibe…", favorite: true },
+  { id: "p8", title: "Logo brutalist con tipografía mono", category: "Branding", platform: "ChatGPT", created_at: "2026-05-12", excerpt: "Brutalist logo concept, monospace type, high contrast geometry…", favorite: false },
 ];
 
 export const IMAGES: ImageItem[] = [
@@ -125,6 +125,9 @@ export const DOWNLOADS: DownloadItem[] = [
 export const PLATFORMS: Platform[] = ["ChatGPT", "Midjourney", "Veo", "Runway", "Flow", "Gemini", "Pika"];
 export const CATEGORIES: Category[] = ["Marketing", "Cinemático", "Producto", "Lifestyle", "Educativo", "Branding", "Social"];
 
-export function fmtDate(iso: string) {
-  return new Date(iso + "T00:00:00Z").toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+export function fmtDate(iso: string | null | undefined) {
+  if (!iso) return "Sin fecha";
+  const d = new Date(iso + "T00:00:00Z");
+  if (isNaN(d.getTime())) return "Sin fecha";
+  return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
 }

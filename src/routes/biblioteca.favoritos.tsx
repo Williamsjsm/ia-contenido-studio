@@ -30,7 +30,7 @@ function FavoritesPage() {
     const t = (filters.type ?? "all") as FavType;
     return all.filter((it) => {
       if (t !== "all" && it._kind !== t) return false;
-      return matchesFilters({ ...it, favorite: true }, { ...filters, favoritesOnly: false });
+      return matchesFilters({ ...it, favorite: true, date: it.date ?? it.created_at }, { ...filters, favoritesOnly: false });
     });
   }, [all, filters]);
 
@@ -67,7 +67,7 @@ function FavCard({ item, view }: { item: any; view: ViewMode }) {
         <Icon className="h-3.5 w-3.5 text-primary" />
         <span className="flex-1 truncate text-[13px]">{item.title}</span>
         <Badge variant="outline" className="text-[10px] font-normal">{item._kind}</Badge>
-        <span className="text-[11px] text-muted-foreground">{fmtDate(item.date)}</span>
+        <span className="text-[11px] text-muted-foreground">{fmtDate(item.created_at ?? item.date)}</span>
         <Heart className="h-3 w-3 fill-primary text-primary" />
       </div>
     );
@@ -121,7 +121,7 @@ function FavCard({ item, view }: { item: any; view: ViewMode }) {
         <h3 className="truncate text-[14px] font-semibold">{item.title}</h3>
         <div className="mt-1 flex items-center justify-between">
           <span className="text-[11px] text-muted-foreground">{item.platform}</span>
-          <span className="text-[11px] text-muted-foreground">{fmtDate(item.date)}</span>
+          <span className="text-[11px] text-muted-foreground">{fmtDate(item.created_at ?? item.date)}</span>
         </div>
       </div>
     </div>
