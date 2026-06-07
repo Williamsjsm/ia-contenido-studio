@@ -352,6 +352,51 @@ export type Database = {
           },
         ]
       }
+      publication_projects: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          hashtags: string | null
+          id: string
+          platform: string | null
+          source_flow_job_id: string | null
+          source_prompt_id: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          hashtags?: string | null
+          id?: string
+          platform?: string | null
+          source_flow_job_id?: string | null
+          source_prompt_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          hashtags?: string | null
+          id?: string
+          platform?: string | null
+          source_flow_job_id?: string | null
+          source_prompt_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       trends: {
         Row: {
           category: string | null
