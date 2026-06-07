@@ -299,6 +299,16 @@ function PromptsGenerator() {
         </Card>
       )}
 
+      {showTrendAlert && (
+        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">Prompt creado desde tendencia. Revisa los campos y genera cuando estés listo.</span>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setShowTrendAlert(false)}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-border/60 bg-card">
           <CardHeader>
