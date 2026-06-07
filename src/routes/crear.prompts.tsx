@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, Save, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library } from "lucide-react";
+import { Copy, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
   hasGeneratorConfigured,
   type GeneratePromptResult,
 } from "@/lib/generate-prompt.functions";
+import { savePrompt } from "@/lib/prompts.functions";
 
 export const Route = createFileRoute("/crear/prompts")({
   head: () => ({ meta: [{ title: "Generador de Prompts — AI Content Studio" }] }),
@@ -58,16 +60,22 @@ const VARIANT_TABS: { key: VariantKey; label: string }[] = [
 
 type SuccessResult = Extract<GeneratePromptResult, { ok: true }>;
 
+const MAX_LEN = 20_000;
+
 function PromptsGenerator() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const checkKey = useServerFn(hasGeneratorConfigured);
   const runGenerate = useServerFn(generatePrompt);
+  const runSave = useServerFn(savePrompt);
 
   const [form, setForm] = useState<FormState>(initialForm);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [result, setResult] = useState<SuccessResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [keyConfigured, setKeyConfigured] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [lastSavedSignature, setLastSavedSignature] = useState<string | null>(null);
 
   useEffect(() => {
     checkKey()
@@ -134,11 +142,6 @@ function PromptsGenerator() {
     toast.success("Copiado al portapapeles");
   }
 
-  function saveToLibrary(text: string) {
-    if (!text) return;
-    toast.info("Guardado disponible cuando inicies sesión.");
-  }
-
   function sendToFlow(text: string) {
     if (!text) return;
     try {
@@ -147,6 +150,69 @@ function PromptsGenerator() {
       // ignore
     }
     navigate({ to: "/crear/flow" });
+  }
+
+  const currentSignature = useMemo(() => {
+    if (!result) return "";
+    const title = (form.categoria || result.original_prompt.slice(0, 60)).trim();
+    return `${title}::${result.original_prompt.trim()}`;
+  }, [form.categoria, result]);
+
+  const isDuplicateOfLastSave =
+    Boolean(lastSavedSignature) && currentSignature === lastSavedSignature;
+
+  async function handleSave() {
+    if (!result || saving) return;
+    if (isDuplicateOfLastSave) {
+      toast.info("Este prompt ya fue guardado.");
+      return;
+    }
+    const title = (form.categoria || result.original_prompt.slice(0, 60)).trim();
+    if (!title) {
+      toast.error("Añade una categoría o un prompt base para usar como título.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const r = await runSave({
+        data: {
+          title,
+          category: form.categoria || null,
+          platform: form.plataforma,
+          style: form.estilo,
+          language: form.idioma,
+          duration: form.duracion,
+          original_prompt: result.original_prompt,
+          flow_prompt: result.flow_prompt,
+          youtube_prompt: result.youtube_prompt,
+          veo_prompt: result.veo_prompt,
+          kling_prompt: result.kling_prompt,
+        },
+      });
+      if (!r.ok) {
+        toast.error("No se pudo guardar el prompt", { description: r.message });
+        return;
+      }
+      setLastSavedSignature(currentSignature);
+      if (r.duplicate) {
+        toast.info("Ya existía un prompt idéntico. No se duplicó.");
+      } else {
+        toast.success("Prompt guardado en tu biblioteca.");
+      }
+      // Invalida la lista de la biblioteca y cualquier contador relacionado.
+      queryClient.invalidateQueries({ queryKey: ["library", "prompts"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["library", "counts"] });
+    } catch (e) {
+      console.error(e);
+      toast.error("Error inesperado al guardar.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleSaveAndGoLibrary() {
+    handleSave().then(() => navigate({ to: "/biblioteca/prompts" }));
   }
 
   return (
@@ -288,14 +354,15 @@ function PromptsGenerator() {
                     };
                     return { ...prev, [fieldMap[key]]: text };
                   });
+                  // Cambios manuales invalidan el "ya guardado".
+                  setLastSavedSignature(null);
                 }}
                 onCopy={copy}
-                onSave={saveToLibrary}
                 onSendFlow={sendToFlow}
-                onSendLibrary={(text) => {
-                  saveToLibrary(text);
-                  navigate({ to: "/biblioteca/prompts" });
-                }}
+                onSave={handleSave}
+                onSaveAndGo={handleSaveAndGoLibrary}
+                saving={saving}
+                disabled={saving || isDuplicateOfLastSave}
               />
             )}
           </CardContent>
