@@ -215,6 +215,53 @@ function MetricCard({
   );
 }
 
+function PublicationStatsSection({ stats }: { stats: PublicationStats }) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-[15px] font-semibold tracking-tight">Publicaciones</h2>
+          <p className="text-[12px] text-muted-foreground">
+            Paquetes generados en el Centro de Publicación.
+          </p>
+        </div>
+        <Button asChild variant="ghost" size="sm" className="h-8 gap-1.5 text-[12px]">
+          <Link to="/publicacion">
+            Abrir <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          icon={<Send className="h-4 w-4" />}
+          label="Total creadas"
+          value={stats.total.toLocaleString("es")}
+        />
+        <MetricCard
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          label="Listas"
+          value={stats.ready.toLocaleString("es")}
+        />
+        <MetricCard
+          icon={<Sparkles className="h-4 w-4" />}
+          label="Publicadas"
+          value={stats.published.toLocaleString("es")}
+        />
+        <MetricCard
+          icon={<Layers className="h-4 w-4" />}
+          label="Plataforma top"
+          value={stats.byPlatform[0]?.name ?? "—"}
+          hint={
+            stats.byPlatform[0]
+              ? `${stats.byPlatform[0].count} publicaciones`
+              : "Sin datos"
+          }
+        />
+      </div>
+    </section>
+  );
+}
+
 type QuickAction = {
   to: string;
   label: string;
