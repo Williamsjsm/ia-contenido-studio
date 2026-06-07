@@ -17,7 +17,11 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { generatePrompt, hasOpenAIKey, type GeneratePromptResult } from "@/lib/openai.functions";
+import {
+  generatePrompt,
+  hasGeneratorConfigured,
+  type GeneratePromptResult,
+} from "@/lib/generate-prompt.functions";
 
 export const Route = createFileRoute("/crear/prompts")({
   head: () => ({ meta: [{ title: "Generador de Prompts — AI Content Studio" }] }),
@@ -56,7 +60,7 @@ type SuccessResult = Extract<GeneratePromptResult, { ok: true }>;
 
 function PromptsGenerator() {
   const navigate = useNavigate();
-  const checkKey = useServerFn(hasOpenAIKey);
+  const checkKey = useServerFn(hasGeneratorConfigured);
   const runGenerate = useServerFn(generatePrompt);
 
   const [form, setForm] = useState<FormState>(initialForm);
@@ -84,12 +88,20 @@ function PromptsGenerator() {
     setStatus("loading");
     setErrorMsg("");
     try {
-      const r = await runGenerate({ data: { ...form, descripcion: form.descripcion.trim() } });
+      const r = await runGenerate({
+        data: {
+          idea: [form.categoria, form.descripcion].filter((s) => s.trim()).join(" — "),
+          tipo: form.estilo,
+          idioma: form.idioma,
+          duracion: form.duracion,
+          plataforma: form.plataforma,
+        },
+      });
       if (r.ok) {
         setResult(r);
         setStatus("success");
       } else {
-        if (r.error === "missing_key") setKeyConfigured(false);
+        if (r.error === "not_configured") setKeyConfigured(false);
         setErrorMsg(r.message);
         setStatus("error");
       }
@@ -102,8 +114,18 @@ function PromptsGenerator() {
 
   function getVariantText(key: VariantKey): string {
     if (!result) return "";
-    if (key === "base") return result.base;
-    return result.variants[key];
+    switch (key) {
+      case "base":
+        return result.original_prompt;
+      case "flow":
+        return result.flow_prompt;
+      case "youtube":
+        return result.youtube_prompt;
+      case "veo":
+        return result.veo_prompt;
+      case "kling":
+        return result.kling_prompt;
+    }
   }
 
   function copy(text: string) {
@@ -255,10 +277,16 @@ function PromptsGenerator() {
               <ResultTabs
                 getText={getVariantText}
                 setText={(key, text) => {
-                  setResult((prev) => {
+                 setResult((prev) => {
                     if (!prev) return prev;
-                    if (key === "base") return { ...prev, base: text };
-                    return { ...prev, variants: { ...prev.variants, [key]: text } };
+                    const fieldMap: Record<VariantKey, keyof SuccessResult> = {
+                      base: "original_prompt",
+                      flow: "flow_prompt",
+                      youtube: "youtube_prompt",
+                      veo: "veo_prompt",
+                      kling: "kling_prompt",
+                    };
+                    return { ...prev, [fieldMap[key]]: text };
                   });
                 }}
                 onCopy={copy}
