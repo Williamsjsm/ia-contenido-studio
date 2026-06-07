@@ -16,12 +16,14 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+
 import {
   Play,
   Pause,
@@ -188,6 +190,8 @@ function FlowCenter() {
   const [duration, setDuration] = useState("8");
   const [aspect, setAspect] = useState("16:9");
   const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [isGenerateOpen, setIsGenerateOpen] = useState(false);
+
 
   useEffect(() => {
     if (search.from && search.prompt) {
@@ -298,6 +302,16 @@ function FlowCenter() {
       toast.error("No se pudo copiar");
     }
   }
+
+  // TODO(video): conectar generación real vía proveedor de video cuando esté disponible.
+  function handleGenerate() {
+    if (!promptText.trim()) {
+      toast.error("Agrega un prompt antes de generar.");
+      return;
+    }
+    setIsGenerateOpen(true);
+  }
+
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 p-4 lg:p-8">
