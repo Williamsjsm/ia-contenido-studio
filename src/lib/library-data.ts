@@ -127,7 +127,9 @@ export const CATEGORIES: Category[] = ["Marketing", "Cinemático", "Producto", "
 
 export function fmtDate(iso: string | null | undefined) {
   if (!iso) return "Sin fecha";
-  const d = new Date(iso + "T00:00:00Z");
+  // Accepts both bare dates ("2026-06-07") and full ISO timestamps.
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00:00Z` : iso;
+  const d = new Date(normalized);
   if (isNaN(d.getTime())) return "Sin fecha";
   return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
 }
