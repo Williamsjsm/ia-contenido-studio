@@ -626,3 +626,313 @@ function WidgetPromptShortcut() {
     </WidgetCard>
   );
 }
+
+// ============ Radar Viral (DB-backed) ============
+function ViralRadar({
+  platform,
+  country,
+  category,
+}: {
+  platform: string | null;
+  country: string | null;
+  category: string | null;
+}) {
+  const qc = useQueryClient();
+  const list = useServerFn(listViralTrends);
+  const seed = useServerFn(seedViralTrends);
+  const toggleFav = useServerFn(toggleFavoriteTrend);
+  const toggleSaved = useServerFn(toggleSavedTrend);
+  const remove = useServerFn(deleteViralTrend);
+
+  const filters = { platform, country, category };
+
+  const trendsQuery = useQuery({
+    queryKey: ["viral", "list", filters],
+    queryFn: () => list({ data: filters }),
+  });
+  const savedQuery = useQuery({
+    queryKey: ["viral", "saved"],
+    queryFn: () => list({ data: { savedOnly: true, limit: 30 } }),
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["viral"] });
+    qc.invalidateQueries({ queryKey: ["radar", "stats"] });
+  };
+
+  const seedMut = useMutation({
+    mutationFn: seed,
+    onSuccess: (res) => {
+      if (res.ok) {
+        toast.success(
+          res.inserted > 0
+            ? `Catálogo cargado · ${res.inserted} tendencias`
+            : `Catálogo ya cargado · ${res.skipped} tendencias`,
+        );
+        invalidate();
+      } else {
+        toast.error(res.message);
+      }
+    },
+  });
+  const favMut = useMutation({ mutationFn: toggleFav, onSuccess: invalidate });
+  const savedMut = useMutation({
+    mutationFn: toggleSaved,
+    onSuccess: (res) => {
+      if (res.ok) {
+        toast.success(res.saved ? "Guardada en Biblioteca" : "Quitada de Biblioteca");
+        invalidate();
+      } else if ("message" in res) {
+        toast.error(res.message);
+      }
+    },
+  });
+  const delMut = useMutation({
+    mutationFn: remove,
+    onSuccess: (res) => {
+      if (res.ok) {
+        toast.success("Eliminada");
+        invalidate();
+      } else {
+        toast.error(res.message);
+      }
+    },
+  });
+
+  const trends = trendsQuery.data ?? [];
+  const saved = savedQuery.data ?? [];
+
+  return (
+    <div className="space-y-5">
+      <div className="surface-card flex flex-wrap items-center gap-3 p-3">
+        <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+          <Globe2 className="h-3.5 w-3.5 text-primary" />
+          <span>
+            Radar real: {trends.length} tendencias
+            {platform ? ` · ${platform}` : ""}
+            {country ? ` · ${country}` : ""}
+            {category ? ` · ${category}` : ""}
+          </span>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="ml-auto gap-1.5"
+          onClick={() => trendsQuery.refetch()}
+          disabled={trendsQuery.isFetching}
+        >
+          {trendsQuery.isFetching ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" />
+          )}
+          Refrescar
+        </Button>
+        <Button
+          size="sm"
+          className="gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+          onClick={() => seedMut.mutate(undefined)}
+          disabled={seedMut.isPending}
+        >
+          {seedMut.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5" />
+          )}
+          Cargar catálogo
+        </Button>
+      </div>
+
+      <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-[11px] text-muted-foreground">
+        Mostrando catálogo curado de Radar Viral. Las fuentes externas en tiempo real se
+        conectarán cuando el conector correspondiente esté disponible.
+      </div>
+
+      {trendsQuery.isLoading ? (
+        <div className="flex items-center justify-center py-10 text-xs text-muted-foreground">
+          <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Escaneando radar…
+        </div>
+      ) : trends.length === 0 ? (
+        <div className="surface-card flex flex-col items-center gap-3 p-8 text-center">
+          <Globe2 className="h-8 w-8 text-primary" />
+          <p className="text-sm font-medium">El radar está vacío</p>
+          <p className="max-w-md text-[12px] text-muted-foreground">
+            Carga el catálogo curado para empezar a descubrir tendencias virales.
+          </p>
+          <Button
+            size="sm"
+            className="gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+            onClick={() => seedMut.mutate(undefined)}
+            disabled={seedMut.isPending}
+          >
+            <Sparkles className="h-3.5 w-3.5" /> Cargar catálogo
+          </Button>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {trends.map((t) => (
+            <ViralTrendCard
+              key={t.id}
+              t={t}
+              onFav={() => favMut.mutate({ data: { id: t.id } })}
+              onSave={() => savedMut.mutate({ data: { id: t.id } })}
+              onDelete={() => delMut.mutate({ data: { id: t.id } })}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Historial guardado */}
+      <div className="surface-card p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <LibraryIcon className="h-4 w-4 text-primary" />
+          <h3 className="text-[13.5px] font-semibold">Historial · tendencias guardadas</h3>
+          <Badge variant="outline" className="ml-auto border-border/60 bg-background/60 text-[10px] font-normal">
+            {saved.length}
+          </Badge>
+        </div>
+        {savedQuery.isLoading ? (
+          <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
+            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Cargando…
+          </div>
+        ) : saved.length === 0 ? (
+          <p className="py-4 text-center text-[12px] text-muted-foreground">
+            Aún no has guardado tendencias. Usa el botón de guardar en cada tarjeta.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border/50">
+            {saved.map((t) => (
+              <li
+                key={t.id}
+                className="flex items-center gap-3 py-2.5"
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
+                  <Bookmark className="h-3.5 w-3.5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12.5px] font-medium">{t.title}</p>
+                  <p className="truncate text-[10.5px] text-muted-foreground">
+                    {t.platform} · {t.country} · {t.category} · score {t.viral_score}
+                  </p>
+                </div>
+                <Button asChild size="sm" variant="outline" className="h-7 gap-1 px-2 text-[10.5px]">
+                  <Link
+                    to="/crear/prompts"
+                    search={{
+                      from: "tendencia",
+                      idea: t.title,
+                      plataforma: t.platform.toLowerCase(),
+                      categoria: t.category,
+                      tags: t.keywords ?? t.title,
+                    }}
+                  >
+                    <Wand2 className="h-3 w-3" /> Prompt
+                  </Link>
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ViralTrendCard({
+  t,
+  onFav,
+  onSave,
+  onDelete,
+}: {
+  t: ViralTrend;
+  onFav: () => void;
+  onSave: () => void;
+  onDelete: () => void;
+}) {
+  const score = Math.max(0, Math.min(100, t.viral_score));
+  const detected = new Date(t.created_at).toLocaleDateString("es", {
+    day: "2-digit",
+    month: "short",
+  });
+  return (
+    <div className="surface-card hover-lift overflow-hidden p-0">
+      <div className="space-y-3 p-4">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge className="border-0 bg-[image:var(--gradient-primary)] text-[10px] text-primary-foreground">
+            {t.platform}
+          </Badge>
+          <Badge variant="outline" className="border-border/60 bg-background/40 text-[10px] font-normal">
+            <Globe2 className="mr-1 h-2.5 w-2.5" />
+            {t.country}
+          </Badge>
+          <Badge variant="secondary" className="rounded-full text-[10px] font-normal">
+            {t.category}
+          </Badge>
+        </div>
+
+        <h3 className="line-clamp-2 text-[13.5px] font-semibold leading-snug">{t.title}</h3>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground">Viral score</span>
+            <span className="font-mono tabular-nums font-semibold text-primary">{score}</span>
+          </div>
+          <Progress value={score} className="h-1.5" />
+        </div>
+
+        {t.keywords && (
+          <p className="line-clamp-2 text-[10.5px] text-muted-foreground">
+            {t.keywords.split(",").map((k) => `#${k.trim()}`).join(" ")}
+          </p>
+        )}
+
+        <div className="flex items-center justify-between border-t border-border/50 pt-3">
+          <span className="text-[10.5px] text-muted-foreground">Detectada · {detected}</span>
+          <div className="flex items-center gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              title={t.favorite ? "Quitar favorito" : "Marcar favorito"}
+              onClick={onFav}
+            >
+              <Heart className={cn("h-3.5 w-3.5", t.favorite && "fill-primary text-primary")} />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              title={t.saved ? "Quitar de Biblioteca" : "Enviar a Biblioteca"}
+              onClick={onSave}
+            >
+              <Bookmark className={cn("h-3.5 w-3.5", t.saved && "fill-primary text-primary")} />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Crear prompt" asChild>
+              <Link
+                to="/crear/prompts"
+                search={{
+                  from: "tendencia",
+                  idea: t.title,
+                  plataforma: t.platform.toLowerCase(),
+                  categoria: t.category,
+                  tags: t.keywords ?? t.title,
+                }}
+              >
+                <Wand2 className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-destructive hover:text-destructive"
+              title="Eliminar"
+              onClick={onDelete}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
