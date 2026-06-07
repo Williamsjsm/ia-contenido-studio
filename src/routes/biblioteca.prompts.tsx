@@ -579,6 +579,34 @@ function VariantPane({
   );
 }
 
+function SendToFlowButton({ prompt }: { prompt: StoredPrompt }) {
+  const navigate = useNavigate();
+  const text = prompt.original_prompt ?? "";
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="h-8 gap-1.5"
+      disabled={!text.trim()}
+      onClick={() =>
+        navigate({
+          to: "/crear/flow",
+          search: {
+            from: "biblioteca",
+            prompt: text,
+            variante: "Base",
+            titulo: prompt.title || text.slice(0, 60),
+            plataforma: prompt.platform || "",
+            categoria: prompt.category || "",
+          },
+        })
+      }
+    >
+      <Film className="h-3.5 w-3.5" /> Enviar a Flow
+    </Button>
+  );
+}
+
 // --------------------------------------------------------------------------
 // Edit Dialog
 // --------------------------------------------------------------------------
