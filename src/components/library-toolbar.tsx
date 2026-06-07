@@ -217,7 +217,7 @@ export function LibraryToolbar({ view, onViewChange, filters, onFiltersChange, s
 }
 
 export function matchesFilters(
-  item: { date: string; category?: string; platform?: string; favorite?: boolean; title?: string; name?: string },
+  item: { date?: string; created_at?: string; category?: string; platform?: string; favorite?: boolean; title?: string; name?: string },
   filters: LibraryFilters
 ) {
   if (filters.query) {
@@ -231,7 +231,8 @@ export function matchesFilters(
   if (filters.date !== "all") {
     const days = filters.date === "7d" ? 7 : filters.date === "30d" ? 30 : 90;
     const cutoff = Date.now() - days * 86_400_000;
-    if (new Date(item.date).getTime() < cutoff) return false;
+    const itemDate = item.date ?? item.created_at;
+    if (!itemDate || new Date(itemDate).getTime() < cutoff) return false;
   }
   return true;
 }

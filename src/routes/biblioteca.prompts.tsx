@@ -81,7 +81,7 @@ function PromptCard({ p }: { p: PromptItem }) {
         <Badge variant="outline" className="text-[10px] font-normal">{p.platform}</Badge>
       </div>
       <div className="mt-4 flex items-center justify-between border-t border-border/50 pt-3">
-        <span className="text-[11px] text-muted-foreground">{fmtDate(p.date)}</span>
+        <span className="text-[11px] text-muted-foreground">{fmtDate(p.created_at)}</span>
         <PromptActions />
       </div>
     </div>
@@ -103,7 +103,7 @@ function PromptRow({ p }: { p: PromptItem }) {
       </div>
       <Badge variant="secondary" className="hidden sm:inline-flex text-[10px] font-normal">{p.category}</Badge>
       <Badge variant="outline" className="hidden md:inline-flex text-[10px] font-normal">{p.platform}</Badge>
-      <span className="hidden lg:block w-24 text-right text-[11px] text-muted-foreground">{fmtDate(p.date)}</span>
+      <span className="hidden lg:block w-24 text-right text-[11px] text-muted-foreground">{fmtDate(p.created_at)}</span>
       <PromptActions />
     </div>
   );
@@ -116,7 +116,7 @@ function PromptCompact({ p }: { p: PromptItem }) {
       <span className="flex-1 truncate text-[13px]">{p.title}</span>
       <span className="hidden md:block text-[11px] text-muted-foreground">{p.category}</span>
       <span className="hidden lg:block text-[11px] text-muted-foreground">{p.platform}</span>
-      <span className="text-[11px] text-muted-foreground">{fmtDate(p.date)}</span>
+      <span className="text-[11px] text-muted-foreground">{fmtDate(p.created_at)}</span>
       {p.favorite && <Heart className="h-3 w-3 fill-primary text-primary" />}
       <PromptActions size="xs" />
     </div>
