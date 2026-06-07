@@ -47,6 +47,57 @@ export type Database = {
         }
         Relationships: []
       }
+      flow_jobs: {
+        Row: {
+          aspect_ratio: string | null
+          category: string | null
+          created_at: string
+          duration: string | null
+          id: string
+          model: string | null
+          platform: string | null
+          prompt: string
+          resolution: string | null
+          source_variant: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          aspect_ratio?: string | null
+          category?: string | null
+          created_at?: string
+          duration?: string | null
+          id?: string
+          model?: string | null
+          platform?: string | null
+          prompt: string
+          resolution?: string | null
+          source_variant?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          aspect_ratio?: string | null
+          category?: string | null
+          created_at?: string
+          duration?: string | null
+          id?: string
+          model?: string | null
+          platform?: string | null
+          prompt?: string
+          resolution?: string | null
+          source_variant?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       images: {
         Row: {
           created_at: string
