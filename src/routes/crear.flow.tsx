@@ -646,6 +646,17 @@ function FlowCenter() {
               <TabsContent value="prompt" className="mt-0 space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Título
+                  </Label>
+                  <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Mi job de Flow"
+                    className="flex h-9 w-full rounded-md border border-border/60 bg-background/60 px-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
                     Prompt utilizado
                   </Label>
                   <Textarea
@@ -677,7 +688,31 @@ function FlowCenter() {
                     ),
                   )}
                 </div>
-                <Button size="sm" variant="outline" className="w-full gap-1.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() => handleCopy(promptText)}
+                    disabled={!promptText.trim()}
+                  >
+                    <Copy className="h-3.5 w-3.5" /> Copiar prompt
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+                    onClick={handleSave}
+                    disabled={saveMut.isPending}
+                  >
+                    {saveMut.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
+                    Guardar en Flow
+                  </Button>
+                </div>
+                <Button size="sm" variant="ghost" className="w-full gap-1.5 text-muted-foreground">
                   <Wand2 className="h-3.5 w-3.5" /> Mejorar prompt
                 </Button>
               </TabsContent>
@@ -685,49 +720,115 @@ function FlowCenter() {
               <TabsContent value="history" className="mt-0">
                 <ScrollArea className="h-[440px] pr-2">
                   <div className="flex items-center gap-2 pb-2 text-xs text-muted-foreground">
-                    <History className="h-3.5 w-3.5" /> Generaciones recientes
+                    <History className="h-3.5 w-3.5" /> Historial guardado
+                    {jobsQuery.data ? (
+                      <span className="ml-auto text-[10px]">{jobsQuery.data.length}</span>
+                    ) : null}
                   </div>
-                  <div className="space-y-2">
-                    {history.map((h) => {
-                      const isSel = h.id === selected;
-                      return (
-                        <button
-                          key={h.id}
-                          onClick={() => setSelected(h.id)}
-                          className={[
-                            "flex w-full items-center gap-3 rounded-lg border p-2 text-left transition",
-                            isSel
-                              ? "border-primary/50 bg-primary/5"
-                              : "border-border/60 bg-background/40 hover:bg-background/80",
-                          ].join(" ")}
+                  {jobsQuery.isLoading ? (
+                    <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Cargando…
+                    </div>
+                  ) : jobsQuery.error ? (
+                    <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+                      No se pudo cargar el historial.
+                    </div>
+                  ) : !jobsQuery.data || jobsQuery.data.length === 0 ? (
+                    <div className="rounded-md border border-border/60 bg-background/40 p-4 text-center text-xs text-muted-foreground">
+                      Aún no has guardado prompts en Flow.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {jobsQuery.data.map((j) => (
+                        <div
+                          key={j.id}
+                          className="space-y-2 rounded-lg border border-border/60 bg-background/40 p-2.5 transition hover:bg-background/70"
                         >
-                          <div
-                            className="relative h-12 w-20 shrink-0 overflow-hidden rounded-md"
-                            style={{ background: h.thumb }}
-                          >
-                            {h.status === "rendering" ? (
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                                <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                          <div className="flex items-start gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-medium text-foreground">
+                                {j.title}
+                              </p>
+                              <p className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">
+                                {j.prompt}
+                              </p>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                <Badge
+                                  variant="outline"
+                                  className="h-4 border-border/60 bg-background/60 px-1.5 text-[9px]"
+                                >
+                                  {j.status}
+                                </Badge>
+                                {j.source_variant && (
+                                  <Badge
+                                    variant="outline"
+                                    className="h-4 border-border/60 bg-background/60 px-1.5 text-[9px]"
+                                  >
+                                    {j.source_variant}
+                                  </Badge>
+                                )}
+                                {j.model && (
+                                  <Badge
+                                    variant="outline"
+                                    className="h-4 border-border/60 bg-background/60 px-1.5 text-[9px]"
+                                  >
+                                    {j.model}
+                                  </Badge>
+                                )}
+                                {j.aspect_ratio && (
+                                  <Badge
+                                    variant="outline"
+                                    className="h-4 border-border/60 bg-background/60 px-1.5 text-[9px]"
+                                  >
+                                    {j.aspect_ratio}
+                                  </Badge>
+                                )}
                               </div>
-                            ) : (
-                              <Play className="absolute inset-0 m-auto h-4 w-4 fill-white/90 text-white/90" />
-                            )}
+                            </div>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs font-medium text-foreground">
-                              {h.title}
-                            </p>
-                            <p className="truncate text-[10px] text-muted-foreground">
-                              {h.model} · {h.duration} · {h.res}
-                            </p>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 flex-1 gap-1 px-2 text-[10px]"
+                              onClick={() => handleReuse(j)}
+                            >
+                              <RotateCcw className="h-3 w-3" /> Reutilizar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 w-7 p-0"
+                              onClick={() => handleCopy(j.prompt)}
+                              title="Copiar prompt"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 w-7 p-0"
+                              onClick={() => dupMut.mutate({ data: { id: j.id } })}
+                              disabled={dupMut.isPending}
+                              title="Duplicar"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                              onClick={() => delMut.mutate({ data: { id: j.id } })}
+                              disabled={delMut.isPending}
+                              title="Eliminar"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
                           </div>
-                          <span className="shrink-0 text-[10px] text-muted-foreground">
-                            {h.time}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </ScrollArea>
               </TabsContent>
 
