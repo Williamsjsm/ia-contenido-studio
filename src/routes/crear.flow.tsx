@@ -378,6 +378,33 @@ function FlowCenter() {
       </div>
 
       {/* 3-column workspace */}
+      {/* Presets */}
+      <Card className="surface-card border-border/60">
+        <CardContent className="flex flex-wrap items-center gap-2 p-3">
+          <span className="mr-1 text-[11px] uppercase tracking-wider text-muted-foreground">
+            Presets
+          </span>
+          {PRESETS.map((p) => {
+            const isOn = activePreset === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => applyPreset(p)}
+                className={[
+                  "rounded-md border px-2.5 py-1 text-xs font-medium transition",
+                  isOn
+                    ? "border-primary/50 bg-primary/10 text-primary"
+                    : "border-border/60 bg-background/40 text-muted-foreground hover:bg-background/80",
+                ].join(" ")}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-5 xl:grid-cols-[300px_1fr_340px]">
         {/* ───────── Left: Configuration ───────── */}
         <Card className="surface-card border-border/60">
