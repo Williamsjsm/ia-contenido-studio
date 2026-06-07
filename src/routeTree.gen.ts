@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PublicarRouteImport } from './routes/publicar'
+import { Route as PublicacionRouteImport } from './routes/publicacion'
 import { Route as IntegracionesRouteImport } from './routes/integraciones'
 import { Route as ConfiguracionRouteImport } from './routes/configuracion'
 import { Route as IndexRouteImport } from './routes/index'
@@ -30,6 +31,11 @@ import { Route as BibliotecaDescargasRouteImport } from './routes/biblioteca.des
 const PublicarRoute = PublicarRouteImport.update({
   id: '/publicar',
   path: '/publicar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PublicacionRoute = PublicacionRouteImport.update({
+  id: '/publicacion',
+  path: '/publicacion',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IntegracionesRoute = IntegracionesRouteImport.update({
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/configuracion': typeof ConfiguracionRoute
   '/integraciones': typeof IntegracionesRoute
+  '/publicacion': typeof PublicacionRoute
   '/publicar': typeof PublicarRoute
   '/biblioteca/descargas': typeof BibliotecaDescargasRoute
   '/biblioteca/favoritos': typeof BibliotecaFavoritosRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/configuracion': typeof ConfiguracionRoute
   '/integraciones': typeof IntegracionesRoute
+  '/publicacion': typeof PublicacionRoute
   '/publicar': typeof PublicarRoute
   '/biblioteca/descargas': typeof BibliotecaDescargasRoute
   '/biblioteca/favoritos': typeof BibliotecaFavoritosRoute
@@ -156,6 +164,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/configuracion': typeof ConfiguracionRoute
   '/integraciones': typeof IntegracionesRoute
+  '/publicacion': typeof PublicacionRoute
   '/publicar': typeof PublicarRoute
   '/biblioteca/descargas': typeof BibliotecaDescargasRoute
   '/biblioteca/favoritos': typeof BibliotecaFavoritosRoute
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/'
     | '/configuracion'
     | '/integraciones'
+    | '/publicacion'
     | '/publicar'
     | '/biblioteca/descargas'
     | '/biblioteca/favoritos'
@@ -196,6 +206,7 @@ export interface FileRouteTypes {
     | '/'
     | '/configuracion'
     | '/integraciones'
+    | '/publicacion'
     | '/publicar'
     | '/biblioteca/descargas'
     | '/biblioteca/favoritos'
@@ -215,6 +226,7 @@ export interface FileRouteTypes {
     | '/'
     | '/configuracion'
     | '/integraciones'
+    | '/publicacion'
     | '/publicar'
     | '/biblioteca/descargas'
     | '/biblioteca/favoritos'
@@ -235,6 +247,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfiguracionRoute: typeof ConfiguracionRoute
   IntegracionesRoute: typeof IntegracionesRoute
+  PublicacionRoute: typeof PublicacionRoute
   PublicarRoute: typeof PublicarRoute
   BibliotecaDescargasRoute: typeof BibliotecaDescargasRoute
   BibliotecaFavoritosRoute: typeof BibliotecaFavoritosRoute
@@ -258,6 +271,13 @@ declare module '@tanstack/react-router' {
       path: '/publicar'
       fullPath: '/publicar'
       preLoaderRoute: typeof PublicarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/publicacion': {
+      id: '/publicacion'
+      path: '/publicacion'
+      fullPath: '/publicacion'
+      preLoaderRoute: typeof PublicacionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/integraciones': {
@@ -379,6 +399,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfiguracionRoute: ConfiguracionRoute,
   IntegracionesRoute: IntegracionesRoute,
+  PublicacionRoute: PublicacionRoute,
   PublicarRoute: PublicarRoute,
   BibliotecaDescargasRoute: BibliotecaDescargasRoute,
   BibliotecaFavoritosRoute: BibliotecaFavoritosRoute,
