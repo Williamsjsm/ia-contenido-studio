@@ -508,7 +508,7 @@ function PromptDetailSheet({
           </TabsList>
           {VARIANTS.map((v) => (
             <TabsContent key={v.key} value={v.key} className="min-h-0 flex-1 px-6 pb-6">
-              <VariantPane content={prompt[v.key] ?? ""} label={v.label} />
+              <VariantPane content={prompt[v.key] ?? ""} label={v.label} prompt={prompt} variantKey={v.key} />
             </TabsContent>
           ))}
         </Tabs>
