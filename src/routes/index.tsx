@@ -41,11 +41,15 @@ function Index() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["dashboard"],
     queryFn: () => fetchStats(),
+    retry: 1,
+    staleTime: 30_000,
   });
   const fetchPubs = useServerFn(getPublicationStats);
   const pubsQuery = useQuery({
     queryKey: ["publications", "stats"],
     queryFn: () => fetchPubs(),
+    retry: 1,
+    staleTime: 30_000,
   });
   const isEmpty = !!data && data.total === 0;
 
