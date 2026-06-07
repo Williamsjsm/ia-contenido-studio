@@ -150,3 +150,97 @@ export const listPrompts = createServerFn({ method: "GET" }).handler(
     return (data ?? []) as StoredPrompt[];
   },
 );
+
+const IdSchema = z.object({ id: z.string().uuid() });
+
+export const deletePrompt = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => IdSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = resolveOwnerId();
+    const { error } = await supabaseAdmin
+      .from("prompts")
+      .delete()
+      .eq("id", data.id)
+      .eq("user_id", owner);
+    if (error) {
+      console.error("deletePrompt failed:", error);
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: true as const };
+  });
+
+export const toggleFavoritePrompt = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), is_favorite: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = resolveOwnerId();
+    const { error } = await supabaseAdmin
+      .from("prompts")
+      .update({ is_favorite: data.is_favorite })
+      .eq("id", data.id)
+      .eq("user_id", owner);
+    if (error) {
+      console.error("toggleFavoritePrompt failed:", error);
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: true as const };
+  });
+
+const UpdateSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string().trim().min(1).max(200),
+  category: z.string().trim().max(80).nullable().optional(),
+  platform: z.string().trim().max(40).nullable().optional(),
+});
+
+export const updatePromptMeta = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => UpdateSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = resolveOwnerId();
+    const { error } = await supabaseAdmin
+      .from("prompts")
+      .update({
+        title: data.title,
+        category: data.category ?? null,
+        platform: data.platform ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.id)
+      .eq("user_id", owner);
+    if (error) {
+      console.error("updatePromptMeta failed:", error);
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: true as const };
+  });
+
+export const duplicatePrompt = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => IdSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = resolveOwnerId();
+    const { data: src, error: readError } = await supabaseAdmin
+      .from("prompts")
+      .select(
+        "title, category, platform, style, language, duration, content, original_prompt, flow_prompt, youtube_prompt, veo_prompt, kling_prompt",
+      )
+      .eq("id", data.id)
+      .eq("user_id", owner)
+      .single();
+    if (readError || !src) {
+      return { ok: false as const, message: readError?.message ?? "No encontrado" };
+    }
+    const { data: inserted, error } = await supabaseAdmin
+      .from("prompts")
+      .insert({ ...src, user_id: owner, title: `${src.title} (copia)`, is_favorite: false })
+      .select("id")
+      .single();
+    if (error || !inserted) {
+      return { ok: false as const, message: error?.message ?? "No se pudo duplicar" };
+    }
+    return { ok: true as const, id: inserted.id };
+  });
