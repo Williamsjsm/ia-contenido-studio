@@ -1,5 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +12,21 @@ import { Progress } from "@/components/ui/progress";
 import {
   Flame, TrendingUp, Rocket, Sparkles, Eye, Heart, Wand2, Bookmark,
   Play, ArrowUpRight, Zap, Target, Users, Lightbulb, ChevronRight,
-  Clock, Star,
+  Clock, Star, Globe2, Loader2, Trash2, RefreshCw, Library as LibraryIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FlowConnector } from "@/components/flow-connector";
+import {
+  listViralTrends,
+  seedViralTrends,
+  toggleFavoriteTrend,
+  toggleSavedTrend,
+  deleteViralTrend,
+  VIRAL_PLATFORMS,
+  VIRAL_COUNTRIES,
+  VIRAL_CATEGORIES,
+  type ViralTrend,
+} from "@/lib/viral-trends.functions";
 
 export const Route = createFileRoute("/investigar/tendencias")({
   head: () => ({
@@ -32,13 +46,10 @@ type Category =
   | "Restauraciones" | "Salud" | "Tecnología" | "Viral";
 
 const PLATFORMS: Platform[] = ["TikTok", "YouTube", "Facebook", "Instagram"];
-const COUNTRIES = ["Brasil", "España", "USA"] as const;
+const COUNTRIES = VIRAL_COUNTRIES;
 const LANGUAGES = ["Portugués", "Español", "Inglés"] as const;
 const PERIODS = ["24 horas", "7 días", "30 días"] as const;
-const CATEGORIES: Category[] = [
-  "Animales", "Frutas", "Curiosidades", "Influencers",
-  "Restauraciones", "Salud", "Tecnología", "Viral",
-];
+const CATEGORIES = VIRAL_CATEGORIES;
 
 const platformColor: Record<Platform, string> = {
   TikTok: "from-[#FE2C55] to-[#25F4EE]",
@@ -156,10 +167,10 @@ const RECOMMENDATIONS: Recommendation[] = [
 // ============ Page ============
 function TrendsCenter() {
   const [platform, setPlatform] = useState<Platform | "Todas">("Todas");
-  const [country, setCountry] = useState<string>("Brasil");
+  const [country, setCountry] = useState<string>("Global");
   const [language, setLanguage] = useState<string>("Portugués");
   const [period, setPeriod] = useState<string>("7 días");
-  const [category, setCategory] = useState<Category | "Todas">("Todas");
+  const [category, setCategory] = useState<string>("Todas");
 
   const filteredTrends = useMemo(() => {
     return TRENDS.filter((t) =>
@@ -203,13 +214,22 @@ function TrendsCenter() {
 
       {/* Body: Tabs + sidebar */}
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <Tabs defaultValue="tendencias" className="space-y-5">
+        <Tabs defaultValue="radar" className="space-y-5">
           <TabsList className="h-11 rounded-xl bg-card/60 p-1">
+            <TabTrigger value="radar" icon={Globe2}>Radar Viral</TabTrigger>
             <TabTrigger value="tendencias" icon={Flame}>Tendencias</TabTrigger>
             <TabTrigger value="nichos" icon={TrendingUp}>Nichos Emergentes</TabTrigger>
             <TabTrigger value="oportunidades" icon={Rocket}>Oportunidades Virales</TabTrigger>
             <TabTrigger value="recomendaciones" icon={Sparkles}>Recomendaciones IA</TabTrigger>
           </TabsList>
+
+          <TabsContent value="radar" className="space-y-5">
+            <ViralRadar
+              platform={platform === "Todas" ? null : platform}
+              country={country === "Global" ? null : country}
+              category={category === "Todas" ? null : category}
+            />
+          </TabsContent>
 
           <TabsContent value="tendencias" className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
