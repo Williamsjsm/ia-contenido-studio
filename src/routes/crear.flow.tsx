@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { z } from "zod";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,8 +41,19 @@ import {
   ChevronRight,
   Image as ImageIcon,
   Zap,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import { FlowConnector } from "@/components/flow-connector";
+
+const flowSearchSchema = z.object({
+  from: fallback(z.string(), "").default(""),
+  prompt: fallback(z.string(), "").default(""),
+  variante: fallback(z.string(), "").default(""),
+  titulo: fallback(z.string(), "").default(""),
+  plataforma: fallback(z.string(), "").default(""),
+  categoria: fallback(z.string(), "").default(""),
+});
 
 export const Route = createFileRoute("/crear/flow")({
   head: () => ({
@@ -53,6 +66,7 @@ export const Route = createFileRoute("/crear/flow")({
       },
     ],
   }),
+  validateSearch: zodValidator(flowSearchSchema),
   component: FlowCenter,
 });
 
@@ -129,9 +143,19 @@ const versions = [
 // ────────────────────────────── Page ─────────────────────────────────
 
 function FlowCenter() {
+  const search = Route.useSearch();
   const [active, setActive] = useState("create");
   const [selected, setSelected] = useState("v7");
   const [strength, setStrength] = useState([72]);
+  const [promptText, setPromptText] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
+
+  useEffect(() => {
+    if (search.from && search.prompt) {
+      setPromptText(search.prompt);
+      setShowAlert(true);
+    }
+  }, [search]);
 
   const current = history.find((h) => h.id === selected) ?? history[0];
 
@@ -161,6 +185,19 @@ function FlowCenter() {
           </>
         }
       />
+
+      {showAlert && (
+        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">
+            {search.from === "biblioteca" ? "Prompt cargado desde Biblioteca" : "Prompt cargado desde Crear"}
+            {search.variante ? ` · Variante: ${search.variante}` : ""}
+          </span>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setShowAlert(false)}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
 
       {/* Action rail */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
@@ -443,7 +480,9 @@ function FlowCenter() {
                     Prompt utilizado
                   </Label>
                   <Textarea
-                    defaultValue="Slow cinematic dolly through a neon-lit Tokyo alley at night, light rain, reflective puddles, anamorphic flare, shallow depth of field, 35mm film grain, color grade teal & magenta."
+                    value={promptText}
+                    onChange={(e) => setPromptText(e.target.value)}
+                    placeholder="Describe tu escena cinematográfica..."
                     className="min-h-[140px] resize-none bg-background/60 text-sm leading-relaxed"
                   />
                 </div>

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -36,6 +36,7 @@ import {
   Download,
   Check,
   CopyPlus,
+  Film,
 } from "lucide-react";
 import {
   Sheet,
@@ -469,6 +470,7 @@ function PromptDetailSheet({
             <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onEdit}>
               <Edit3 className="h-3.5 w-3.5" /> Editar
             </Button>
+            <SendToFlowButton prompt={prompt} />
             <Button
               size="sm"
               variant="outline"
@@ -506,7 +508,7 @@ function PromptDetailSheet({
           </TabsList>
           {VARIANTS.map((v) => (
             <TabsContent key={v.key} value={v.key} className="min-h-0 flex-1 px-6 pb-6">
-              <VariantPane content={prompt[v.key] ?? ""} label={v.label} />
+              <VariantPane content={prompt[v.key] ?? ""} label={v.label} prompt={prompt} variantKey={v.key} />
             </TabsContent>
           ))}
         </Tabs>
@@ -515,9 +517,21 @@ function PromptDetailSheet({
   );
 }
 
-function VariantPane({ content, label }: { content: string; label: string }) {
+function VariantPane({
+  content,
+  label,
+  prompt,
+  variantKey,
+}: {
+  content: string;
+  label: string;
+  prompt?: StoredPrompt;
+  variantKey?: string;
+}) {
   const [copied, setCopied] = useState(false);
   const empty = !content.trim();
+  const navigate = useNavigate();
+
   const copy = async () => {
     if (empty) return;
     await navigator.clipboard.writeText(content);
@@ -525,9 +539,28 @@ function VariantPane({ content, label }: { content: string; label: string }) {
     toast.success(`${label} copiado`);
     setTimeout(() => setCopied(false), 1500);
   };
+
+  const sendToFlow = () => {
+    if (!prompt || empty) return;
+    navigate({
+      to: "/crear/flow",
+      search: {
+        from: "biblioteca",
+        prompt: content,
+        variante: label,
+        titulo: prompt.title || content.slice(0, 60),
+        plataforma: prompt.platform || "",
+        categoria: prompt.category || "",
+      },
+    });
+  };
+
   return (
     <div className="mt-3 flex h-full flex-col gap-2">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-2">
+        <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={sendToFlow} disabled={empty || !prompt}>
+          <Film className="h-3.5 w-3.5" /> Enviar a Flow
+        </Button>
         <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={copy} disabled={empty}>
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
           {copied ? "Copiado" : "Copiar"}
@@ -543,6 +576,34 @@ function VariantPane({ content, label }: { content: string; label: string }) {
         )}
       </ScrollArea>
     </div>
+  );
+}
+
+function SendToFlowButton({ prompt }: { prompt: StoredPrompt }) {
+  const navigate = useNavigate();
+  const text = prompt.original_prompt ?? "";
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="h-8 gap-1.5"
+      disabled={!text.trim()}
+      onClick={() =>
+        navigate({
+          to: "/crear/flow",
+          search: {
+            from: "biblioteca",
+            prompt: text,
+            variante: "Base",
+            titulo: prompt.title || text.slice(0, 60),
+            plataforma: prompt.platform || "",
+            categoria: prompt.category || "",
+          },
+        })
+      }
+    >
+      <Film className="h-3.5 w-3.5" /> Enviar a Flow
+    </Button>
   );
 }
 
