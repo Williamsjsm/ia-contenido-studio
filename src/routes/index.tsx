@@ -177,10 +177,6 @@ function DashboardSkeleton() {
   );
 }
 
-function LegacyUnusedBranch() {
-  return null;
-}
-
 function DashboardContent({ stats }: { stats: DashboardStats }) {
   return (
     <>
@@ -246,116 +242,6 @@ function DashboardContent({ stats }: { stats: DashboardStats }) {
                 <Link
                   to="/biblioteca/prompts"
                   className="-mx-2 flex items-center gap-3 rounded-md px-2 py-3 transition-colors hover:bg-accent/40"
-                >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/60">
-                    <Wand2 className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13.5px] font-medium">{p.title}</p>
-                    <p className="truncate text-[11.5px] text-muted-foreground">
-                      {fmtDate(p.created_at)}
-                      {p.category ? ` · ${p.category}` : ""}
-                      {p.platform ? ` · ${p.platform}` : ""}
-                    </p>
-                  </div>
-                  {p.is_favorite && <Heart className="h-3.5 w-3.5 fill-primary text-primary" />}
-                  <Badge variant="outline" className="text-[10px] font-normal">
-                    Prompt
-                  </Badge>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </>
-  );
-}
-
-function RemovedOldDashboardContentMarker() {
-  return null;
-}
-          <QuickActions />
-          <EmptyState
-            title="Aún no tienes prompts guardados"
-            description="Crea tu primer prompt con IA para ver tus métricas aparecer aquí."
-          />
-        </>
-      ) : (
-        <>
-          <DashboardContent stats={data} />
-          {pubsQuery.data ? <PublicationStatsSection stats={pubsQuery.data} /> : null}
-        </>
-      )}
-    </div>
-  );
-}
-
-function DashboardContent({ stats }: { stats: DashboardStats }) {
-  return (
-    <>
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          icon={<FileText className="h-4 w-4" />}
-          label="Total de prompts"
-          value={stats.total.toLocaleString("es")}
-          delay={0}
-        />
-        <MetricCard
-          icon={<Heart className="h-4 w-4" />}
-          label="Favoritos"
-          value={stats.favorites.toLocaleString("es")}
-          delay={60}
-        />
-        <MetricCard
-          icon={<CalendarRange className="h-4 w-4" />}
-          label="Creados esta semana"
-          value={stats.thisWeek.toLocaleString("es")}
-          delay={120}
-        />
-        <MetricCard
-          icon={<Layers className="h-4 w-4" />}
-          label="Plataforma más usada"
-          value={stats.topPlatform?.name ?? "—"}
-          hint={stats.topPlatform ? `${stats.topPlatform.count} prompts` : "Sin datos"}
-          delay={180}
-        />
-      </section>
-
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1.5fr]">
-        <MetricCard
-          icon={<Tag className="h-4 w-4" />}
-          label="Categoría más usada"
-          value={stats.topCategory?.name ?? "—"}
-          hint={stats.topCategory ? `${stats.topCategory.count} prompts` : "Sin datos"}
-          delay={0}
-        />
-        <QuickActions compact />
-      </section>
-
-      <section className="surface-card animate-fade-in p-5 sm:p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-[15px] font-semibold tracking-tight">Actividad reciente</h2>
-            <p className="text-[12px] text-muted-foreground">Tus últimos 5 prompts generados.</p>
-          </div>
-          <Button asChild variant="ghost" size="sm" className="h-8 gap-1.5 text-[12px]">
-            <Link to="/biblioteca/prompts">
-              Ver biblioteca <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
-        </div>
-        {stats.recent.length === 0 ? (
-          <p className="py-6 text-center text-[13px] text-muted-foreground">
-            Aún no hay actividad. Genera tu primer prompt.
-          </p>
-        ) : (
-          <ul className="divide-y divide-border/50">
-            {stats.recent.map((p) => (
-              <li key={p.id}>
-                <Link
-                  to="/biblioteca/prompts"
-                  className="flex items-center gap-3 py-3 transition-colors hover:bg-accent/40 -mx-2 px-2 rounded-md"
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/60">
                     <Wand2 className="h-4 w-4 text-primary" />
