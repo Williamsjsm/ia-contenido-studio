@@ -465,6 +465,8 @@ function FlowCenter() {
         </CardContent>
       </Card>
 
+      <FlowPointsCalculator state={flowPoints} onChange={setFlowPoints} />
+
       <div className="grid gap-5 xl:grid-cols-[300px_1fr_340px]">
         {/* ───────── Left: Configuration ───────── */}
         <Card className="surface-card border-border/60">
