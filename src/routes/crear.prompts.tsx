@@ -116,7 +116,7 @@ function PromptsGenerator() {
       españa: "es",
       spain: "es",
       usa: "en",
-      estados unidos: "en",
+      "estados unidos": "en",
     };
 
     const styleMap: Record<string, string> = {
