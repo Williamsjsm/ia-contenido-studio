@@ -756,6 +756,15 @@ function FlowCenter() {
                     Guardar en Flow
                   </Button>
                 </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full gap-1.5"
+                  onClick={handleSendToPublication}
+                  disabled={!promptText.trim()}
+                >
+                  <Send className="h-3.5 w-3.5" /> Enviar a Publicación
+                </Button>
                 <Button size="sm" variant="ghost" className="w-full gap-1.5 text-muted-foreground">
                   <Wand2 className="h-3.5 w-3.5" /> Mejorar prompt
                 </Button>
