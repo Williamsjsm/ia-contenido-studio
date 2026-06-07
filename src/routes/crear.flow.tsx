@@ -389,7 +389,7 @@ function FlowCenter() {
           </CardHeader>
           <CardContent className="space-y-5">
             <Field label="Modelo" icon={Sparkles}>
-              <Select defaultValue="veo3">
+              <Select value={model} onValueChange={setModel}>
                 <SelectTrigger className="h-9 bg-background/60">
                   <SelectValue />
                 </SelectTrigger>
@@ -403,7 +403,7 @@ function FlowCenter() {
             </Field>
 
             <Field label="Resolución" icon={Aperture}>
-              <Select defaultValue="1080">
+              <Select value={resolution} onValueChange={setResolution}>
                 <SelectTrigger className="h-9 bg-background/60">
                   <SelectValue />
                 </SelectTrigger>
@@ -417,7 +417,7 @@ function FlowCenter() {
             </Field>
 
             <Field label="Duración" icon={Clock}>
-              <Select defaultValue="8">
+              <Select value={duration} onValueChange={setDuration}>
                 <SelectTrigger className="h-9 bg-background/60">
                   <SelectValue />
                 </SelectTrigger>
@@ -433,12 +433,14 @@ function FlowCenter() {
 
             <Field label="Relación de aspecto" icon={Maximize2}>
               <div className="grid grid-cols-4 gap-1.5">
-                {["9:16", "1:1", "4:3", "16:9"].map((r, i) => (
+                {ASPECTS.map((r) => (
                   <button
                     key={r}
+                    type="button"
+                    onClick={() => setAspect(r)}
                     className={[
                       "rounded-md border px-2 py-1.5 text-[11px] font-medium transition",
-                      i === 3
+                      aspect === r
                         ? "border-primary/50 bg-primary/10 text-primary"
                         : "border-border/60 bg-background/40 text-muted-foreground hover:bg-background/80",
                     ].join(" ")}
