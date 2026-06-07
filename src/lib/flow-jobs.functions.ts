@@ -27,6 +27,11 @@ const SaveSchema = z.object({
   aspect_ratio: z.string().trim().max(20).nullable().optional(),
   model: z.string().trim().max(40).nullable().optional(),
   status: StatusSchema.optional().default("draft"),
+  flow_points_estimate: z.number().int().min(0).max(10_000).nullable().optional(),
+  flow_mode: z.string().trim().max(20).nullable().optional(),
+  flow_media_type: z.string().trim().max(20).nullable().optional(),
+  flow_generation_mode: z.string().trim().max(40).nullable().optional(),
+  variations: z.number().int().min(1).max(8).nullable().optional(),
 });
 
 export type SaveFlowJobInput = z.input<typeof SaveSchema>;
@@ -45,10 +50,15 @@ export type FlowJob = {
   status: FlowStatus;
   created_at: string;
   updated_at: string;
+  flow_points_estimate: number | null;
+  flow_mode: string | null;
+  flow_media_type: string | null;
+  flow_generation_mode: string | null;
+  variations: number | null;
 };
 
 const SELECT_COLS =
-  "id, title, prompt, source_variant, platform, category, duration, resolution, aspect_ratio, model, status, created_at, updated_at";
+  "id, title, prompt, source_variant, platform, category, duration, resolution, aspect_ratio, model, status, created_at, updated_at, flow_points_estimate, flow_mode, flow_media_type, flow_generation_mode, variations";
 
 export const saveFlowJob = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => SaveSchema.parse(input))
@@ -69,6 +79,11 @@ export const saveFlowJob = createServerFn({ method: "POST" })
         aspect_ratio: data.aspect_ratio ?? null,
         model: data.model ?? null,
         status: data.status ?? "draft",
+        flow_points_estimate: data.flow_points_estimate ?? null,
+        flow_mode: data.flow_mode ?? null,
+        flow_media_type: data.flow_media_type ?? null,
+        flow_generation_mode: data.flow_generation_mode ?? null,
+        variations: data.variations ?? null,
       })
       .select(SELECT_COLS)
       .single();

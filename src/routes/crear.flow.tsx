@@ -71,6 +71,11 @@ import {
   duplicateFlowJob,
   type FlowJob,
 } from "@/lib/flow-jobs.functions";
+import {
+  FlowPointsCalculator,
+  calculateFlowPoints,
+  type FlowPointsState,
+} from "@/components/flow-points-calculator";
 
 const flowSearchSchema = z.object({
   from: fallback(z.string(), "").default(""),
@@ -202,6 +207,15 @@ function FlowCenter() {
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const navigate = useNavigate();
 
+  const [flowPoints, setFlowPoints] = useState<FlowPointsState>({
+    mode: "video",
+    mediaType: "fotogramas",
+    aspect: "9:16",
+    variations: 1,
+    duration: 10,
+    model: "omni-flash",
+  });
+  const flowPointsEstimate = calculateFlowPoints(flowPoints);
 
   useEffect(() => {
     if (search.from && search.prompt) {
@@ -290,6 +304,11 @@ function FlowCenter() {
         aspect_ratio: aspect,
         model,
         status: "draft",
+        flow_points_estimate: flowPointsEstimate,
+        flow_mode: flowPoints.mode,
+        flow_media_type: flowPoints.mediaType,
+        flow_generation_mode: `${flowPoints.model}-${flowPoints.duration}s-x${flowPoints.variations}`,
+        variations: flowPoints.variations,
       },
     });
   }
@@ -445,6 +464,8 @@ function FlowCenter() {
           })}
         </CardContent>
       </Card>
+
+      <FlowPointsCalculator state={flowPoints} onChange={setFlowPoints} />
 
       <div className="grid gap-5 xl:grid-cols-[300px_1fr_340px]">
         {/* ───────── Left: Configuration ───────── */}
@@ -834,6 +855,14 @@ function FlowCenter() {
                                     className="h-4 border-border/60 bg-background/60 px-1.5 text-[9px]"
                                   >
                                     {j.aspect_ratio}
+                                  </Badge>
+                                )}
+                                {typeof j.flow_points_estimate === "number" && (
+                                  <Badge
+                                    variant="outline"
+                                    className="h-4 border-primary/40 bg-primary/10 px-1.5 text-[9px] text-primary"
+                                  >
+                                    {j.flow_points_estimate} pts
                                   </Badge>
                                 )}
                               </div>
