@@ -53,6 +53,10 @@ export type Database = {
           category: string | null
           created_at: string
           duration: string | null
+          flow_generation_mode: string | null
+          flow_media_type: string | null
+          flow_mode: string | null
+          flow_points_estimate: number | null
           id: string
           model: string | null
           platform: string | null
@@ -63,12 +67,17 @@ export type Database = {
           title: string
           updated_at: string
           user_id: string
+          variations: number | null
         }
         Insert: {
           aspect_ratio?: string | null
           category?: string | null
           created_at?: string
           duration?: string | null
+          flow_generation_mode?: string | null
+          flow_media_type?: string | null
+          flow_mode?: string | null
+          flow_points_estimate?: number | null
           id?: string
           model?: string | null
           platform?: string | null
@@ -79,12 +88,17 @@ export type Database = {
           title: string
           updated_at?: string
           user_id: string
+          variations?: number | null
         }
         Update: {
           aspect_ratio?: string | null
           category?: string | null
           created_at?: string
           duration?: string | null
+          flow_generation_mode?: string | null
+          flow_media_type?: string | null
+          flow_mode?: string | null
+          flow_points_estimate?: number | null
           id?: string
           model?: string | null
           platform?: string | null
@@ -95,6 +109,7 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+          variations?: number | null
         }
         Relationships: []
       }
