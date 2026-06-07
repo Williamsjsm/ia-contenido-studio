@@ -55,6 +55,15 @@ const EMPTY_PUBLICATION_STATS: PublicationStats = {
   byPlatform: [],
 };
 
+function withClientTimeout<T>(promise: PromiseLike<T>, label: string): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) =>
+      window.setTimeout(() => reject(new Error(`${label} timed out after ${DASHBOARD_SKELETON_TIMEOUT_MS}ms`)), DASHBOARD_SKELETON_TIMEOUT_MS),
+    ),
+  ]);
+}
+
 function Index() {
   const [showMetricsSkeleton, setShowMetricsSkeleton] = useState(true);
 
@@ -69,7 +78,7 @@ function Index() {
     queryFn: async () => {
       console.info("dashboard query started");
       try {
-        const result = await fetchStats();
+        const result = await withClientTimeout(fetchStats(), "dashboard query");
         console.info("dashboard query success");
         return result;
       } catch (queryError) {
@@ -77,8 +86,10 @@ function Index() {
         throw queryError;
       }
     },
+    enabled: true,
     retry: false,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
   const fetchPubs = useServerFn(getPublicationStats);
   const pubsQuery = useQuery({
@@ -86,7 +97,7 @@ function Index() {
     queryFn: async () => {
       console.info("dashboard query started", { scope: "publications" });
       try {
-        const result = await fetchPubs();
+        const result = await withClientTimeout(fetchPubs(), "dashboard query publications");
         console.info("dashboard query success", { scope: "publications" });
         return result;
       } catch (queryError) {
@@ -94,8 +105,10 @@ function Index() {
         throw queryError;
       }
     },
+    enabled: true,
     retry: false,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
   const isHardLoading = showMetricsSkeleton && isLoading && !data && !error;
   const safeStats = data ?? EMPTY_DASHBOARD_STATS;
