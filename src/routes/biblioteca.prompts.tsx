@@ -1,8 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { LibraryShell, EmptyState } from "@/components/library-shell";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { LibraryShell } from "@/components/library-shell";
+import { EmptyState } from "@/components/state/empty-state";
+import { ErrorState } from "@/components/state/error-state";
+import { LoadingState } from "@/components/state/loading-state";
 import { LibraryToolbar, DEFAULT_FILTERS, matchesFilters, type ViewMode, type LibraryFilters } from "@/components/library-toolbar";
-import { PROMPTS, fmtDate, type PromptItem } from "@/lib/library-data";
+import { fmtDate, type PromptItem } from "@/lib/library-data";
+import { listPrompts, type StoredPrompt } from "@/lib/prompts.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -18,16 +24,55 @@ export const Route = createFileRoute("/biblioteca/prompts")({
   component: PromptsPage,
 });
 
+function adapt(row: StoredPrompt): PromptItem {
+  return {
+    id: row.id,
+    title: row.title,
+    excerpt: (row.original_prompt ?? "").slice(0, 160),
+    category: (row.category ?? "Marketing") as PromptItem["category"],
+    platform: (row.platform ?? "ChatGPT") as PromptItem["platform"],
+    favorite: row.is_favorite,
+    created_at: row.created_at,
+  };
+}
+
 function PromptsPage() {
   const [view, setView] = useState<ViewMode>("grid");
   const [filters, setFilters] = useState<LibraryFilters>(DEFAULT_FILTERS);
-  const items = useMemo(() => PROMPTS.filter((p) => matchesFilters(p, filters)), [filters]);
+  const fetchPrompts = useServerFn(listPrompts);
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["library", "prompts"],
+    queryFn: () => fetchPrompts(),
+  });
+
+  const all = useMemo(() => (data ?? []).map(adapt), [data]);
+  const items = useMemo(() => all.filter((p) => matchesFilters(p, filters)), [all, filters]);
+
+  const hasNoneSaved = !isLoading && !error && all.length === 0;
+  const hasNoMatches = !isLoading && !error && all.length > 0 && items.length === 0;
 
   return (
-    <LibraryShell count={PROMPTS.length}>
+    <LibraryShell count={all.length}>
       <LibraryToolbar view={view} onViewChange={setView} filters={filters} onFiltersChange={setFilters} />
-      {items.length === 0 ? (
-        <EmptyState label="prompts" />
+      {isLoading ? (
+        <LoadingState label="Cargando tus prompts…" />
+      ) : error ? (
+        <ErrorState
+          title="No pudimos cargar tus prompts"
+          description="Reintenta en unos segundos."
+          detail={error instanceof Error ? error.message : String(error)}
+          onRetry={() => refetch()}
+        />
+      ) : hasNoneSaved ? (
+        <EmptyState
+          title="Aún no has guardado prompts"
+          description="Genera tu primer prompt y guárdalo desde Crear › Prompts."
+        />
+      ) : hasNoMatches ? (
+        <EmptyState
+          title="No hay prompts que coincidan con estos filtros"
+          description="Ajusta los filtros para ver más resultados."
+        />
       ) : view === "grid" ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {items.map((p) => <PromptCard key={p.id} p={p} />)}

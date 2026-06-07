@@ -233,48 +233,63 @@ export type Database = {
       prompts: {
         Row: {
           category: string | null
-          content: string
+          content: string | null
           created_at: string
           duration: string | null
+          flow_prompt: string | null
           id: string
           is_favorite: boolean
+          kling_prompt: string | null
           language: string | null
+          original_prompt: string | null
           platform: string | null
           project_id: string | null
           style: string | null
           title: string
           updated_at: string
           user_id: string
+          veo_prompt: string | null
+          youtube_prompt: string | null
         }
         Insert: {
           category?: string | null
-          content: string
+          content?: string | null
           created_at?: string
           duration?: string | null
+          flow_prompt?: string | null
           id?: string
           is_favorite?: boolean
+          kling_prompt?: string | null
           language?: string | null
+          original_prompt?: string | null
           platform?: string | null
           project_id?: string | null
           style?: string | null
           title: string
           updated_at?: string
           user_id: string
+          veo_prompt?: string | null
+          youtube_prompt?: string | null
         }
         Update: {
           category?: string | null
-          content?: string
+          content?: string | null
           created_at?: string
           duration?: string | null
+          flow_prompt?: string | null
           id?: string
           is_favorite?: boolean
+          kling_prompt?: string | null
           language?: string | null
+          original_prompt?: string | null
           platform?: string | null
           project_id?: string | null
           style?: string | null
           title?: string
           updated_at?: string
           user_id?: string
+          veo_prompt?: string | null
+          youtube_prompt?: string | null
         }
         Relationships: [
           {
