@@ -30,7 +30,7 @@ function FavoritesPage() {
     const t = (filters.type ?? "all") as FavType;
     return all.filter((it) => {
       if (t !== "all" && it._kind !== t) return false;
-      return matchesFilters({ ...it, favorite: true, date: it.date ?? it.created_at }, { ...filters, favoritesOnly: false });
+      return matchesFilters({ ...it, favorite: true }, { ...filters, favoritesOnly: false });
     });
   }, [all, filters]);
 
