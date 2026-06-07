@@ -51,6 +51,7 @@ export const primaryRoutes: NavItem[] = [
 
   { title: "Biblioteca", url: "/biblioteca/prompts", icon: Library, group: "Biblioteca" },
   { title: "Centro de Publicación", url: "/publicar", icon: Send, group: "Biblioteca" },
+  { title: "Paquete Publicación", url: "/publicacion", icon: Send, group: "Biblioteca" },
 
   { title: "Integraciones", url: "/integraciones", icon: Plug, group: "Sistema" },
   { title: "Configuración", url: "/configuracion", icon: Settings, group: "Sistema" },

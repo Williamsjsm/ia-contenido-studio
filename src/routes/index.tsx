@@ -12,6 +12,8 @@ import {
   CalendarRange,
   Tag,
   Wand2,
+  Send,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +22,7 @@ import { LoadingState } from "@/components/state/loading-state";
 import { ErrorState } from "@/components/state/error-state";
 import { EmptyState } from "@/components/state/empty-state";
 import { getDashboardStats, type DashboardStats } from "@/lib/dashboard.functions";
+import { getPublicationStats, type PublicationStats } from "@/lib/publications.functions";
 import { fmtDate } from "@/lib/library-data";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +41,11 @@ function Index() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["dashboard"],
     queryFn: () => fetchStats(),
+  });
+  const fetchPubs = useServerFn(getPublicationStats);
+  const pubsQuery = useQuery({
+    queryKey: ["publications", "stats"],
+    queryFn: () => fetchPubs(),
   });
   const isEmpty = !!data && data.total === 0;
 
@@ -77,7 +85,10 @@ function Index() {
           />
         </>
       ) : (
-        <DashboardContent stats={data} />
+        <>
+          <DashboardContent stats={data} />
+          {pubsQuery.data ? <PublicationStatsSection stats={pubsQuery.data} /> : null}
+        </>
       )}
     </div>
   );
@@ -201,6 +212,53 @@ function MetricCard({
       <p className="mt-3 truncate text-[26px] font-semibold leading-none tracking-tight">{value}</p>
       {hint && <p className="mt-1.5 text-[11.5px] text-muted-foreground">{hint}</p>}
     </div>
+  );
+}
+
+function PublicationStatsSection({ stats }: { stats: PublicationStats }) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-[15px] font-semibold tracking-tight">Publicaciones</h2>
+          <p className="text-[12px] text-muted-foreground">
+            Paquetes generados en el Centro de Publicación.
+          </p>
+        </div>
+        <Button asChild variant="ghost" size="sm" className="h-8 gap-1.5 text-[12px]">
+          <Link to="/publicacion">
+            Abrir <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          icon={<Send className="h-4 w-4" />}
+          label="Total creadas"
+          value={stats.total.toLocaleString("es")}
+        />
+        <MetricCard
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          label="Listas"
+          value={stats.ready.toLocaleString("es")}
+        />
+        <MetricCard
+          icon={<Sparkles className="h-4 w-4" />}
+          label="Publicadas"
+          value={stats.published.toLocaleString("es")}
+        />
+        <MetricCard
+          icon={<Layers className="h-4 w-4" />}
+          label="Plataforma top"
+          value={stats.byPlatform[0]?.name ?? "—"}
+          hint={
+            stats.byPlatform[0]
+              ? `${stats.byPlatform[0].count} publicaciones`
+              : "Sin datos"
+          }
+        />
+      </div>
+    </section>
   );
 }
 

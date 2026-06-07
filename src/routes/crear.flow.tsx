@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
@@ -61,6 +61,7 @@ import {
   Trash2,
   RotateCcw,
   Loader2,
+  Send,
 } from "lucide-react";
 import { FlowConnector } from "@/components/flow-connector";
 import {
@@ -199,6 +200,7 @@ function FlowCenter() {
   const [aspect, setAspect] = useState("16:9");
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
+  const navigate = useNavigate();
 
 
   useEffect(() => {
@@ -318,6 +320,23 @@ function FlowCenter() {
       return;
     }
     setIsGenerateOpen(true);
+  }
+
+  function handleSendToPublication() {
+    if (!promptText.trim()) {
+      toast.error("Agrega un prompt antes de enviar.");
+      return;
+    }
+    navigate({
+      to: "/publicacion",
+      search: {
+        prompt: promptText.trim(),
+        titulo: title.trim() || promptText.trim().slice(0, 60),
+        plataforma: (search.plataforma || activePreset || ""),
+        categoria: search.categoria || "",
+        flow_job_id: "",
+      },
+    });
   }
 
 
@@ -737,6 +756,15 @@ function FlowCenter() {
                     Guardar en Flow
                   </Button>
                 </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full gap-1.5"
+                  onClick={handleSendToPublication}
+                  disabled={!promptText.trim()}
+                >
+                  <Send className="h-3.5 w-3.5" /> Enviar a Publicación
+                </Button>
                 <Button size="sm" variant="ghost" className="w-full gap-1.5 text-muted-foreground">
                   <Wand2 className="h-3.5 w-3.5" /> Mejorar prompt
                 </Button>
@@ -958,6 +986,17 @@ function FlowCenter() {
               }}
             >
               <History className="h-4 w-4" /> Abrir historial
+            </Button>
+            <Button
+              variant="secondary"
+              className="gap-2"
+              onClick={() => {
+                setIsGenerateOpen(false);
+                handleSendToPublication();
+              }}
+              disabled={!promptText.trim()}
+            >
+              <Send className="h-4 w-4" /> Enviar a Publicación
             </Button>
           </div>
           <DialogFooter>
