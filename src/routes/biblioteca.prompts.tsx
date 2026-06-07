@@ -6,7 +6,7 @@ import { LibraryShell } from "@/components/library-shell";
 import { EmptyState } from "@/components/state/empty-state";
 import { ErrorState } from "@/components/state/error-state";
 import { LoadingState } from "@/components/state/loading-state";
-import { LibraryToolbar, DEFAULT_FILTERS, matchesFilters, type ViewMode, type LibraryFilters } from "@/components/library-toolbar";
+import { LibraryToolbar, DEFAULT_FILTERS, type ViewMode, type LibraryFilters } from "@/components/library-toolbar";
 import { fmtDate, CATEGORIES, PLATFORMS } from "@/lib/library-data";
 import {
   listPrompts,
@@ -35,8 +35,6 @@ import {
   Eye,
   Download,
   Check,
-  ArrowDownAZ,
-  ArrowUpAZ,
   CopyPlus,
 } from "lucide-react";
 import {
