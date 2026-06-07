@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library } from "lucide-react";
+import { Copy, Save, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -420,15 +420,19 @@ function ResultTabs({
   setText,
   onCopy,
   onSave,
+  onSaveAndGo,
   onSendFlow,
-  onSendLibrary,
+  saving,
+  disabled,
 }: {
   getText: (key: VariantKey) => string;
   setText: (key: VariantKey, text: string) => void;
   onCopy: (text: string) => void;
-  onSave: (text: string) => void;
+  onSave: () => void;
+  onSaveAndGo: () => void;
   onSendFlow: (text: string) => void;
-  onSendLibrary: (text: string) => void;
+  saving: boolean;
+  disabled: boolean;
 }) {
   return (
     <Tabs defaultValue="base" className="w-full">
@@ -450,25 +454,36 @@ function ResultTabs({
             <Textarea
               value={text}
               onChange={(e) => setText(t.key, e.target.value)}
+              maxLength={MAX_LEN}
               className="min-h-[240px] resize-none bg-background/40 font-mono text-sm"
             />
+            <div className="flex justify-end text-[11px] text-muted-foreground">
+              {text.length.toLocaleString("es")} / {MAX_LEN.toLocaleString("es")} caracteres
+            </div>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" onClick={() => onCopy(text)}>
                 <Copy className="mr-1.5 h-3.5 w-3.5" /> Copiar
               </Button>
-              <Button size="sm" variant="outline" onClick={() => onSave(text)}>
-                <Save className="mr-1.5 h-3.5 w-3.5" /> Guardar
-              </Button>
               <Button size="sm" variant="outline" onClick={() => onSendFlow(text)}>
                 <Film className="mr-1.5 h-3.5 w-3.5" /> Enviar a Flow Center
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => onSendLibrary(text)}>
-                <Library className="mr-1.5 h-3.5 w-3.5" /> Guardar en Biblioteca
               </Button>
             </div>
           </TabsContent>
         );
       })}
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-border/40 pt-4">
+        <Button size="sm" variant="outline" onClick={onSave} disabled={disabled}>
+          {saving ? (
+            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Save className="mr-1.5 h-3.5 w-3.5" />
+          )}
+          {saving ? "Guardando..." : "Guardar todas las variantes"}
+        </Button>
+        <Button size="sm" onClick={onSaveAndGo} disabled={disabled}>
+          <Library className="mr-1.5 h-3.5 w-3.5" /> Guardar y ver biblioteca
+        </Button>
+      </div>
     </Tabs>
   );
 }
