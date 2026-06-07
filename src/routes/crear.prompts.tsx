@@ -277,10 +277,16 @@ function PromptsGenerator() {
               <ResultTabs
                 getText={getVariantText}
                 setText={(key, text) => {
-                  setResult((prev) => {
+                 setResult((prev) => {
                     if (!prev) return prev;
-                    if (key === "base") return { ...prev, base: text };
-                    return { ...prev, variants: { ...prev.variants, [key]: text } };
+                    const fieldMap: Record<VariantKey, keyof SuccessResult> = {
+                      base: "original_prompt",
+                      flow: "flow_prompt",
+                      youtube: "youtube_prompt",
+                      veo: "veo_prompt",
+                      kling: "kling_prompt",
+                    };
+                    return { ...prev, [fieldMap[key]]: text };
                   });
                 }}
                 onCopy={copy}
