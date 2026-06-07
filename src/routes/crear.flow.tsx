@@ -857,6 +857,14 @@ function FlowCenter() {
                                     {j.aspect_ratio}
                                   </Badge>
                                 )}
+                                {typeof j.flow_points_estimate === "number" && (
+                                  <Badge
+                                    variant="outline"
+                                    className="h-4 border-primary/40 bg-primary/10 px-1.5 text-[9px] text-primary"
+                                  >
+                                    {j.flow_points_estimate} pts
+                                  </Badge>
+                                )}
                               </div>
                             </div>
                           </div>
