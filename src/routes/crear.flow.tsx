@@ -186,6 +186,19 @@ function FlowCenter() {
         }
       />
 
+      {showAlert && (
+        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">
+            {search.from === "biblioteca" ? "Prompt cargado desde Biblioteca" : "Prompt cargado desde Crear"}
+            {search.variante ? ` · Variante: ${search.variante}` : ""}
+          </span>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setShowAlert(false)}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
       {/* Action rail */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
         {actions.map((a) => {
