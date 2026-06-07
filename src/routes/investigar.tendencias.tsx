@@ -840,6 +840,7 @@ function ViralRadar({
                       from: "tendencia",
                       idea: t.title,
                       plataforma: t.platform.toLowerCase(),
+                      pais: t.country,
                       categoria: t.category,
                       tags: t.keywords ?? t.title,
                     }}
@@ -932,6 +933,7 @@ function ViralTrendCard({
                   from: "tendencia",
                   idea: t.title,
                   plataforma: t.platform.toLowerCase(),
+                  pais: t.country,
                   categoria: t.category,
                   tags: t.keywords ?? t.title,
                 }}
