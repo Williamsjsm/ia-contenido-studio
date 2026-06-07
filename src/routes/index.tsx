@@ -12,6 +12,8 @@ import {
   CalendarRange,
   Tag,
   Wand2,
+  Send,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +22,7 @@ import { LoadingState } from "@/components/state/loading-state";
 import { ErrorState } from "@/components/state/error-state";
 import { EmptyState } from "@/components/state/empty-state";
 import { getDashboardStats, type DashboardStats } from "@/lib/dashboard.functions";
+import { getPublicationStats, type PublicationStats } from "@/lib/publications.functions";
 import { fmtDate } from "@/lib/library-data";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +41,11 @@ function Index() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["dashboard"],
     queryFn: () => fetchStats(),
+  });
+  const fetchPubs = useServerFn(getPublicationStats);
+  const pubsQuery = useQuery({
+    queryKey: ["publications", "stats"],
+    queryFn: () => fetchPubs(),
   });
   const isEmpty = !!data && data.total === 0;
 
@@ -77,7 +85,10 @@ function Index() {
           />
         </>
       ) : (
-        <DashboardContent stats={data} />
+        <>
+          <DashboardContent stats={data} />
+          {pubsQuery.data ? <PublicationStatsSection stats={pubsQuery.data} /> : null}
+        </>
       )}
     </div>
   );
