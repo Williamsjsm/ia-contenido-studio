@@ -10,6 +10,15 @@ function resolveOwnerId(): string {
   return process.env.OWNER_USER_ID?.trim() || FALLBACK_OWNER_ID;
 }
 
+function withTimeout<T>(promise: PromiseLike<T>, label: string, ms = 2_500): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
+    ),
+  ]);
+}
+
 const RecentPromptSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -48,12 +57,15 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = resolveOwnerId();
 
-    const { data, error } = await supabaseAdmin
-      .from("prompts")
-      .select("id, title, category, platform, is_favorite, created_at")
-      .eq("user_id", owner)
-      .order("created_at", { ascending: false })
-      .limit(1000);
+    const { data, error } = await withTimeout(
+      supabaseAdmin
+        .from("prompts")
+        .select("id, title, category, platform, is_favorite, created_at")
+        .eq("user_id", owner)
+        .order("created_at", { ascending: false })
+        .limit(1000),
+      "getDashboardStats",
+    );
 
     if (error) {
       console.error("getDashboardStats failed:", error);
