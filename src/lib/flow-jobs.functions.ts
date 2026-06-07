@@ -113,7 +113,8 @@ export const updateFlowJob = createServerFn({ method: "POST" })
     }
     const { error } = await supabaseAdmin
       .from("flow_jobs")
-      .update(patch)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update(patch as any)
       .eq("id", id)
       .eq("user_id", owner);
     if (error) {
