@@ -338,8 +338,13 @@ function TrendCard({ t }: { t: Trend }) {
           <div className="flex gap-1">
             <Button size="icon" variant="ghost" className="h-7 w-7" title="Ver detalles"><Eye className="h-3.5 w-3.5" /></Button>
             <Button size="icon" variant="ghost" className="h-7 w-7" title="Guardar en inspiración"><Bookmark className="h-3.5 w-3.5" /></Button>
-            <Button size="icon" variant="ghost" className="h-7 w-7" title="Crear prompt similar" asChild>
-              <Link to="/crear/prompts"><Wand2 className="h-3.5 w-3.5" /></Link>
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Crear prompt" asChild>
+              <Link
+                to="/crear/prompts"
+                search={{ from: "tendencia", idea: t.title, plataforma: t.platform.toLowerCase(), categoria: t.category, tags: t.title }}
+              >
+                <Wand2 className="h-3.5 w-3.5" />
+              </Link>
             </Button>
           </div>
         </div>
@@ -374,8 +379,13 @@ function NicheCard({ n }: { n: Niche }) {
           <Badge variant="secondary" className="rounded-full text-[10px] font-normal">
             <Flame className="mr-1 h-3 w-3 text-rose-400" /> Tendencia ascendente
           </Badge>
-          <Button size="sm" variant="ghost" className="h-7 gap-1 px-2 text-[12px]">
-            Explorar <ChevronRight className="h-3 w-3" />
+          <Button size="sm" variant="ghost" className="h-7 gap-1 px-2 text-[12px]" asChild>
+            <Link
+              to="/crear/prompts"
+              search={{ from: "tendencia", idea: n.name, categoria: n.category, tags: n.description }}
+            >
+              <Wand2 className="h-3 w-3" /> Crear prompt
+            </Link>
           </Button>
         </div>
       </div>
@@ -430,7 +440,12 @@ function OpportunityCard({ o }: { o: Opportunity }) {
         </div>
 
         <Button asChild size="sm" className="w-full gap-1.5">
-          <Link to="/crear/prompts"><Wand2 className="h-3.5 w-3.5" /> Crear contenido ahora</Link>
+          <Link
+            to="/crear/prompts"
+            search={{ from: "tendencia", idea: o.title, categoria: o.tags.join(", "), tags: o.description }}
+          >
+            <Wand2 className="h-3.5 w-3.5" /> Crear contenido ahora
+          </Link>
         </Button>
       </div>
     </div>

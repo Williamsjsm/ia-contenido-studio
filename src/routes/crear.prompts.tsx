@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, Save, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library } from "lucide-react";
+import { Copy, Save, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library, AlertCircle, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,8 +28,19 @@ import {
 } from "@/lib/generate-prompt.functions";
 import { savePrompt } from "@/lib/prompts.functions";
 
+const searchSchema = z.object({
+  from: fallback(z.string(), "").default(""),
+  idea: fallback(z.string(), "").default(""),
+  plataforma: fallback(z.string(), "").default(""),
+  pais: fallback(z.string(), "").default(""),
+  categoria: fallback(z.string(), "").default(""),
+  tags: fallback(z.string(), "").default(""),
+  tipo: fallback(z.string(), "").default(""),
+});
+
 export const Route = createFileRoute("/crear/prompts")({
   head: () => ({ meta: [{ title: "Generador de Prompts — AI Content Studio" }] }),
+  validateSearch: zodValidator(searchSchema),
   component: PromptsGenerator,
 });
 
@@ -69,6 +82,7 @@ function PromptsGenerator() {
   const checkKey = useServerFn(hasGeneratorConfigured);
   const runGenerate = useServerFn(generatePrompt);
   const runSave = useServerFn(savePrompt);
+  const search = Route.useSearch();
 
   const [form, setForm] = useState<FormState>(initialForm);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -77,6 +91,52 @@ function PromptsGenerator() {
   const [keyConfigured, setKeyConfigured] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
   const [lastSavedSignature, setLastSavedSignature] = useState<string | null>(null);
+  const [showTrendAlert, setShowTrendAlert] = useState(false);
+
+  // Prefill form from trend search params
+  useEffect(() => {
+    const hasTrendData = search.from === "tendencia" && (search.idea || search.categoria);
+    if (!hasTrendData) return;
+
+    const idea = search.idea || search.categoria || "";
+    const platformRaw = search.plataforma?.toLowerCase() || "";
+    const country = search.pais || "";
+    const tags = search.tags || "";
+    const styleRaw = search.tipo?.toLowerCase() || "";
+
+    const platformMap: Record<string, string> = {
+      youtube: "youtube",
+      tiktok: "tiktok",
+      instagram: "instagram",
+      facebook: "facebook",
+    };
+
+    const langMap: Record<string, string> = {
+      brasil: "pt",
+      españa: "es",
+      spain: "es",
+      usa: "en",
+      "estados unidos": "en",
+    };
+
+    const styleMap: Record<string, string> = {
+      cinematic: "cinematic",
+      realistic: "realistic",
+      cartoon: "cartoon",
+      anime: "anime",
+    };
+
+    setForm({
+      categoria: idea,
+      plataforma: platformMap[platformRaw] || initialForm.plataforma,
+      estilo: styleMap[styleRaw] || initialForm.estilo,
+      idioma: langMap[country.toLowerCase()] || initialForm.idioma,
+      duracion: initialForm.duracion,
+      descripcion: tags ? `Tendencia: ${tags}` : "",
+    });
+
+    setShowTrendAlert(true);
+  }, [search]);
 
   useEffect(() => {
     checkKey()
@@ -237,6 +297,16 @@ function PromptsGenerator() {
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {showTrendAlert && (
+        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">Prompt creado desde tendencia. Revisa los campos y genera cuando estés listo.</span>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setShowTrendAlert(false)}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
