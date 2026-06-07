@@ -523,6 +523,57 @@ export type Database = {
           },
         ]
       }
+      viral_trends: {
+        Row: {
+          category: string
+          country: string
+          created_at: string
+          favorite: boolean
+          id: string
+          keywords: string | null
+          platform: string
+          saved: boolean
+          source: string | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          user_id: string
+          viral_score: number
+        }
+        Insert: {
+          category: string
+          country: string
+          created_at?: string
+          favorite?: boolean
+          id?: string
+          keywords?: string | null
+          platform: string
+          saved?: boolean
+          source?: string | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+          viral_score?: number
+        }
+        Update: {
+          category?: string
+          country?: string
+          created_at?: string
+          favorite?: boolean
+          id?: string
+          keywords?: string | null
+          platform?: string
+          saved?: boolean
+          source?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          viral_score?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
