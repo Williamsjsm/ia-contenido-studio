@@ -15,6 +15,9 @@ import {
   Wand2,
   Send,
   CheckCircle2,
+  Globe2,
+  Bookmark,
+  Radar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +26,7 @@ import { ErrorState } from "@/components/state/error-state";
 import { EmptyState } from "@/components/state/empty-state";
 import { getDashboardStats, type DashboardStats } from "@/lib/dashboard.functions";
 import { getPublicationStats, type PublicationStats } from "@/lib/publications.functions";
+import { getRadarStats, type RadarStats } from "@/lib/viral-trends.functions";
 import { fmtDate } from "@/lib/library-data";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +57,14 @@ const EMPTY_PUBLICATION_STATS: PublicationStats = {
   published: 0,
   draft: 0,
   byPlatform: [],
+};
+
+const EMPTY_RADAR_STATS: RadarStats = {
+  detected: 0,
+  saved: 0,
+  favorites: 0,
+  topCountry: null,
+  topPlatform: null,
 };
 
 function withClientTimeout<T>(promise: PromiseLike<T>, label: string): Promise<T> {
@@ -110,9 +122,29 @@ function Index() {
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
+  const fetchRadar = useServerFn(getRadarStats);
+  const radarQuery = useQuery({
+    queryKey: ["radar", "stats"],
+    queryFn: async () => {
+      console.info("dashboard query started", { scope: "radar" });
+      try {
+        const result = await withClientTimeout(fetchRadar(), "dashboard query radar");
+        console.info("dashboard query success", { scope: "radar" });
+        return result;
+      } catch (queryError) {
+        console.error("dashboard query error", queryError);
+        throw queryError;
+      }
+    },
+    enabled: true,
+    retry: false,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
   const isHardLoading = showMetricsSkeleton && isLoading && !data && !error;
   const safeStats = data ?? EMPTY_DASHBOARD_STATS;
   const safePublicationStats = pubsQuery.data ?? EMPTY_PUBLICATION_STATS;
+  const safeRadarStats = radarQuery.data ?? EMPTY_RADAR_STATS;
   const isEmpty = !error && !!data && data.total === 0;
 
   return (
@@ -153,6 +185,14 @@ function Index() {
               onRetry={() => pubsQuery.refetch()}
             />
           ) : null}
+          {radarQuery.error ? (
+            <ErrorState
+              title="No pudimos cargar las métricas del Radar Viral"
+              description="Las demás secciones siguen disponibles."
+              detail={radarQuery.error instanceof Error ? radarQuery.error.message : String(radarQuery.error)}
+              onRetry={() => radarQuery.refetch()}
+            />
+          ) : null}
           {isEmpty ? (
             <>
               <QuickActions />
@@ -165,11 +205,57 @@ function Index() {
             <>
               <DashboardContent stats={safeStats} />
               <PublicationStatsSection stats={safePublicationStats} />
+              <RadarStatsSection stats={safeRadarStats} />
             </>
           )}
         </>
       )}
     </div>
+  );
+}
+
+function RadarStatsSection({ stats }: { stats: RadarStats }) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-[15px] font-semibold tracking-tight">Radar Viral</h2>
+          <p className="text-[12px] text-muted-foreground">
+            Tendencias detectadas y guardadas en tu radar.
+          </p>
+        </div>
+        <Button asChild variant="ghost" size="sm" className="h-8 gap-1.5 text-[12px]">
+          <Link to="/investigar/tendencias">
+            Abrir Radar <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          icon={<Radar className="h-4 w-4" />}
+          label="Tendencias detectadas"
+          value={stats.detected.toLocaleString("es")}
+        />
+        <MetricCard
+          icon={<Bookmark className="h-4 w-4" />}
+          label="Tendencias guardadas"
+          value={stats.saved.toLocaleString("es")}
+          hint={`${stats.favorites} favoritas`}
+        />
+        <MetricCard
+          icon={<Globe2 className="h-4 w-4" />}
+          label="País más usado"
+          value={stats.topCountry?.name ?? "—"}
+          hint={stats.topCountry ? `${stats.topCountry.count} tendencias` : "Sin datos"}
+        />
+        <MetricCard
+          icon={<Layers className="h-4 w-4" />}
+          label="Plataforma más usada"
+          value={stats.topPlatform?.name ?? "—"}
+          hint={stats.topPlatform ? `${stats.topPlatform.count} tendencias` : "Sin datos"}
+        />
+      </div>
+    </section>
   );
 }
 
