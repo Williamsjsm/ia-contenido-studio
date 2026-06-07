@@ -644,7 +644,9 @@ function ViralRadar({
   const toggleSaved = useServerFn(toggleSavedTrend);
   const remove = useServerFn(deleteViralTrend);
 
-  const filters = { platform, country, category };
+  const [savedOnly, setSavedOnly] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const filters = { platform, country, category, savedOnly, favoritesOnly };
 
   const trendsQuery = useQuery({
     queryKey: ["viral", "list", filters],
@@ -714,6 +716,22 @@ function ViralRadar({
             {category ? ` · ${category}` : ""}
           </span>
         </div>
+        <Button
+          size="sm"
+          variant={savedOnly ? "default" : "outline"}
+          className="h-8 gap-1.5"
+          onClick={() => setSavedOnly((v) => !v)}
+        >
+          <Bookmark className="h-3.5 w-3.5" /> Guardadas
+        </Button>
+        <Button
+          size="sm"
+          variant={favoritesOnly ? "default" : "outline"}
+          className="h-8 gap-1.5"
+          onClick={() => setFavoritesOnly((v) => !v)}
+        >
+          <Heart className="h-3.5 w-3.5" /> Favoritas
+        </Button>
         <Button
           size="sm"
           variant="outline"
@@ -822,6 +840,7 @@ function ViralRadar({
                       from: "tendencia",
                       idea: t.title,
                       plataforma: t.platform.toLowerCase(),
+                      pais: t.country,
                       categoria: t.category,
                       tags: t.keywords ?? t.title,
                     }}
@@ -914,6 +933,7 @@ function ViralTrendCard({
                   from: "tendencia",
                   idea: t.title,
                   plataforma: t.platform.toLowerCase(),
+                  pais: t.country,
                   categoria: t.category,
                   tags: t.keywords ?? t.title,
                 }}
