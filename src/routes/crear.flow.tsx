@@ -534,7 +534,10 @@ function FlowCenter() {
               />
             </div>
 
-            <Button className="h-10 w-full gap-2 bg-[image:var(--gradient-primary)] text-primary-foreground shadow-[0_8px_24px_-8px_hsl(var(--primary)/0.6)] hover:opacity-90">
+            <Button
+              className="h-10 w-full gap-2 bg-[image:var(--gradient-primary)] text-primary-foreground shadow-[0_8px_24px_-8px_hsl(var(--primary)/0.6)] hover:opacity-90"
+              onClick={handleGenerate}
+            >
               <Sparkles className="h-4 w-4" /> Generar
             </Button>
           </CardContent>
@@ -900,6 +903,70 @@ function FlowCenter() {
           </Tabs>
         </Card>
       </div>
+
+      {/* Generar modal — video generation not yet integrated */}
+      <Dialog open={isGenerateOpen} onOpenChange={setIsGenerateOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Film className="h-4 w-4 text-primary" />
+              Generación de video
+            </DialogTitle>
+            <DialogDescription>
+              La generación de video aún no está conectada. Puedes copiar el
+              prompt o guardarlo en Flow para usarlo en Flow, Veo, Kling o
+              YouTube Creator.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 py-2">
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => {
+                handleCopy(promptText);
+                setIsGenerateOpen(false);
+              }}
+              disabled={!promptText.trim()}
+            >
+              <Copy className="h-4 w-4" /> Copiar prompt
+            </Button>
+            <Button
+              className="gap-2 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+              onClick={() => {
+                handleSave();
+                setIsGenerateOpen(false);
+              }}
+              disabled={saveMut.isPending || !promptText.trim()}
+            >
+              {saveMut.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Guardar en Flow
+            </Button>
+            <Button
+              variant="secondary"
+              className="gap-2"
+              onClick={() => {
+                setIsGenerateOpen(false);
+                // Switch to the history tab by focusing the history tab trigger via DOM
+                const historyTrigger = document.querySelector(
+                  '[data-state="inactive"][value="history"]',
+                ) as HTMLElement | null;
+                historyTrigger?.click();
+              }}
+            >
+              <History className="h-4 w-4" /> Abrir historial
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsGenerateOpen(false)}>
+              <X className="h-4 w-4" /> Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <FlowConnector
         title="Tu video está listo"
