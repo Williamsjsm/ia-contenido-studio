@@ -253,48 +253,56 @@ function PromptsGenerator() {
               />
             </Field>
             <Field label="Plataforma">
-              <Select value={form.plataforma} onValueChange={(v) => set("plataforma", v)} disabled={status === "loading"}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="youtube">YouTube</SelectItem>
-                  <SelectItem value="tiktok">TikTok</SelectItem>
-                  <SelectItem value="instagram">Instagram</SelectItem>
-                  <SelectItem value="facebook">Facebook</SelectItem>
-                </SelectContent>
-              </Select>
+              <ClientOnly fallback={<SelectTriggerSkeleton />}>
+                <Select value={form.plataforma} onValueChange={(v) => set("plataforma", v)} disabled={status === "loading"}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="youtube">YouTube</SelectItem>
+                    <SelectItem value="tiktok">TikTok</SelectItem>
+                    <SelectItem value="instagram">Instagram</SelectItem>
+                    <SelectItem value="facebook">Facebook</SelectItem>
+                  </SelectContent>
+                </Select>
+              </ClientOnly>
             </Field>
             <Field label="Estilo">
-              <Select value={form.estilo} onValueChange={(v) => set("estilo", v)} disabled={status === "loading"}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cinematic">Cinemático</SelectItem>
-                  <SelectItem value="realistic">Realista</SelectItem>
-                  <SelectItem value="cartoon">Cartoon</SelectItem>
-                  <SelectItem value="anime">Anime</SelectItem>
-                </SelectContent>
-              </Select>
+              <ClientOnly fallback={<SelectTriggerSkeleton />}>
+                <Select value={form.estilo} onValueChange={(v) => set("estilo", v)} disabled={status === "loading"}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cinematic">Cinemático</SelectItem>
+                    <SelectItem value="realistic">Realista</SelectItem>
+                    <SelectItem value="cartoon">Cartoon</SelectItem>
+                    <SelectItem value="anime">Anime</SelectItem>
+                  </SelectContent>
+                </Select>
+              </ClientOnly>
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Idioma">
-                <Select value={form.idioma} onValueChange={(v) => set("idioma", v)} disabled={status === "loading"}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="es">Español</SelectItem>
-                    <SelectItem value="en">Inglés</SelectItem>
-                    <SelectItem value="pt">Portugués</SelectItem>
-                  </SelectContent>
-                </Select>
+                <ClientOnly fallback={<SelectTriggerSkeleton />}>
+                  <Select value={form.idioma} onValueChange={(v) => set("idioma", v)} disabled={status === "loading"}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="es">Español</SelectItem>
+                      <SelectItem value="en">Inglés</SelectItem>
+                      <SelectItem value="pt">Portugués</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </ClientOnly>
               </Field>
               <Field label="Duración">
-                <Select value={form.duracion} onValueChange={(v) => set("duracion", v)} disabled={status === "loading"}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">5 segundos</SelectItem>
-                    <SelectItem value="8">8 segundos</SelectItem>
-                    <SelectItem value="15">15 segundos</SelectItem>
-                    <SelectItem value="30">30 segundos</SelectItem>
-                  </SelectContent>
-                </Select>
+                <ClientOnly fallback={<SelectTriggerSkeleton />}>
+                  <Select value={form.duracion} onValueChange={(v) => set("duracion", v)} disabled={status === "loading"}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5 segundos</SelectItem>
+                      <SelectItem value="8">8 segundos</SelectItem>
+                      <SelectItem value="15">15 segundos</SelectItem>
+                      <SelectItem value="30">30 segundos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </ClientOnly>
               </Field>
             </div>
             <Field label="Descripción (opcional)">
