@@ -440,7 +440,12 @@ function OpportunityCard({ o }: { o: Opportunity }) {
         </div>
 
         <Button asChild size="sm" className="w-full gap-1.5">
-          <Link to="/crear/prompts"><Wand2 className="h-3.5 w-3.5" /> Crear contenido ahora</Link>
+          <Link
+            to="/crear/prompts"
+            search={{ from: "tendencia", idea: o.title, categoria: o.tags.join(", "), tags: o.description }}
+          >
+            <Wand2 className="h-3.5 w-3.5" /> Crear contenido ahora
+          </Link>
         </Button>
       </div>
     </div>
