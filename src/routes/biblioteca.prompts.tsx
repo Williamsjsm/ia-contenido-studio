@@ -29,8 +29,8 @@ function adapt(row: StoredPrompt): PromptItem {
     id: row.id,
     title: row.title,
     excerpt: (row.original_prompt ?? "").slice(0, 160),
-    category: row.category ?? "—",
-    platform: row.platform ?? "—",
+    category: (row.category ?? "Marketing") as PromptItem["category"],
+    platform: (row.platform ?? "ChatGPT") as PromptItem["platform"],
     favorite: row.is_favorite,
     created_at: row.created_at,
   };
