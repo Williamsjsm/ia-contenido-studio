@@ -11,6 +11,15 @@ function resolveOwnerId(): string {
   return process.env.OWNER_USER_ID?.trim() || FALLBACK_OWNER_ID;
 }
 
+function withTimeout<T>(promise: PromiseLike<T>, label: string, ms = 2_500): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
+    ),
+  ]);
+}
+
 export const PUBLICATION_STATUSES = ["draft", "ready", "published"] as const;
 export type PublicationStatus = (typeof PUBLICATION_STATUSES)[number];
 
@@ -391,11 +400,14 @@ export const getPublicationStats = createServerFn({ method: "GET" }).handler(
   async (): Promise<PublicationStats> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = resolveOwnerId();
-    const { data, error } = await supabaseAdmin
-      .from("publication_projects")
-      .select("status, platform")
-      .eq("user_id", owner)
-      .limit(1000);
+    const { data, error } = await withTimeout(
+      supabaseAdmin
+        .from("publication_projects")
+        .select("status, platform")
+        .eq("user_id", owner)
+        .limit(1000),
+      "getPublicationStats",
+    );
     if (error) {
       console.error("getPublicationStats failed:", error);
       throw new Error(error.message);
