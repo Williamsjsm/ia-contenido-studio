@@ -71,6 +71,11 @@ import {
   duplicateFlowJob,
   type FlowJob,
 } from "@/lib/flow-jobs.functions";
+import {
+  FlowPointsCalculator,
+  calculateFlowPoints,
+  type FlowPointsState,
+} from "@/components/flow-points-calculator";
 
 const flowSearchSchema = z.object({
   from: fallback(z.string(), "").default(""),
@@ -202,6 +207,15 @@ function FlowCenter() {
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const navigate = useNavigate();
 
+  const [flowPoints, setFlowPoints] = useState<FlowPointsState>({
+    mode: "video",
+    mediaType: "fotogramas",
+    aspect: "9:16",
+    variations: 1,
+    duration: 10,
+    model: "omni-flash",
+  });
+  const flowPointsEstimate = calculateFlowPoints(flowPoints);
 
   useEffect(() => {
     if (search.from && search.prompt) {
