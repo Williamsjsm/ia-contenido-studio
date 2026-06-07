@@ -203,14 +203,19 @@ function PromptsGenerator() {
     toast.success("Copiado al portapapeles");
   }
 
-  function sendToFlow(text: string) {
+  function sendToFlow(text: string, variantLabel: string) {
     if (!text) return;
-    try {
-      sessionStorage.setItem("flow:pending-prompt", text);
-    } catch {
-      // ignore
-    }
-    navigate({ to: "/crear/flow" });
+    navigate({
+      to: "/crear/flow",
+      search: {
+        from: "crear",
+        prompt: text,
+        variante: variantLabel,
+        titulo: form.categoria || text.slice(0, 60),
+        plataforma: form.plataforma,
+        categoria: form.categoria,
+      },
+    });
   }
 
   const currentSignature = useMemo(() => {
@@ -509,7 +514,7 @@ function ResultTabs({
   onCopy: (text: string) => void;
   onSave: () => void;
   onSaveAndGo: () => void;
-  onSendFlow: (text: string) => void;
+  onSendFlow: (text: string, variantLabel: string) => void;
   saving: boolean;
   disabled: boolean;
 }) {
@@ -543,7 +548,7 @@ function ResultTabs({
               <Button size="sm" variant="outline" onClick={() => onCopy(text)}>
                 <Copy className="mr-1.5 h-3.5 w-3.5" /> Copiar
               </Button>
-              <Button size="sm" variant="outline" onClick={() => onSendFlow(text)}>
+              <Button size="sm" variant="outline" onClick={() => onSendFlow(text, t.label)}>
                 <Film className="mr-1.5 h-3.5 w-3.5" /> Enviar a Flow Center
               </Button>
             </div>
