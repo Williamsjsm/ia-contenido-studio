@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,8 +46,20 @@ import {
   Zap,
   AlertCircle,
   X,
+  Save,
+  Copy,
+  Trash2,
+  RotateCcw,
+  Loader2,
 } from "lucide-react";
 import { FlowConnector } from "@/components/flow-connector";
+import {
+  saveFlowJob,
+  listFlowJobs,
+  deleteFlowJob,
+  duplicateFlowJob,
+  type FlowJob,
+} from "@/lib/flow-jobs.functions";
 
 const flowSearchSchema = z.object({
   from: fallback(z.string(), "").default(""),
@@ -80,7 +95,24 @@ const actions = [
   { id: "colors", label: "Mejorar colores", icon: Palette, hint: "Color grading IA" },
 ];
 
-const history = [
+const PRESETS: Array<{
+  id: string;
+  label: string;
+  duration: string;
+  resolution: string;
+  aspect: string;
+  model: string;
+}> = [
+  { id: "yt-shorts", label: "YouTube Shorts", duration: "15", resolution: "1080", aspect: "9:16", model: "veo3" },
+  { id: "tiktok", label: "TikTok", duration: "15", resolution: "1080", aspect: "9:16", model: "runway" },
+  { id: "reels", label: "Reels", duration: "15", resolution: "1080", aspect: "9:16", model: "pika" },
+  { id: "facebook", label: "Facebook", duration: "10", resolution: "1080", aspect: "1:1", model: "flow" },
+  { id: "cinematic", label: "Cinemático 16:9", duration: "8", resolution: "4k", aspect: "16:9", model: "veo3" },
+];
+
+const ASPECTS = ["9:16", "1:1", "4:3", "16:9"] as const;
+
+const historyMock = [
   {
     id: "v7",
     title: "Cinematic neon alley · v7",
