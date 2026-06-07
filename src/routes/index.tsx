@@ -204,12 +204,19 @@ function MetricCard({
   );
 }
 
-const QUICK_ACTIONS = [
+type QuickAction = {
+  to: string;
+  label: string;
+  icon: typeof Sparkles;
+  primary?: boolean;
+};
+
+const QUICK_ACTIONS: QuickAction[] = [
   { to: "/crear/prompts", label: "Crear prompt", icon: Sparkles, primary: true },
   { to: "/biblioteca/prompts", label: "Biblioteca de prompts", icon: Library },
   { to: "/biblioteca/favoritos", label: "Favoritos", icon: Heart },
   { to: "/biblioteca/descargas", label: "Exportar biblioteca", icon: Download },
-] as const;
+];
 
 function QuickActions({ compact = false }: { compact?: boolean }) {
   return (
