@@ -987,6 +987,17 @@ function FlowCenter() {
             >
               <History className="h-4 w-4" /> Abrir historial
             </Button>
+            <Button
+              variant="secondary"
+              className="gap-2"
+              onClick={() => {
+                setIsGenerateOpen(false);
+                handleSendToPublication();
+              }}
+              disabled={!promptText.trim()}
+            >
+              <Send className="h-4 w-4" /> Enviar a Publicación
+            </Button>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsGenerateOpen(false)}>
