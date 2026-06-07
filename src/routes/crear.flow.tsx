@@ -480,7 +480,9 @@ function FlowCenter() {
                     Prompt utilizado
                   </Label>
                   <Textarea
-                    defaultValue="Slow cinematic dolly through a neon-lit Tokyo alley at night, light rain, reflective puddles, anamorphic flare, shallow depth of field, 35mm film grain, color grade teal & magenta."
+                    value={promptText}
+                    onChange={(e) => setPromptText(e.target.value)}
+                    placeholder="Describe tu escena cinematográfica..."
                     className="min-h-[140px] resize-none bg-background/60 text-sm leading-relaxed"
                   />
                 </div>
