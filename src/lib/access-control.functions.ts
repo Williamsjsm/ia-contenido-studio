@@ -15,16 +15,15 @@ import { z } from "zod";
 /** Middleware: exige cookie de sesión válida. Falla con 401 si no la hay. */
 export const requireAccess = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
-    const { verifySessionToken, SESSION_COOKIE_NAME } = await import(
-      "./access-control.server"
-    );
-    const { PREVIEW_SESSION_COOKIE_NAME, isPreviewSandboxHost } = await import(
+    const { verifySessionToken, SESSION_COOKIE_NAME, PREVIEW_SESSION_COOKIE_NAME, isPreviewSandboxHost } = await import(
       "./access-control.server"
     );
     const host = getRequestHeader("host");
+    const headerToken = getRequestHeader("x-app-session");
     const token =
       getCookie(SESSION_COOKIE_NAME) ??
-      (isPreviewSandboxHost(host) ? getCookie(PREVIEW_SESSION_COOKIE_NAME) : undefined);
+      (isPreviewSandboxHost(host) ? getCookie(PREVIEW_SESSION_COOKIE_NAME) : undefined) ??
+      headerToken;
     if (!verifySessionToken(token)) {
       throw new Response("Unauthorized", { status: 401 });
     }
@@ -70,7 +69,7 @@ export const loginWithSecret = createServerFn({ method: "POST" })
         maxAge: SESSION_TTL_SECONDS,
       });
     }
-    return { ok: true as const };
+    return { ok: true as const, sessionToken: token };
   });
 
 export const logoutSession = createServerFn({ method: "POST" }).handler(async () => {
@@ -81,15 +80,14 @@ export const logoutSession = createServerFn({ method: "POST" }).handler(async ()
 });
 
 export const getAccessStatus = createServerFn({ method: "GET" }).handler(async () => {
-  const { verifySessionToken, SESSION_COOKIE_NAME } = await import(
-    "./access-control.server"
-  );
-  const { PREVIEW_SESSION_COOKIE_NAME, isPreviewSandboxHost } = await import(
+  const { verifySessionToken, SESSION_COOKIE_NAME, PREVIEW_SESSION_COOKIE_NAME, isPreviewSandboxHost } = await import(
     "./access-control.server"
   );
   const host = getRequestHeader("host");
+  const headerToken = getRequestHeader("x-app-session");
   const token =
     getCookie(SESSION_COOKIE_NAME) ??
-    (isPreviewSandboxHost(host) ? getCookie(PREVIEW_SESSION_COOKIE_NAME) : undefined);
+    (isPreviewSandboxHost(host) ? getCookie(PREVIEW_SESSION_COOKIE_NAME) : undefined) ??
+    headerToken;
   return { authenticated: verifySessionToken(token) };
 });

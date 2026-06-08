@@ -35,6 +35,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { primaryRoutes } from "@/lib/navigation";
+import { clearAccessSessionToken } from "@/lib/access-token-attacher";
 
 // Simulated integration state — replace with real API later.
 const connectedIntegrations = ["ChatGPT", "Google AI", "Flow"] as const;
@@ -228,7 +229,11 @@ export function TopBar() {
               <HelpCircle className="h-4 w-4" /> Ayuda
             </DropdownMenuItem>
             <DropdownMenuItem
-              onSelect={placeholderToast}
+              onSelect={() => {
+                clearAccessSessionToken();
+                toast.success("Sesión cerrada.");
+                void navigate({ to: "/acceso" });
+              }}
               className="text-destructive focus:text-destructive"
             >
               <LogOut className="h-4 w-4" /> Cerrar sesión

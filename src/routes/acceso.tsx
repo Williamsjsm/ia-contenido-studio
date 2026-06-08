@@ -1,13 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Lock, ShieldCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { getAccessStatus, loginWithSecret } from "@/lib/access-control.functions";
+import { storeAccessSessionToken } from "@/lib/access-token-attacher";
 
 export const Route = createFileRoute("/acceso")({
   head: () => ({
@@ -33,9 +34,11 @@ function AccesoPage() {
     queryFn: () => statusFn(),
     staleTime: 5_000,
   });
-  if (status?.authenticated) {
-    void navigate({ to: "/" });
-  }
+  useEffect(() => {
+    if (status?.authenticated) {
+      void navigate({ to: "/", replace: true });
+    }
+  }, [navigate, status?.authenticated]);
 
   const loginMut = useMutation({
     mutationFn: (pwd: string) => loginFn({ data: { password: pwd } }),
@@ -44,9 +47,10 @@ function AccesoPage() {
         toast.error(res.message ?? "Acceso incorrecto.");
         return;
       }
+      storeAccessSessionToken(res.sessionToken);
+      qc.setQueryData(["access", "status"], { authenticated: true });
       toast.success("Acceso concedido.");
-      await qc.invalidateQueries({ queryKey: ["access", "status"] });
-      await navigate({ to: "/" });
+      window.location.replace("/");
     },
     onError: (err) => {
       console.error("login error", err);

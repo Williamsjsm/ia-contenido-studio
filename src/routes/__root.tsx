@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -137,6 +137,12 @@ function AccessGate() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const statusFn = useServerFn(getAccessStatus);
+  const [hasFallbackToken, setHasFallbackToken] = useState(false);
+
+  useEffect(() => {
+    setHasFallbackToken(Boolean(window.sessionStorage.getItem("app_session_token")));
+  }, [pathname]);
+
   const { data, isLoading } = useQuery({
     queryKey: ["access", "status"],
     queryFn: () => statusFn(),
@@ -145,17 +151,21 @@ function AccessGate() {
   });
 
   const isAcceso = pathname === "/acceso";
-  const authed = data?.authenticated === true;
+  const authed = data?.authenticated === true || hasFallbackToken;
 
   useEffect(() => {
     if (isLoading) return;
+    if (authed && isAcceso) {
+      void navigate({ to: "/", replace: true });
+      return;
+    }
     if (!authed && !isAcceso) {
       void navigate({ to: "/acceso", replace: true });
     }
   }, [authed, isAcceso, isLoading, navigate]);
 
   // Página de acceso: render sin shell (ni sidebar ni topbar).
-  if (isAcceso) {
+  if (isAcceso && !authed) {
     return (
       <div className="dark min-h-screen w-full bg-background text-foreground">
         <Outlet />
