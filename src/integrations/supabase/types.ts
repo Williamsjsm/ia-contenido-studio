@@ -564,48 +564,63 @@ export type Database = {
           category: string
           country: string
           created_at: string
+          external_id: string | null
           favorite: boolean
           id: string
           keywords: string | null
+          likes: number | null
           platform: string
+          published_at: string | null
           saved: boolean
           source: string | null
           thumbnail_url: string | null
           title: string
           updated_at: string
+          url: string | null
           user_id: string
+          views: number | null
           viral_score: number
         }
         Insert: {
           category: string
           country: string
           created_at?: string
+          external_id?: string | null
           favorite?: boolean
           id?: string
           keywords?: string | null
+          likes?: number | null
           platform: string
+          published_at?: string | null
           saved?: boolean
           source?: string | null
           thumbnail_url?: string | null
           title: string
           updated_at?: string
+          url?: string | null
           user_id: string
+          views?: number | null
           viral_score?: number
         }
         Update: {
           category?: string
           country?: string
           created_at?: string
+          external_id?: string | null
           favorite?: boolean
           id?: string
           keywords?: string | null
+          likes?: number | null
           platform?: string
+          published_at?: string | null
           saved?: boolean
           source?: string | null
           thumbnail_url?: string | null
           title?: string
           updated_at?: string
+          url?: string | null
           user_id?: string
+          views?: number | null
           viral_score?: number
         }
         Relationships: []
