@@ -76,6 +76,9 @@ const ListSchema = z.object({
   savedOnly: z.boolean().optional(),
   favoritesOnly: z.boolean().optional(),
   limit: z.number().int().min(1).max(200).optional(),
+  sourceTypes: z.array(z.string().min(1).max(40)).max(10).optional(),
+  keyword: z.string().trim().max(120).nullable().optional(),
+  orderBy: z.enum(["viral_score", "views", "likes", "published_at", "created_at"]).optional(),
 });
 
 export const listViralTrends = createServerFn({ method: "POST" })
@@ -87,15 +90,25 @@ export const listViralTrends = createServerFn({ method: "POST" })
     let q = supabaseAdmin
       .from("viral_trends")
       .select(SELECT_COLS)
-      .eq("user_id", owner)
-      .order("viral_score", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(data.limit ?? 60);
+      .eq("user_id", owner);
+    const orderCol = data.orderBy ?? "viral_score";
+    q = q.order(orderCol, { ascending: false, nullsFirst: false });
+    if (orderCol !== "created_at") q = q.order("created_at", { ascending: false });
+    q = q.limit(data.limit ?? 60);
     if (data.platform) q = q.eq("platform", data.platform);
     if (data.country) q = q.eq("country", data.country);
     if (data.category) q = q.eq("category", data.category);
     if (data.savedOnly) q = q.eq("saved", true);
     if (data.favoritesOnly) q = q.eq("favorite", true);
+    if (data.sourceTypes && data.sourceTypes.length > 0) {
+      q = q.in("source_type", data.sourceTypes);
+    }
+    if (data.keyword && data.keyword.trim().length > 0) {
+      const term = data.keyword.trim().replace(/[%,]/g, "");
+      q = q.or(
+        `title.ilike.%${term}%,keywords.ilike.%${term}%,channel_title.ilike.%${term}%`,
+      );
+    }
     const { data: rows, error } = await q;
     if (error) {
       console.error("listViralTrends failed:", error);
