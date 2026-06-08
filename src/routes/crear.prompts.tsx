@@ -530,6 +530,145 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function ReferenceVisualSection({
+  mode,
+  onModeChange,
+  characters,
+  loadingCharacters,
+  selectedCharacterId,
+  onCharacterChange,
+  selectedCharacter,
+  characterMode,
+  onCharacterModeChange,
+  disabled,
+}: {
+  mode: ReferenceMode;
+  onModeChange: (m: ReferenceMode) => void;
+  characters: VirtualCharacter[];
+  loadingCharacters: boolean;
+  selectedCharacterId: string;
+  onCharacterChange: (id: string) => void;
+  selectedCharacter: VirtualCharacter | null;
+  characterMode: CharacterMode;
+  onCharacterModeChange: (m: CharacterMode) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-3 rounded-lg border border-border/60 bg-muted/10 p-3">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+          Referencia visual
+        </Label>
+      </div>
+      <ClientOnly fallback={<SelectTriggerSkeleton />}>
+        <Select
+          value={mode}
+          onValueChange={(v) => onModeChange(v as ReferenceMode)}
+          disabled={disabled}
+        >
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sin referencia</SelectItem>
+            <SelectItem value="reference" disabled>
+              Referencia visual (próximamente)
+            </SelectItem>
+            <SelectItem value="character">Personaje virtual</SelectItem>
+          </SelectContent>
+        </Select>
+      </ClientOnly>
+
+      {mode === "character" && (
+        <div className="space-y-3">
+          <ClientOnly fallback={<SelectTriggerSkeleton />}>
+            <Select
+              value={selectedCharacterId}
+              onValueChange={onCharacterChange}
+              disabled={disabled || loadingCharacters || characters.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={
+                    loadingCharacters
+                      ? "Cargando personajes..."
+                      : characters.length === 0
+                        ? "No hay personajes — créalos en Biblioteca"
+                        : "Selecciona un personaje"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {characters.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </ClientOnly>
+
+          {selectedCharacter && (
+            <div className="flex gap-3 rounded-md border border-border/60 bg-card p-2">
+              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-md bg-muted/40">
+                {selectedCharacter.reference_image_url ? (
+                  <img
+                    src={selectedCharacter.reference_image_url}
+                    alt={selectedCharacter.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Users className="h-6 w-6 text-muted-foreground/60" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0 space-y-1">
+                <p className="truncate text-sm font-medium">{selectedCharacter.name}</p>
+                {selectedCharacter.description && (
+                  <p className="line-clamp-2 text-[11px] text-muted-foreground">
+                    {selectedCharacter.description}
+                  </p>
+                )}
+                {selectedCharacter.tags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {selectedCharacter.tags.slice(0, 4).map((t) => (
+                      <Badge key={t} variant="secondary" className="text-[10px]">
+                        {t}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Modo
+            </Label>
+            <ClientOnly fallback={<SelectTriggerSkeleton />}>
+              <Select
+                value={characterMode}
+                onValueChange={(v) => onCharacterModeChange(v as CharacterMode)}
+                disabled={disabled}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text_only">Solo texto (ignorar personaje)</SelectItem>
+                  <SelectItem value="keep_character">Mantener personaje</SelectItem>
+                  <SelectItem value="keep_style">Mantener estilo</SelectItem>
+                  <SelectItem value="keep_character_style">
+                    Mantener personaje + estilo
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </ClientOnly>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EmptyResult() {
   return (
     <div className="flex min-h-[320px] flex-col items-center justify-center gap-2 text-center text-muted-foreground">
