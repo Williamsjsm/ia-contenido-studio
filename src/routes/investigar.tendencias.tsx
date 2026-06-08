@@ -22,6 +22,7 @@ import {
   toggleFavoriteTrend,
   toggleSavedTrend,
   deleteViralTrend,
+  fetchYouTubeTrends,
   VIRAL_PLATFORMS,
   VIRAL_COUNTRIES,
   VIRAL_CATEGORIES,
@@ -643,6 +644,7 @@ function ViralRadar({
   const toggleFav = useServerFn(toggleFavoriteTrend);
   const toggleSaved = useServerFn(toggleSavedTrend);
   const remove = useServerFn(deleteViralTrend);
+  const fetchYouTube = useServerFn(fetchYouTubeTrends);
 
   const [savedOnly, setSavedOnly] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -698,6 +700,28 @@ function ViralRadar({
       } else {
         toast.error(res.message);
       }
+    },
+  });
+
+  const ytMut = useMutation({
+    mutationFn: fetchYouTube,
+    onSuccess: (res) => {
+      if (!res.ok) {
+        toast.error(res.message ?? "Error YouTube");
+        return;
+      }
+      if (!res.configured) {
+        toast.error("YouTube API no configurada");
+        return;
+      }
+      toast.success(
+        `YouTube · ${res.inserted} nuevas, ${res.updated} actualizadas` +
+          (res.errors.length ? ` · ${res.errors.length} errores` : ""),
+      );
+      invalidate();
+    },
+    onError: (err: unknown) => {
+      toast.error((err as Error)?.message ?? "Error YouTube");
     },
   });
 
@@ -758,6 +782,28 @@ function ViralRadar({
             <Sparkles className="h-3.5 w-3.5" />
           )}
           Cargar catálogo
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          onClick={() =>
+            ytMut.mutate({
+              data: {
+                countries: country ? [country] : undefined,
+                categories: category ? [category] : undefined,
+              },
+            })
+          }
+          disabled={ytMut.isPending}
+          title="Trae los videos más populares por país desde YouTube Data API"
+        >
+          {ytMut.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Play className="h-3.5 w-3.5" />
+          )}
+          Actualizar YouTube real
         </Button>
       </div>
 

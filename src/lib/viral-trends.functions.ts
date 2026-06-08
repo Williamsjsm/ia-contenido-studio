@@ -236,3 +236,205 @@ export const getRadarStats = createServerFn({ method: "GET" })
       topPlatform: topOf(rows.map((r) => r.platform)),
     };
   });
+
+// =========================================================
+// YouTube Data API integration — datos reales por país.
+// =========================================================
+
+const COUNTRY_TO_REGION: Record<string, string> = {
+  "Estados Unidos": "US",
+  "Alemania": "DE",
+  "Francia": "FR",
+  "Brasil": "BR",
+  "España": "ES",
+  "México": "MX",
+};
+
+const REGION_TO_COUNTRY: Record<string, string> = Object.fromEntries(
+  Object.entries(COUNTRY_TO_REGION).map(([k, v]) => [v, k]),
+);
+
+/** Mapea categoría interna -> videoCategoryId de YouTube. */
+const CATEGORY_TO_YT_ID: Record<string, string | undefined> = {
+  Animales: "15",
+  IA: "28",
+  Tecnología: "28",
+  Curiosidades: "28",
+  Música: "10",
+  Historia: "27",
+  Terror: "24",
+  Construcción: "26",
+  Salud: "26",
+  "Viral General": undefined,
+};
+
+/** Mapea categoryId real de YouTube -> categoría interna como fallback. */
+const YT_ID_TO_CATEGORY: Record<string, string> = {
+  "15": "Animales",
+  "28": "Tecnología",
+  "10": "Música",
+  "27": "Historia",
+  "24": "Viral General",
+  "26": "Salud",
+  "20": "Viral General",
+  "22": "Viral General",
+  "23": "Viral General",
+  "25": "Curiosidades",
+};
+
+function viralScoreFromViews(views: number): number {
+  if (!views || views <= 0) return 0;
+  // 1k → ~30, 100k → ~50, 1M → ~70, 10M → ~85, 100M → ~98
+  const score = Math.round(Math.log10(views) * 16);
+  return Math.max(0, Math.min(100, score));
+}
+
+const FetchYouTubeSchema = z.object({
+  countries: z.array(z.string().min(2).max(40)).max(10).optional(),
+  categories: z.array(z.string().min(1).max(60)).max(10).optional(),
+  perRequest: z.number().int().min(1).max(25).optional(),
+});
+
+type YouTubeVideoItem = {
+  id: string;
+  snippet?: {
+    title?: string;
+    description?: string;
+    publishedAt?: string;
+    categoryId?: string;
+    tags?: string[];
+    thumbnails?: { high?: { url?: string }; medium?: { url?: string }; default?: { url?: string } };
+  };
+  statistics?: { viewCount?: string; likeCount?: string };
+};
+
+export const fetchYouTubeTrends = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => FetchYouTubeSchema.parse(input ?? {}))
+  .handler(async ({ data }) => {
+    const apiKey = process.env.YOUTUBE_API_KEY?.trim();
+    if (!apiKey) {
+      return { ok: false as const, configured: false as const, message: "YouTube API no configurada" };
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = resolveOwnerId();
+
+    const countries = (data.countries && data.countries.length > 0
+      ? data.countries
+      : Object.keys(COUNTRY_TO_REGION)) as string[];
+    const categories = data.categories ?? ["Viral General", "Animales", "Tecnología", "Música"];
+    const perRequest = data.perRequest ?? 10;
+
+    let inserted = 0;
+    let updated = 0;
+    const errors: string[] = [];
+
+    for (const countryName of countries) {
+      const regionCode = COUNTRY_TO_REGION[countryName];
+      if (!regionCode) continue;
+      for (const categoryName of categories) {
+        const ytCategoryId = CATEGORY_TO_YT_ID[categoryName];
+        const params = new URLSearchParams({
+          part: "snippet,statistics",
+          chart: "mostPopular",
+          regionCode,
+          maxResults: String(perRequest),
+          key: apiKey,
+        });
+        if (ytCategoryId) params.set("videoCategoryId", ytCategoryId);
+        try {
+          const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params.toString()}`);
+          if (!res.ok) {
+            const txt = await res.text();
+            console.error("[youtube] fetch failed", regionCode, categoryName, res.status, txt.slice(0, 200));
+            errors.push(`${regionCode}/${categoryName}: ${res.status}`);
+            continue;
+          }
+          const json = (await res.json()) as { items?: YouTubeVideoItem[] };
+          const items = json.items ?? [];
+          for (const it of items) {
+            const videoId = it.id;
+            if (!videoId) continue;
+            const sn = it.snippet ?? {};
+            const st = it.statistics ?? {};
+            const views = Number(st.viewCount ?? 0) || 0;
+            const likes = Number(st.likeCount ?? 0) || 0;
+            const inferredCategory = ytCategoryId
+              ? categoryName
+              : YT_ID_TO_CATEGORY[sn.categoryId ?? ""] ?? "Viral General";
+            const thumb =
+              sn.thumbnails?.high?.url ||
+              sn.thumbnails?.medium?.url ||
+              sn.thumbnails?.default?.url ||
+              null;
+            const row = {
+              user_id: owner,
+              title: sn.title?.slice(0, 280) ?? "(sin título)",
+              platform: "YouTube",
+              country: REGION_TO_COUNTRY[regionCode] ?? countryName,
+              category: inferredCategory,
+              viral_score: viralScoreFromViews(views),
+              keywords: (sn.tags ?? []).slice(0, 8).join(", ") || null,
+              source: "youtube_api",
+              thumbnail_url: thumb,
+              url: `https://www.youtube.com/watch?v=${videoId}`,
+              views,
+              likes,
+              published_at: sn.publishedAt ?? null,
+              external_id: videoId,
+            };
+            // upsert por (user_id, source, external_id) — manual: intentar update, si 0 filas insertar.
+            const { data: existing } = await supabaseAdmin
+              .from("viral_trends")
+              .select("id")
+              .eq("user_id", owner)
+              .eq("source", "youtube_api")
+              .eq("external_id", videoId)
+              .maybeSingle();
+            if (existing?.id) {
+              const { error: upErr } = await supabaseAdmin
+                .from("viral_trends")
+                .update({
+                  title: row.title,
+                  viral_score: row.viral_score,
+                  keywords: row.keywords,
+                  thumbnail_url: row.thumbnail_url,
+                  url: row.url,
+                  views: row.views,
+                  likes: row.likes,
+                  published_at: row.published_at,
+                  category: row.category,
+                  country: row.country,
+                })
+                .eq("id", existing.id);
+              if (upErr) {
+                console.error("[youtube] update failed", upErr);
+                errors.push(`update ${videoId}: ${upErr.message}`);
+              } else {
+                updated++;
+              }
+            } else {
+              const { error: insErr } = await supabaseAdmin.from("viral_trends").insert(row);
+              if (insErr) {
+                console.error("[youtube] insert failed", insErr);
+                errors.push(`insert ${videoId}: ${insErr.message}`);
+              } else {
+                inserted++;
+              }
+            }
+          }
+        } catch (err) {
+          console.error("[youtube] unexpected", err);
+          errors.push(`${regionCode}/${categoryName}: ${(err as Error).message}`);
+        }
+      }
+    }
+
+    return {
+      ok: true as const,
+      configured: true as const,
+      inserted,
+      updated,
+      errors: errors.slice(0, 5),
+    };
+  });
