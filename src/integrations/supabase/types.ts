@@ -115,6 +115,8 @@ export type Database = {
       }
       image_generations: {
         Row: {
+          character_id: string | null
+          character_name: string | null
           created_at: string
           final_resolution: string | null
           generated_resolution: string | null
@@ -129,6 +131,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          character_id?: string | null
+          character_name?: string | null
           created_at?: string
           final_resolution?: string | null
           generated_resolution?: string | null
@@ -143,6 +147,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          character_id?: string | null
+          character_name?: string | null
           created_at?: string
           final_resolution?: string | null
           generated_resolution?: string | null
@@ -156,7 +162,15 @@ export type Database = {
           upscale_level?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "image_generations_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_characters"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       images: {
         Row: {
