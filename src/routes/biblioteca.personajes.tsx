@@ -210,7 +210,7 @@ function PersonajesPage() {
       {query.isLoading ? (
         <LoadingState />
       ) : query.isError ? (
-        <ErrorState message={(query.error as Error)?.message ?? "Error"} />
+        <ErrorState description={(query.error as Error)?.message ?? "Error"} />
       ) : characters.length === 0 ? (
         <EmptyState label="personajes" />
       ) : (
