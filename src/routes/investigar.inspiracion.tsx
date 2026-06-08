@@ -139,7 +139,7 @@ function InspiracionPage() {
   const total = useMemo(() => Object.values(DATA).reduce((n, arr) => n + arr.length, 0), []);
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] space-y-6 p-6 lg:p-10">
+    <div className="mx-auto w-full max-w-[1800px] space-y-6 p-6 lg:p-10">
       <PageHeader
         title="Inspiración IA"
         subtitle="Guarda, organiza y explora ideas visuales para tu próximo contenido viral."
