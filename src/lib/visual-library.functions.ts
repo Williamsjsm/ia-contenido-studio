@@ -35,7 +35,7 @@ async function sign(path: string | null | undefined): Promise<string | null> {
 
 const UploadSchema = z.object({
   filename: z.string().min(1).max(200),
-  contentType: z.string().min(1).max(100),
+  contentType: z.enum(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]),
   // base64 (sin prefijo data:)
   base64: z.string().min(1).max(15_000_000),
   scope: z.enum(["reference", "character"]).default("reference"),
