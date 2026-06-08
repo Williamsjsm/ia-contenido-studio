@@ -287,6 +287,79 @@ function ImagenIA() {
               <Info className="mt-0.5 h-3 w-3 shrink-0" />
               <span>La resolución final puede utilizar upscaling IA dependiendo de las capacidades del proveedor.</span>
             </div>
+
+            <div className="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Generar usando personaje
+                </Label>
+                <Switch
+                  checked={useCharacter}
+                  onCheckedChange={(v) => setUseCharacter(Boolean(v))}
+                  disabled={status === "loading"}
+                />
+              </div>
+              {useCharacter && (
+                <>
+                  <Select
+                    value={selectedCharacterId}
+                    onValueChange={setSelectedCharacterId}
+                    disabled={
+                      status === "loading" ||
+                      charactersQuery.isLoading ||
+                      characters.length === 0
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          charactersQuery.isLoading
+                            ? "Cargando..."
+                            : characters.length === 0
+                              ? "Sin personajes — créalos en Biblioteca"
+                              : "Selecciona un personaje"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {characters.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedCharacter && (
+                    <div className="flex gap-2 rounded-md border border-border/60 bg-card p-2">
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted/40">
+                        {selectedCharacter.reference_image_url ? (
+                          <img
+                            src={selectedCharacter.reference_image_url}
+                            alt={selectedCharacter.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Users className="h-5 w-5 text-muted-foreground/60" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <p className="truncate text-xs font-medium">
+                          {selectedCharacter.name}
+                        </p>
+                        {selectedCharacter.description && (
+                          <p className="line-clamp-2 text-[10px] text-muted-foreground">
+                            {selectedCharacter.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
             <Button
               className="w-full bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
               onClick={handleGenerate}
