@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireAccess } from "./access-control.functions";
 
 const InputSchema = z.object({
   idea: z.string().trim().min(1, "Describe tu idea o concepto base.").max(800),
@@ -82,6 +83,7 @@ export const hasGeneratorConfigured = createServerFn({ method: "GET" }).handler(
 );
 
 export const generatePrompt = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }): Promise<GeneratePromptResult> => {
     const provider = resolveProvider();
