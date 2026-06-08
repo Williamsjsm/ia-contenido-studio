@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -1233,8 +1233,9 @@ function RecreateDialog({
     onError: (err: unknown) => toast.error((err as Error)?.message ?? "Error"),
   });
 
-  // Auto-generate when opened, only if no result yet for this trend
-  if (open && !result && !mut.isPending && !mut.isError) {
+  useEffect(() => {
+    if (!open) return;
+    if (result || mut.isPending || mut.isError) return;
     mut.mutate({
       data: {
         trend_id: trend.id,
@@ -1251,7 +1252,8 @@ function RecreateDialog({
         published_at: trend.published_at ?? undefined,
       },
     });
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const handleOpenChange = (v: boolean) => {
     onOpenChange(v);
