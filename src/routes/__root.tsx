@@ -155,13 +155,17 @@ function AccessGate() {
 
   useEffect(() => {
     if (isLoading) return;
+    if (authed && isAcceso) {
+      void navigate({ to: "/", replace: true });
+      return;
+    }
     if (!authed && !isAcceso) {
       void navigate({ to: "/acceso", replace: true });
     }
   }, [authed, isAcceso, isLoading, navigate]);
 
   // Página de acceso: render sin shell (ni sidebar ni topbar).
-  if (isAcceso) {
+  if (isAcceso && !authed) {
     return (
       <div className="dark min-h-screen w-full bg-background text-foreground">
         <Outlet />

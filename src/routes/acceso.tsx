@@ -50,7 +50,7 @@ function AccesoPage() {
       storeAccessSessionToken(res.sessionToken);
       qc.setQueryData(["access", "status"], { authenticated: true });
       toast.success("Acceso concedido.");
-      await navigate({ to: "/", replace: true });
+      window.location.replace("/");
     },
     onError: (err) => {
       console.error("login error", err);
