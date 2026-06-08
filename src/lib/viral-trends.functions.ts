@@ -422,7 +422,7 @@ export const fetchYouTubeTrends = createServerFn({ method: "POST" })
               platform: "YouTube",
               country: REGION_TO_COUNTRY[regionCode] ?? countryName,
               category: inferredCategory,
-              viral_score: viralScoreFromViews(views),
+              viral_score: viralScoreYouTube({ views, likes, publishedAt: sn.publishedAt }),
               keywords: (sn.tags ?? []).slice(0, 8).join(", ") || null,
               source: "youtube_api",
               source_type: "youtube_api",
