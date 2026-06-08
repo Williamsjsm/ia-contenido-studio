@@ -452,6 +452,15 @@ function ImagenIA() {
                     loading="lazy"
                     className="h-full w-full object-cover transition-transform group-hover:scale-105"
                   />
+                  {it.character_name && (
+                    <Badge
+                      variant="secondary"
+                      className="absolute bottom-1 left-1 max-w-[90%] truncate px-1.5 py-0 text-[9px]"
+                    >
+                      <Users className="mr-0.5 h-2.5 w-2.5" />
+                      {it.character_name}
+                    </Badge>
+                  )}
                 </button>
               ))}
             </div>
