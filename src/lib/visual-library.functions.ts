@@ -10,6 +10,19 @@ function ownerId(): string {
 const BUCKET = "visual-references";
 const SIGNED_TTL = 60 * 60 * 24 * 7; // 7 días
 
+/**
+ * Defensa en profundidad: garantiza que cualquier path recibido del cliente
+ * pertenece al owner actual. Bloquea IDOR aunque el cliente envíe paths
+ * arbitrarios a createSignedUrl / remove / update.
+ */
+function assertOwnedPath(path: string | null | undefined, owner: string): void {
+  if (!path) return;
+  const normalized = path.replace(/^\/+/, "");
+  if (normalized.includes("..") || !normalized.startsWith(`${owner}/`)) {
+    throw new Error("Forbidden: path no pertenece al usuario");
+  }
+}
+
 async function sign(path: string | null | undefined): Promise<string | null> {
   if (!path) return null;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
