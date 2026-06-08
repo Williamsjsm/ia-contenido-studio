@@ -161,6 +161,37 @@ export const generateImage = createServerFn({ method: "POST" })
     }
     const mime = "image/png";
 
+    // Compute final resolution metadata. The provider returns the generated
+    // size as requested (data.resolution). Upscaling, if any, is applied
+    // client-side; we only record the chosen targets here.
+    const generatedResolution = data.resolution;
+    const [genW, genH] = generatedResolution.split("x").map((n) => parseInt(n, 10));
+    const aspect = genW / genH;
+    const finalLong = parseInt(data.finalResolution, 10);
+    // Pick final size: scale longest side to finalLong, keep aspect.
+    let finalW: number;
+    let finalH: number;
+    if (genW >= genH) {
+      finalW = Math.max(genW, finalLong);
+      finalH = Math.round(finalW / aspect);
+    } else {
+      finalH = Math.max(genH, finalLong);
+      finalW = Math.round(finalH * aspect);
+    }
+    // Upscale level can further override final size.
+    const upscaleMap: Record<string, number> = { none: 0, "2k": 2048, "4k": 3840, "8k": 7680, "12k": 12288 };
+    const upscaleLong = upscaleMap[data.upscaleLevel] ?? 0;
+    if (upscaleLong > Math.max(finalW, finalH)) {
+      if (genW >= genH) {
+        finalW = upscaleLong;
+        finalH = Math.round(finalW / aspect);
+      } else {
+        finalH = upscaleLong;
+        finalW = Math.round(finalH * aspect);
+      }
+    }
+    const finalResolution = `${finalW}x${finalH}`;
+
     // Persistir en historial
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = resolveOwnerId();
@@ -173,6 +204,9 @@ export const generateImage = createServerFn({ method: "POST" })
         model: provider.model,
         resolution: data.resolution,
         image_base64: b64,
+        generated_resolution: generatedResolution,
+        final_resolution: finalResolution,
+        upscale_level: data.upscaleLevel,
       })
       .select("id")
       .single();
@@ -188,6 +222,9 @@ export const generateImage = createServerFn({ method: "POST" })
       provider: data.provider,
       model: provider.model,
       resolution: data.resolution,
+      generated_resolution: generatedResolution,
+      final_resolution: finalResolution,
+      upscale_level: data.upscaleLevel,
       image_base64: b64,
       mime_type: mime,
       prompt: data.prompt,
@@ -201,7 +238,7 @@ export const listImageGenerations = createServerFn({ method: "GET" })
     const owner = resolveOwnerId();
     const { data, error } = await supabaseAdmin
       .from("image_generations")
-      .select("id, prompt, provider, model, resolution, image_base64, created_at")
+      .select("id, prompt, provider, model, resolution, image_base64, created_at, generated_resolution, final_resolution, upscale_level")
       .eq("user_id", owner)
       .order("created_at", { ascending: false })
       .limit(24);
