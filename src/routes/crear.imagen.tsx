@@ -227,9 +227,9 @@ function ImagenIA() {
 
   return (
     <>
-    <div className="mx-auto w-full max-w-7xl space-y-6 p-6 lg:p-10">
+    <div className="mx-auto w-full max-w-[1800px] space-y-6 p-6 lg:p-10">
       <PageHeader title="Imagen IA" subtitle="Genera imágenes reales con Gemini Imagen o OpenAI Images." />
-      <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr]">
         <Card className="border-border/60 bg-card">
           <CardHeader><CardTitle className="text-base">Configuración</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -415,7 +415,7 @@ function ImagenIA() {
             ) : imageData ? (
               <div className="flex flex-1 flex-col gap-4">
                 <div className="flex flex-1 items-center justify-center overflow-hidden rounded-md bg-muted/30">
-                  <img src={upscaledImage ?? imageData} alt={lastPrompt} className="max-h-[60vh] max-w-full object-contain" />
+                  <img src={upscaledImage ?? imageData} alt={lastPrompt} className="max-h-[78vh] max-w-full object-contain" />
                 </div>
                 <div className="flex flex-wrap gap-3 text-xs">
                   <span className="rounded-md border border-border/40 bg-muted/40 px-2 py-1">

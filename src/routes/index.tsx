@@ -148,7 +148,7 @@ function Index() {
   const isEmpty = !error && !!data && data.total === 0;
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] space-y-8 p-5 sm:p-8 lg:space-y-10 xl:p-12">
+    <div className="mx-auto w-full max-w-[1800px] space-y-8 p-5 sm:p-8 lg:space-y-10 xl:p-12">
       <PageHeader
         title="Bienvenido de nuevo"
         subtitle="Resumen de tu actividad y atajos a tu estudio creativo."

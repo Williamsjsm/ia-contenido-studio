@@ -360,7 +360,7 @@ function FlowCenter() {
 
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] space-y-6 p-4 lg:p-8">
+    <div className="mx-auto w-full max-w-[1800px] space-y-6 p-4 lg:p-8">
       <PageHeader
         title="Flow Center"
         subtitle="Estudio cinematográfico para generar, extender y refinar tus videos con IA."

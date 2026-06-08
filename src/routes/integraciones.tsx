@@ -208,7 +208,7 @@ function CentroIntegraciones() {
 
   return (
     <TooltipProvider delayDuration={150}>
-      <div className="mx-auto w-full max-w-7xl space-y-8 p-6 lg:p-10">
+      <div className="mx-auto w-full max-w-[1800px] space-y-8 p-6 lg:p-10">
         <PageHeader
           title="Centro de Integraciones"
           subtitle="Centraliza todas las herramientas externas de tu ecosistema creativo en un solo panel."

@@ -199,7 +199,7 @@ function TrendsCenter() {
   }, [platform, category]);
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] space-y-6 p-6 lg:p-10">
+    <div className="mx-auto w-full max-w-[1800px] space-y-6 p-6 lg:p-10">
       <PageHeader
         title="Centro de Tendencias IA"
         subtitle="Descubre contenido viral y oportunidades de creación para TikTok, YouTube, Facebook e Instagram."

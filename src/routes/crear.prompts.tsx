@@ -327,7 +327,7 @@ function PromptsGenerator() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 p-6 lg:p-10">
+    <div className="mx-auto w-full max-w-[1800px] space-y-6 p-6 lg:p-10">
       <PageHeader
         title="Generador de Prompts"
         subtitle="Crea prompts optimizados por categoría, plataforma y estilo, conectado a OpenAI."

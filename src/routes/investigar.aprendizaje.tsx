@@ -97,7 +97,7 @@ function Aprendizaje() {
   const [tab, setTab] = useState("resumen");
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] space-y-6 p-6 lg:p-10">
+    <div className="mx-auto w-full max-w-[1800px] space-y-6 p-6 lg:p-10">
       <PageHeader
         title="Aprendizaje Inteligente"
         subtitle="Convierte tus datos, proyectos y tendencias en recomendaciones accionables."
