@@ -227,9 +227,9 @@ function ImagenIA() {
 
   return (
     <>
-    <div className="mx-auto w-full max-w-7xl space-y-6 p-6 lg:p-10">
+    <div className="mx-auto w-full max-w-[1800px] space-y-6 p-6 lg:p-10">
       <PageHeader title="Imagen IA" subtitle="Genera imágenes reales con Gemini Imagen o OpenAI Images." />
-      <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr]">
         <Card className="border-border/60 bg-card">
           <CardHeader><CardTitle className="text-base">Configuración</CardTitle></CardHeader>
           <CardContent className="space-y-4">
