@@ -17,6 +17,9 @@ const InputSchema = z.object({
   resolution: z.enum(["1024x1024", "1792x1024", "1024x1792"]).default("1024x1024"),
   finalResolution: FinalResEnum.default("1024"),
   upscaleLevel: UpscaleEnum.default("none"),
+  characterId: z.string().uuid().optional().nullable(),
+  characterName: z.string().trim().max(120).optional().nullable(),
+  characterPromptInjection: z.string().trim().max(20_000).optional().nullable(),
 });
 
 export type GenerateImageInput = z.input<typeof InputSchema>;
@@ -99,18 +102,22 @@ export const generateImage = createServerFn({ method: "POST" })
       headers["Authorization"] = `Bearer ${provider.apiKey}`;
     }
 
+    const effectivePrompt = data.characterPromptInjection
+      ? `${data.prompt}\n\n[Identidad visual a mantener — ${data.characterName ?? "personaje"}]:\n${data.characterPromptInjection}`
+      : data.prompt;
+
     let body: Record<string, unknown>;
     if (provider.kind === "gemini") {
       // Lovable Gateway requires chat-completions image shape for Gemini image models.
       body = {
         model: provider.model,
-        messages: [{ role: "user", content: data.prompt }],
+        messages: [{ role: "user", content: effectivePrompt }],
         modalities: ["image", "text"],
       };
     } else {
       body = {
         model: provider.model,
-        prompt: data.prompt,
+        prompt: effectivePrompt,
         size: data.resolution,
         n: 1,
         quality: "low",
@@ -199,7 +206,7 @@ export const generateImage = createServerFn({ method: "POST" })
       .from("image_generations")
       .insert({
         user_id: owner,
-        prompt: data.prompt,
+        prompt: effectivePrompt,
         provider: data.provider,
         model: provider.model,
         resolution: data.resolution,
@@ -207,6 +214,8 @@ export const generateImage = createServerFn({ method: "POST" })
         generated_resolution: generatedResolution,
         final_resolution: finalResolution,
         upscale_level: data.upscaleLevel,
+        character_id: data.characterId ?? null,
+        character_name: data.characterName ?? null,
       })
       .select("id")
       .single();
@@ -227,7 +236,7 @@ export const generateImage = createServerFn({ method: "POST" })
       upscale_level: data.upscaleLevel,
       image_base64: b64,
       mime_type: mime,
-      prompt: data.prompt,
+      prompt: effectivePrompt,
     };
   });
 
@@ -238,7 +247,7 @@ export const listImageGenerations = createServerFn({ method: "GET" })
     const owner = resolveOwnerId();
     const { data, error } = await supabaseAdmin
       .from("image_generations")
-      .select("id, prompt, provider, model, resolution, image_base64, created_at, generated_resolution, final_resolution, upscale_level")
+      .select("id, prompt, provider, model, resolution, image_base64, created_at, generated_resolution, final_resolution, upscale_level, character_id, character_name")
       .eq("user_id", owner)
       .order("created_at", { ascending: false })
       .limit(24);

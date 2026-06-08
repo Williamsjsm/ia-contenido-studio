@@ -8,6 +8,19 @@ const InputSchema = z.object({
   idioma: z.string().trim().min(1).max(20).default("es"),
   duracion: z.string().trim().min(1).max(20).default("8"),
   plataforma: z.string().trim().min(1).max(40).default("youtube"),
+  character: z
+    .object({
+      name: z.string().trim().max(120),
+      description: z.string().trim().max(2000).optional().nullable(),
+      master_prompt: z.string().trim().max(20_000).optional().nullable(),
+      tags: z.array(z.string()).max(20).optional().default([]),
+    })
+    .optional()
+    .nullable(),
+  mode: z
+    .enum(["text_only", "keep_character", "keep_style", "keep_character_style"])
+    .optional()
+    .default("text_only"),
 });
 
 export type GeneratePromptInput = z.input<typeof InputSchema>;
@@ -96,15 +109,45 @@ export const generatePrompt = createServerFn({ method: "POST" })
       };
     }
 
-    const userPrompt = [
+    const lines = [
       `Idea / prompt base del usuario: ${data.idea}`,
       `Tipo de prompt: ${data.tipo}`,
       `Idioma de salida: ${data.idioma}`,
       `Duración objetivo: ${data.duracion} segundos`,
       `Plataforma objetivo principal: ${data.plataforma}`,
+    ];
+
+    if (data.character && data.mode !== "text_only") {
+      const c = data.character;
+      const keepChar =
+        data.mode === "keep_character" || data.mode === "keep_character_style";
+      const keepStyle =
+        data.mode === "keep_style" || data.mode === "keep_character_style";
+      lines.push("");
+      lines.push("=== PERSONAJE VIRTUAL A MANTENER ===");
+      lines.push(`Nombre: ${c.name}`);
+      if (c.description) lines.push(`Descripción: ${c.description}`);
+      if (c.tags?.length) lines.push(`Tags: ${c.tags.join(", ")}`);
+      if (c.master_prompt) lines.push(`Identidad visual (master prompt): ${c.master_prompt}`);
+      lines.push("");
+      lines.push(
+        "Reglas obligatorias para este personaje:",
+        keepChar
+          ? "- Mantén SIEMPRE la misma identidad: rostro, rasgos físicos, edad, etnia, color/estilo de pelo, ojos y vestimenta clave. No cambies su apariencia."
+          : "",
+        keepStyle
+          ? "- Mantén el mismo estilo fotográfico/visual: lente, iluminación, paleta de color, ambiente y tratamiento."
+          : "",
+        "- Integra al personaje en la idea del usuario sin contradecir su identidad.",
+        "- Si la idea del usuario es genérica, incorpora al personaje como sujeto principal.",
+      );
+    }
+
+    lines.push(
       "",
       "Genera las 5 variantes en JSON estricto, cada una claramente diferenciada.",
-    ].join("\n");
+    );
+    const userPrompt = lines.filter(Boolean).join("\n");
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30_000);

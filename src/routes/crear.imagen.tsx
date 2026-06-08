@@ -3,17 +3,27 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info, Users } from "lucide-react";
 import { generateImage, listImageGenerations } from "@/lib/image-generation.functions";
+import { listVirtualCharacters, type VirtualCharacter } from "@/lib/visual-library.functions";
+
+const searchSchema = z.object({
+  personajeId: fallback(z.string(), "").default(""),
+});
 
 export const Route = createFileRoute("/crear/imagen")({
   head: () => ({ meta: [{ title: "Imagen IA — AI Content Studio" }] }),
+  validateSearch: zodValidator(searchSchema),
   component: ImagenIA,
 });
 
@@ -67,6 +77,8 @@ function ImagenIA() {
   const qc = useQueryClient();
   const generate = useServerFn(generateImage);
   const listFn = useServerFn(listImageGenerations);
+  const listCharactersFn = useServerFn(listVirtualCharacters);
+  const search = Route.useSearch();
 
   const [prompt, setPrompt] = useState("");
   const [provider, setProvider] = useState<Provider>("gemini");
@@ -81,6 +93,22 @@ function ImagenIA() {
   const [upscaledImage, setUpscaledImage] = useState<string | null>(null);
   const [upscaling, setUpscaling] = useState(false);
   const [lastPrompt, setLastPrompt] = useState<string>("");
+  const [useCharacter, setUseCharacter] = useState(false);
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string>("");
+
+  const charactersQuery = useQuery({
+    queryKey: ["library", "characters"],
+    queryFn: () => listCharactersFn(),
+  });
+  const characters: VirtualCharacter[] = charactersQuery.data ?? [];
+  const selectedCharacter =
+    characters.find((c) => c.id === selectedCharacterId) ?? null;
+
+  useEffect(() => {
+    if (!search.personajeId) return;
+    setUseCharacter(true);
+    setSelectedCharacterId(search.personajeId);
+  }, [search.personajeId]);
 
   const history = useQuery({
     queryKey: ["image-generations"],
@@ -98,8 +126,27 @@ function ImagenIA() {
     setImageData(null);
     setUpscaledImage(null);
     try {
+      const character = useCharacter && selectedCharacter ? selectedCharacter : null;
+      const characterInjection = character
+        ? [
+            character.master_prompt,
+            character.description ? `Descripción: ${character.description}` : "",
+            character.tags?.length ? `Tags: ${character.tags.join(", ")}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n")
+        : null;
       const res = await generate({
-        data: { prompt: trimmed, provider, resolution, finalResolution: finalRes, upscaleLevel: upscale },
+        data: {
+          prompt: trimmed,
+          provider,
+          resolution,
+          finalResolution: finalRes,
+          upscaleLevel: upscale,
+          characterId: character?.id ?? null,
+          characterName: character?.name ?? null,
+          characterPromptInjection: characterInjection,
+        },
       });
       if (!res.ok) {
         setStatus("error");
@@ -240,6 +287,79 @@ function ImagenIA() {
               <Info className="mt-0.5 h-3 w-3 shrink-0" />
               <span>La resolución final puede utilizar upscaling IA dependiendo de las capacidades del proveedor.</span>
             </div>
+
+            <div className="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Generar usando personaje
+                </Label>
+                <Switch
+                  checked={useCharacter}
+                  onCheckedChange={(v) => setUseCharacter(Boolean(v))}
+                  disabled={status === "loading"}
+                />
+              </div>
+              {useCharacter && (
+                <>
+                  <Select
+                    value={selectedCharacterId}
+                    onValueChange={setSelectedCharacterId}
+                    disabled={
+                      status === "loading" ||
+                      charactersQuery.isLoading ||
+                      characters.length === 0
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          charactersQuery.isLoading
+                            ? "Cargando..."
+                            : characters.length === 0
+                              ? "Sin personajes — créalos en Biblioteca"
+                              : "Selecciona un personaje"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {characters.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedCharacter && (
+                    <div className="flex gap-2 rounded-md border border-border/60 bg-card p-2">
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted/40">
+                        {selectedCharacter.reference_image_url ? (
+                          <img
+                            src={selectedCharacter.reference_image_url}
+                            alt={selectedCharacter.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Users className="h-5 w-5 text-muted-foreground/60" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <p className="truncate text-xs font-medium">
+                          {selectedCharacter.name}
+                        </p>
+                        {selectedCharacter.description && (
+                          <p className="line-clamp-2 text-[10px] text-muted-foreground">
+                            {selectedCharacter.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
             <Button
               className="w-full bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
               onClick={handleGenerate}
@@ -332,6 +452,15 @@ function ImagenIA() {
                     loading="lazy"
                     className="h-full w-full object-cover transition-transform group-hover:scale-105"
                   />
+                  {it.character_name && (
+                    <Badge
+                      variant="secondary"
+                      className="absolute bottom-1 left-1 max-w-[90%] truncate px-1.5 py-0 text-[9px]"
+                    >
+                      <Users className="mr-0.5 h-2.5 w-2.5" />
+                      {it.character_name}
+                    </Badge>
+                  )}
                 </button>
               ))}
             </div>

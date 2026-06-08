@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, Save, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library, AlertCircle, X } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { Copy, Save, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library, AlertCircle, X, Users } from "lucide-react";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { PageHeader } from "@/components/page-header";
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { ClientOnly, SelectTriggerSkeleton } from "@/components/ui/client-only";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   generatePrompt,
@@ -27,6 +28,10 @@ import {
   type GeneratePromptResult,
 } from "@/lib/generate-prompt.functions";
 import { savePrompt } from "@/lib/prompts.functions";
+import {
+  listVirtualCharacters,
+  type VirtualCharacter,
+} from "@/lib/visual-library.functions";
 
 const searchSchema = z.object({
   from: fallback(z.string(), "").default(""),
@@ -36,6 +41,7 @@ const searchSchema = z.object({
   categoria: fallback(z.string(), "").default(""),
   tags: fallback(z.string(), "").default(""),
   tipo: fallback(z.string(), "").default(""),
+  personajeId: fallback(z.string(), "").default(""),
 });
 
 export const Route = createFileRoute("/crear/prompts")({
@@ -74,6 +80,13 @@ const VARIANT_TABS: { key: VariantKey; label: string }[] = [
 
 type SuccessResult = Extract<GeneratePromptResult, { ok: true }>;
 
+type ReferenceMode = "none" | "reference" | "character";
+type CharacterMode =
+  | "text_only"
+  | "keep_character"
+  | "keep_style"
+  | "keep_character_style";
+
 const MAX_LEN = 20_000;
 
 function PromptsGenerator() {
@@ -92,6 +105,18 @@ function PromptsGenerator() {
   const [saving, setSaving] = useState(false);
   const [lastSavedSignature, setLastSavedSignature] = useState<string | null>(null);
   const [showTrendAlert, setShowTrendAlert] = useState(false);
+  const [referenceMode, setReferenceMode] = useState<ReferenceMode>("none");
+  const [characterMode, setCharacterMode] = useState<CharacterMode>("keep_character");
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string>("");
+
+  const listCharactersFn = useServerFn(listVirtualCharacters);
+  const charactersQuery = useQuery({
+    queryKey: ["library", "characters"],
+    queryFn: () => listCharactersFn(),
+  });
+  const characters: VirtualCharacter[] = charactersQuery.data ?? [];
+  const selectedCharacter =
+    characters.find((c) => c.id === selectedCharacterId) ?? null;
 
   // Prefill form from trend search params
   useEffect(() => {
@@ -138,6 +163,13 @@ function PromptsGenerator() {
     setShowTrendAlert(true);
   }, [search]);
 
+  // Preselect character coming from /biblioteca/personajes
+  useEffect(() => {
+    if (!search.personajeId) return;
+    setReferenceMode("character");
+    setSelectedCharacterId(search.personajeId);
+  }, [search.personajeId]);
+
   useEffect(() => {
     checkKey()
       .then((r) => setKeyConfigured(r.configured))
@@ -157,6 +189,8 @@ function PromptsGenerator() {
     setStatus("loading");
     setErrorMsg("");
     try {
+      const useCharacter =
+        referenceMode === "character" && !!selectedCharacter;
       const r = await runGenerate({
         data: {
           idea: [form.categoria, form.descripcion].filter((s) => s.trim()).join(" — "),
@@ -164,6 +198,15 @@ function PromptsGenerator() {
           idioma: form.idioma,
           duracion: form.duracion,
           plataforma: form.plataforma,
+          mode: useCharacter ? characterMode : "text_only",
+          character: useCharacter
+            ? {
+                name: selectedCharacter!.name,
+                description: selectedCharacter!.description,
+                master_prompt: selectedCharacter!.master_prompt,
+                tags: selectedCharacter!.tags ?? [],
+              }
+            : null,
         },
       });
       if (r.ok) {
@@ -391,6 +434,28 @@ function PromptsGenerator() {
               />
             </Field>
 
+            <ReferenceVisualSection
+              mode={referenceMode}
+              onModeChange={setReferenceMode}
+              characters={characters}
+              loadingCharacters={charactersQuery.isLoading}
+              selectedCharacterId={selectedCharacterId}
+              onCharacterChange={setSelectedCharacterId}
+              selectedCharacter={selectedCharacter}
+              characterMode={characterMode}
+              onCharacterModeChange={setCharacterMode}
+              disabled={status === "loading"}
+            />
+
+            {referenceMode === "character" && selectedCharacter && (
+              <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary">
+                <Users className="h-3.5 w-3.5" />
+                <span className="font-medium">
+                  Personaje aplicado: {selectedCharacter.name}
+                </span>
+              </div>
+            )}
+
             <Button
               className="w-full bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
               onClick={onGenerate}
@@ -461,6 +526,145 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div className="space-y-1.5">
       <Label className="text-xs uppercase tracking-wider text-muted-foreground">{label}</Label>
       {children}
+    </div>
+  );
+}
+
+function ReferenceVisualSection({
+  mode,
+  onModeChange,
+  characters,
+  loadingCharacters,
+  selectedCharacterId,
+  onCharacterChange,
+  selectedCharacter,
+  characterMode,
+  onCharacterModeChange,
+  disabled,
+}: {
+  mode: ReferenceMode;
+  onModeChange: (m: ReferenceMode) => void;
+  characters: VirtualCharacter[];
+  loadingCharacters: boolean;
+  selectedCharacterId: string;
+  onCharacterChange: (id: string) => void;
+  selectedCharacter: VirtualCharacter | null;
+  characterMode: CharacterMode;
+  onCharacterModeChange: (m: CharacterMode) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-3 rounded-lg border border-border/60 bg-muted/10 p-3">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+          Referencia visual
+        </Label>
+      </div>
+      <ClientOnly fallback={<SelectTriggerSkeleton />}>
+        <Select
+          value={mode}
+          onValueChange={(v) => onModeChange(v as ReferenceMode)}
+          disabled={disabled}
+        >
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sin referencia</SelectItem>
+            <SelectItem value="reference" disabled>
+              Referencia visual (próximamente)
+            </SelectItem>
+            <SelectItem value="character">Personaje virtual</SelectItem>
+          </SelectContent>
+        </Select>
+      </ClientOnly>
+
+      {mode === "character" && (
+        <div className="space-y-3">
+          <ClientOnly fallback={<SelectTriggerSkeleton />}>
+            <Select
+              value={selectedCharacterId}
+              onValueChange={onCharacterChange}
+              disabled={disabled || loadingCharacters || characters.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={
+                    loadingCharacters
+                      ? "Cargando personajes..."
+                      : characters.length === 0
+                        ? "No hay personajes — créalos en Biblioteca"
+                        : "Selecciona un personaje"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {characters.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </ClientOnly>
+
+          {selectedCharacter && (
+            <div className="flex gap-3 rounded-md border border-border/60 bg-card p-2">
+              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-md bg-muted/40">
+                {selectedCharacter.reference_image_url ? (
+                  <img
+                    src={selectedCharacter.reference_image_url}
+                    alt={selectedCharacter.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Users className="h-6 w-6 text-muted-foreground/60" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0 space-y-1">
+                <p className="truncate text-sm font-medium">{selectedCharacter.name}</p>
+                {selectedCharacter.description && (
+                  <p className="line-clamp-2 text-[11px] text-muted-foreground">
+                    {selectedCharacter.description}
+                  </p>
+                )}
+                {selectedCharacter.tags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {selectedCharacter.tags.slice(0, 4).map((t) => (
+                      <Badge key={t} variant="secondary" className="text-[10px]">
+                        {t}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Modo
+            </Label>
+            <ClientOnly fallback={<SelectTriggerSkeleton />}>
+              <Select
+                value={characterMode}
+                onValueChange={(v) => onCharacterModeChange(v as CharacterMode)}
+                disabled={disabled}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text_only">Solo texto (ignorar personaje)</SelectItem>
+                  <SelectItem value="keep_character">Mantener personaje</SelectItem>
+                  <SelectItem value="keep_style">Mantener estilo</SelectItem>
+                  <SelectItem value="keep_character_style">
+                    Mantener personaje + estilo
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </ClientOnly>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
