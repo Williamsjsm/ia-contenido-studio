@@ -9,11 +9,17 @@ const COOKIE_NAME = "app_session";
 const DEFAULT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
 
 function getSecret(): string {
-  const s = process.env.APP_SHARED_SECRET;
+  const s = process.env.APP_SHARED_SECRET?.trim();
   if (!s || s.length < 8) {
     throw new Error("APP_SHARED_SECRET no está configurado en el servidor.");
   }
   return s;
+}
+
+function logSecretDiagnostics(secret: string | undefined, input: string | undefined | null): void {
+  console.info("APP_SHARED_SECRET exists:", Boolean(secret));
+  console.info("APP_SHARED_SECRET length:", secret?.length ?? 0);
+  console.info("Access input length:", input?.length ?? 0);
 }
 
 function b64url(buf: Buffer): string {
@@ -56,14 +62,18 @@ export function verifySessionToken(token: string | undefined | null): boolean {
 }
 
 export function verifySharedSecret(input: string | undefined | null): boolean {
-  if (!input || typeof input !== "string") return false;
+  const trimmedInput = typeof input === "string" ? input.trim() : input;
+  const rawSecret = process.env.APP_SHARED_SECRET;
+  const trimmedSecret = rawSecret?.trim();
+  logSecretDiagnostics(trimmedSecret, trimmedInput);
+  if (!trimmedInput || typeof trimmedInput !== "string") return false;
   let secret: string;
   try {
     secret = getSecret();
   } catch {
     return false;
   }
-  const a = Buffer.from(input);
+  const a = Buffer.from(trimmedInput);
   const b = Buffer.from(secret);
   if (a.length !== b.length) return false;
   try {
