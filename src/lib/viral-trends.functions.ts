@@ -197,7 +197,7 @@ export const seedViralTrends = createServerFn({ method: "POST" })
     .select("id", { count: "exact", head: true })
     .eq("user_id", owner);
   if ((count ?? 0) > 0) return { ok: true as const, inserted: 0, skipped: count ?? 0 };
-  const rows = CURATED.map((c) => ({ ...c, user_id: owner }));
+  const rows = CURATED.map((c) => ({ ...c, user_id: owner, source_type: "curated" }));
   const { error } = await supabaseAdmin.from("viral_trends").insert(rows);
   if (error) {
     console.error("seedViralTrends failed:", error);
