@@ -52,10 +52,18 @@ export type ViralTrend = {
   thumbnail_url: string | null;
   created_at: string;
   updated_at: string;
+  url?: string | null;
+  video_id?: string | null;
+  embed_url?: string | null;
+  channel_title?: string | null;
+  views?: number | null;
+  likes?: number | null;
+  published_at?: string | null;
+  external_id?: string | null;
 };
 
 const SELECT_COLS =
-  "id, title, platform, country, category, viral_score, keywords, source, favorite, saved, thumbnail_url, created_at, updated_at";
+  "id, title, platform, country, category, viral_score, keywords, source, favorite, saved, thumbnail_url, created_at, updated_at, url, video_id, embed_url, channel_title, views, likes, published_at, external_id";
 
 const ListSchema = z.object({
   platform: z.string().trim().max(40).nullable().optional(),
