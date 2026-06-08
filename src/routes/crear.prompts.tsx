@@ -434,6 +434,28 @@ function PromptsGenerator() {
               />
             </Field>
 
+            <ReferenceVisualSection
+              mode={referenceMode}
+              onModeChange={setReferenceMode}
+              characters={characters}
+              loadingCharacters={charactersQuery.isLoading}
+              selectedCharacterId={selectedCharacterId}
+              onCharacterChange={setSelectedCharacterId}
+              selectedCharacter={selectedCharacter}
+              characterMode={characterMode}
+              onCharacterModeChange={setCharacterMode}
+              disabled={status === "loading"}
+            />
+
+            {referenceMode === "character" && selectedCharacter && (
+              <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary">
+                <Users className="h-3.5 w-3.5" />
+                <span className="font-medium">
+                  Personaje aplicado: {selectedCharacter.name}
+                </span>
+              </div>
+            )}
+
             <Button
               className="w-full bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
               onClick={onGenerate}
