@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { getAccessStatus, loginWithSecret } from "@/lib/access-control.functions";
+import { storeAccessSessionToken } from "@/lib/access-token-attacher";
 
 export const Route = createFileRoute("/acceso")({
   head: () => ({
@@ -44,8 +45,10 @@ function AccesoPage() {
         toast.error(res.message ?? "Acceso incorrecto.");
         return;
       }
+      storeAccessSessionToken(res.sessionToken);
       toast.success("Acceso concedido.");
       await qc.invalidateQueries({ queryKey: ["access", "status"] });
+      await statusFn();
       await navigate({ to: "/" });
     },
     onError: (err) => {
