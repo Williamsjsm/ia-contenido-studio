@@ -867,6 +867,24 @@ function ViralRadar({
             {category ? ` · ${category}` : ""}
           </span>
         </div>
+        <div className="flex items-center gap-1 rounded-md border border-border/60 bg-background/40 p-0.5">
+          <Button
+            size="sm"
+            variant={sourceMode === "all" ? "default" : "ghost"}
+            className="h-7 px-2.5 text-[11px]"
+            onClick={() => setSourceMode("all")}
+          >
+            Todas
+          </Button>
+          <Button
+            size="sm"
+            variant={sourceMode === "youtube_real" ? "default" : "ghost"}
+            className="h-7 gap-1 px-2.5 text-[11px]"
+            onClick={() => setSourceMode("youtube_real")}
+          >
+            <Play className="h-3 w-3" /> YouTube Real
+          </Button>
+        </div>
         <Button
           size="sm"
           variant={savedOnly ? "default" : "outline"}
@@ -883,6 +901,21 @@ function ViralRadar({
         >
           <Heart className="h-3.5 w-3.5" /> Favoritas
         </Button>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Orden</span>
+          <Select value={orderBy} onValueChange={(v) => setOrderBy(v as typeof orderBy)}>
+            <SelectTrigger className="h-8 w-[140px] border-border/60 bg-background/40 text-[11.5px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="viral_score">Viral score</SelectItem>
+              <SelectItem value="views">Vistas</SelectItem>
+              <SelectItem value="likes">Likes</SelectItem>
+              <SelectItem value="published_at">Fecha publicación</SelectItem>
+              <SelectItem value="created_at">Detectada</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <Button
           size="sm"
           variant="outline"
@@ -961,9 +994,72 @@ function ViralRadar({
         </Button>
       </div>
 
-      <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-[11px] text-muted-foreground">
-        Mostrando catálogo curado de Radar Viral. Las fuentes externas en tiempo real se
-        conectarán cuando el conector correspondiente esté disponible.
+      {/* YouTube real search bar */}
+      <div className="surface-card flex flex-wrap items-center gap-2 p-3">
+        <Search className="h-3.5 w-3.5 text-primary" />
+        <span className="text-[10.5px] uppercase tracking-wider text-muted-foreground">YouTube Search</span>
+        <Input
+          placeholder="Buscar por keyword en YouTube (ej. minecraft animal)"
+          value={keywordInput}
+          onChange={(e) => setKeywordInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && keywordInput.trim() && !searchMut.isPending) {
+              searchMut.mutate({
+                data: {
+                  keyword: keywordInput.trim(),
+                  country: country ?? undefined,
+                  category: category ?? undefined,
+                  duration,
+                  order: "viewCount",
+                },
+              });
+            }
+          }}
+          className="h-8 flex-1 min-w-[200px] text-[12px]"
+        />
+        <Select value={duration} onValueChange={(v) => setDuration(v as typeof duration)}>
+          <SelectTrigger className="h-8 w-[120px] border-border/60 bg-background/40 text-[11.5px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">Cualquier duración</SelectItem>
+            <SelectItem value="short">Shorts (&lt;4m)</SelectItem>
+            <SelectItem value="medium">Medios (4–20m)</SelectItem>
+            <SelectItem value="long">Largos (&gt;20m)</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          size="sm"
+          className="gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+          disabled={!keywordInput.trim() || searchMut.isPending}
+          onClick={() =>
+            searchMut.mutate({
+              data: {
+                keyword: keywordInput.trim(),
+                country: country ?? undefined,
+                category: category ?? undefined,
+                duration,
+                order: "viewCount",
+              },
+            })
+          }
+        >
+          {searchMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+          Buscar en YouTube
+        </Button>
+        {keywordFilter && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 gap-1 text-[11px]"
+            onClick={() => {
+              setKeywordFilter("");
+              setKeywordInput("");
+            }}
+          >
+            Limpiar filtro: "{keywordFilter}"
+          </Button>
+        )}
       </div>
 
       {trendsQuery.isLoading ? (
