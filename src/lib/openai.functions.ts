@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireAccess } from "./access-control.functions";
 
 const InputSchema = z.object({
   categoria: z.string().trim().min(1).max(120),
@@ -50,6 +51,7 @@ Devuelves SIEMPRE un objeto JSON con exactamente esta forma:
 Sin texto fuera del JSON. Sin markdown.`;
 
 export const generatePrompt = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }): Promise<GeneratePromptResult> => {
     const apiKey = process.env.OPENAI_API_KEY;

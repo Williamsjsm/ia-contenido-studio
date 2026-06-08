@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireAccess } from "./access-control.functions";
 
 /**
  * Modo single-owner temporal.
@@ -42,6 +43,7 @@ export type SavePromptResult =
   | { ok: false; error: "validation" | "db_error"; message: string };
 
 export const savePrompt = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => SavePromptSchema.parse(input))
   .handler(async ({ data }): Promise<SavePromptResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -129,8 +131,9 @@ export type StoredPrompt = {
   kling_prompt: string | null;
 };
 
-export const listPrompts = createServerFn({ method: "GET" }).handler(
-  async (): Promise<StoredPrompt[]> => {
+export const listPrompts = createServerFn({ method: "GET" })
+  .middleware([requireAccess])
+  .handler(async (): Promise<StoredPrompt[]> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = resolveOwnerId();
 
@@ -148,12 +151,12 @@ export const listPrompts = createServerFn({ method: "GET" }).handler(
       throw new Error(error.message);
     }
     return (data ?? []) as StoredPrompt[];
-  },
-);
+  });
 
 const IdSchema = z.object({ id: z.string().uuid() });
 
 export const deletePrompt = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => IdSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -171,6 +174,7 @@ export const deletePrompt = createServerFn({ method: "POST" })
   });
 
 export const toggleFavoritePrompt = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) =>
     z.object({ id: z.string().uuid(), is_favorite: z.boolean() }).parse(input),
   )
@@ -197,6 +201,7 @@ const UpdateSchema = z.object({
 });
 
 export const updatePromptMeta = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => UpdateSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -219,6 +224,7 @@ export const updatePromptMeta = createServerFn({ method: "POST" })
   });
 
 export const duplicatePrompt = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => IdSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

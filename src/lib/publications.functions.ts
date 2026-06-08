@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireAccess } from "./access-control.functions";
 
 /**
  * TODO(auth): modo single-owner temporal con supabaseAdmin + OWNER_USER_ID.
@@ -64,6 +65,7 @@ const SELECT_COLS =
   "id, title, description, hashtags, platform, category, source_prompt_id, source_flow_job_id, status, created_at, updated_at";
 
 export const savePublicationProject = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => SaveSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -90,8 +92,9 @@ export const savePublicationProject = createServerFn({ method: "POST" })
     return { ok: true as const, project: inserted as PublicationProject };
   });
 
-export const listPublicationProjects = createServerFn({ method: "GET" }).handler(
-  async (): Promise<PublicationProject[]> => {
+export const listPublicationProjects = createServerFn({ method: "GET" })
+  .middleware([requireAccess])
+  .handler(async (): Promise<PublicationProject[]> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = resolveOwnerId();
     const { data, error } = await supabaseAdmin
@@ -105,13 +108,13 @@ export const listPublicationProjects = createServerFn({ method: "GET" }).handler
       throw new Error(error.message);
     }
     return (data ?? []) as PublicationProject[];
-  },
-);
+  });
 
 const IdSchema = z.object({ id: z.string().uuid() });
 const UpdateSchema = SaveSchema.partial().extend({ id: z.string().uuid() });
 
 export const updatePublicationProject = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => UpdateSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -135,6 +138,7 @@ export const updatePublicationProject = createServerFn({ method: "POST" })
   });
 
 export const deletePublicationProject = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => IdSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -152,6 +156,7 @@ export const deletePublicationProject = createServerFn({ method: "POST" })
   });
 
 export const duplicatePublicationProject = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => IdSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -257,6 +262,7 @@ Reglas:
 - Sin markdown, sin comentarios, sin texto fuera del JSON.`;
 
 export const generatePublicationPackage = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => GenInputSchema.parse(input))
   .handler(async ({ data }): Promise<GeneratePackageResult> => {
     const provider = resolveProvider();
@@ -396,8 +402,9 @@ export type PublicationStats = {
   byPlatform: { name: string; count: number }[];
 };
 
-export const getPublicationStats = createServerFn({ method: "GET" }).handler(
-  async (): Promise<PublicationStats> => {
+export const getPublicationStats = createServerFn({ method: "GET" })
+  .middleware([requireAccess])
+  .handler(async (): Promise<PublicationStats> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = resolveOwnerId();
     const { data, error } = await withTimeout(
@@ -427,5 +434,4 @@ export const getPublicationStats = createServerFn({ method: "GET" }).handler(
         .map(([name, count]) => ({ name, count }))
         .sort((a, b) => b.count - a.count),
     };
-  },
-);
+  });

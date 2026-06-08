@@ -4,9 +4,13 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
+  useNavigate,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
@@ -15,6 +19,8 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { TopBar } from "@/components/top-bar";
 import { Toaster } from "@/components/ui/sonner";
+import { getAccessStatus } from "@/lib/access-control.functions";
+import { Loader2 } from "lucide-react";
 
 function NotFoundComponent() {
   return (
@@ -122,18 +128,63 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SidebarProvider>
-        <div className="flex min-h-screen w-full bg-background text-foreground dark">
-          <AppSidebar />
-          <div className="flex flex-1 flex-col">
-            <TopBar />
-            <main className="flex-1">
-              <Outlet />
-            </main>
-          </div>
-        </div>
-        <Toaster />
-      </SidebarProvider>
+      <AccessGate />
     </QueryClientProvider>
+  );
+}
+
+function AccessGate() {
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const statusFn = useServerFn(getAccessStatus);
+  const { data, isLoading } = useQuery({
+    queryKey: ["access", "status"],
+    queryFn: () => statusFn(),
+    staleTime: 10_000,
+    retry: false,
+  });
+
+  const isAcceso = pathname === "/acceso";
+  const authed = data?.authenticated === true;
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!authed && !isAcceso) {
+      void navigate({ to: "/acceso", replace: true });
+    }
+  }, [authed, isAcceso, isLoading, navigate]);
+
+  // Página de acceso: render sin shell (ni sidebar ni topbar).
+  if (isAcceso) {
+    return (
+      <div className="dark min-h-screen w-full bg-background text-foreground">
+        <Outlet />
+        <Toaster />
+      </div>
+    );
+  }
+
+  // Mientras se resuelve / redirige, evitar parpadeo del shell.
+  if (isLoading || !authed) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-background text-foreground dark">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full bg-background text-foreground dark">
+        <AppSidebar />
+        <div className="flex flex-1 flex-col">
+          <TopBar />
+          <main className="flex-1">
+            <Outlet />
+          </main>
+        </div>
+      </div>
+      <Toaster />
+    </SidebarProvider>
   );
 }

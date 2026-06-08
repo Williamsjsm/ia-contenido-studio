@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireAccess } from "./access-control.functions";
 
 /**
  * Modo single-owner temporal.
@@ -52,8 +53,9 @@ function topOf(values: (string | null)[]): { name: string; count: number } | nul
   return best;
 }
 
-export const getDashboardStats = createServerFn({ method: "GET" }).handler(
-  async (): Promise<DashboardStats> => {
+export const getDashboardStats = createServerFn({ method: "GET" })
+  .middleware([requireAccess])
+  .handler(async (): Promise<DashboardStats> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = resolveOwnerId();
 
@@ -94,5 +96,4 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(
     };
 
     return DashboardStatsSchema.parse(stats);
-  },
-);
+  });

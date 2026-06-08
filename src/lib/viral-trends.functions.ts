@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireAccess } from "./access-control.functions";
 
 /**
  * TODO(auth): mientras no exista auth real usamos OWNER_USER_ID
@@ -66,6 +67,7 @@ const ListSchema = z.object({
 });
 
 export const listViralTrends = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => ListSchema.parse(input ?? {}))
   .handler(async ({ data }): Promise<ViralTrend[]> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -93,6 +95,7 @@ export const listViralTrends = createServerFn({ method: "POST" })
 const IdSchema = z.object({ id: z.string().uuid() });
 
 export const toggleFavoriteTrend = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => IdSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -115,6 +118,7 @@ export const toggleFavoriteTrend = createServerFn({ method: "POST" })
   });
 
 export const toggleSavedTrend = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => IdSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -137,6 +141,7 @@ export const toggleSavedTrend = createServerFn({ method: "POST" })
   });
 
 export const deleteViralTrend = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => IdSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -170,7 +175,9 @@ const CURATED: Array<Omit<ViralTrend, "id" | "created_at" | "updated_at">> = [
   { title: "Casas de terror abandonadas en POV vertical", platform: "TikTok", country: "Estados Unidos", category: "Terror", viral_score: 92, keywords: "terror, pov, abandonadas", source: "curated", favorite: false, saved: false, thumbnail_url: null },
 ];
 
-export const seedViralTrends = createServerFn({ method: "POST" }).handler(async () => {
+export const seedViralTrends = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const owner = resolveOwnerId();
   const { count } = await supabaseAdmin
@@ -206,8 +213,9 @@ function topOf(values: (string | null | undefined)[]): { name: string; count: nu
   return best;
 }
 
-export const getRadarStats = createServerFn({ method: "GET" }).handler(
-  async (): Promise<RadarStats> => {
+export const getRadarStats = createServerFn({ method: "GET" })
+  .middleware([requireAccess])
+  .handler(async (): Promise<RadarStats> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = resolveOwnerId();
     const { data, error } = await supabaseAdmin
@@ -227,5 +235,4 @@ export const getRadarStats = createServerFn({ method: "GET" }).handler(
       topCountry: topOf(rows.map((r) => r.country)),
       topPlatform: topOf(rows.map((r) => r.platform)),
     };
-  },
-);
+  });

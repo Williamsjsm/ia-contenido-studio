@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireAccess } from "./access-control.functions";
 
 /**
  * TODO(auth): mientras no exista autenticación real usamos `OWNER_USER_ID`
@@ -61,6 +62,7 @@ const SELECT_COLS =
   "id, title, prompt, source_variant, platform, category, duration, resolution, aspect_ratio, model, status, created_at, updated_at, flow_points_estimate, flow_mode, flow_media_type, flow_generation_mode, variations";
 
 export const saveFlowJob = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => SaveSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -94,8 +96,9 @@ export const saveFlowJob = createServerFn({ method: "POST" })
     return { ok: true as const, job: inserted as FlowJob };
   });
 
-export const listFlowJobs = createServerFn({ method: "GET" }).handler(
-  async (): Promise<FlowJob[]> => {
+export const listFlowJobs = createServerFn({ method: "GET" })
+  .middleware([requireAccess])
+  .handler(async (): Promise<FlowJob[]> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = resolveOwnerId();
     const { data, error } = await supabaseAdmin
@@ -109,14 +112,14 @@ export const listFlowJobs = createServerFn({ method: "GET" }).handler(
       throw new Error(error.message);
     }
     return (data ?? []) as FlowJob[];
-  },
-);
+  });
 
 const IdSchema = z.object({ id: z.string().uuid() });
 
 const UpdateSchema = SaveSchema.partial().extend({ id: z.string().uuid() });
 
 export const updateFlowJob = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => UpdateSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -140,6 +143,7 @@ export const updateFlowJob = createServerFn({ method: "POST" })
   });
 
 export const deleteFlowJob = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => IdSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -157,6 +161,7 @@ export const deleteFlowJob = createServerFn({ method: "POST" })
   });
 
 export const duplicateFlowJob = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => IdSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
