@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   Flame, TrendingUp, Rocket, Sparkles, Eye, Heart, Wand2, Bookmark,
   Play, ArrowUpRight, Zap, Target, Users, Lightbulb, ChevronRight,
@@ -919,8 +920,51 @@ function ViralTrendCard({
     day: "2-digit",
     month: "short",
   });
+  const [playerOpen, setPlayerOpen] = useState(false);
+  const isYouTube = t.platform === "YouTube";
+  const videoId = t.video_id ?? t.external_id ?? null;
+  const embedUrl = t.embed_url ?? (videoId ? `https://www.youtube.com/embed/${videoId}` : null);
+  const watchUrl = t.url ?? (videoId ? `https://www.youtube.com/watch?v=${videoId}` : null);
+  const thumb =
+    t.thumbnail_url ?? (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null);
+  const views = typeof t.views === "number" ? t.views : null;
+  const viewsLabel = views !== null ? formatCount(views) : null;
+  const publishedLabel = t.published_at
+    ? new Date(t.published_at).toLocaleDateString("es", { day: "2-digit", month: "short", year: "2-digit" })
+    : null;
+  const canPlay = isYouTube && !!embedUrl;
   return (
     <div className="surface-card hover-lift overflow-hidden p-0">
+      {isYouTube && thumb && (
+        <button
+          type="button"
+          onClick={() => canPlay && setPlayerOpen(true)}
+          disabled={!canPlay}
+          className="group relative block aspect-video w-full overflow-hidden bg-black"
+          title={canPlay ? "Ver video" : "Video no disponible"}
+        >
+          <img
+            src={thumb}
+            alt={t.title}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+          {canPlay && (
+            <span className="absolute inset-0 flex items-center justify-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-black shadow-lg transition-transform group-hover:scale-110">
+                <Play className="h-5 w-5 translate-x-[1px] fill-current" />
+              </span>
+            </span>
+          )}
+          {viewsLabel && (
+            <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+              <Eye className="mr-1 inline h-2.5 w-2.5" />
+              {viewsLabel}
+            </span>
+          )}
+        </button>
+      )}
       <div className="space-y-3 p-4">
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge className="border-0 bg-[image:var(--gradient-primary)] text-[10px] text-primary-foreground">
@@ -937,6 +981,14 @@ function ViralTrendCard({
 
         <h3 className="line-clamp-2 text-[13.5px] font-semibold leading-snug">{t.title}</h3>
 
+        {isYouTube && (t.channel_title || publishedLabel) && (
+          <p className="line-clamp-1 text-[11px] text-muted-foreground">
+            {t.channel_title ?? ""}
+            {t.channel_title && publishedLabel ? " · " : ""}
+            {publishedLabel ?? ""}
+          </p>
+        )}
+
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[11px]">
             <span className="text-muted-foreground">Viral score</span>
@@ -949,6 +1001,34 @@ function ViralTrendCard({
           <p className="line-clamp-2 text-[10.5px] text-muted-foreground">
             {t.keywords.split(",").map((k) => `#${k.trim()}`).join(" ")}
           </p>
+        )}
+
+        {isYouTube && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 px-2 text-[10.5px]"
+              disabled={!canPlay}
+              onClick={() => canPlay && setPlayerOpen(true)}
+              title={canPlay ? "Ver video aquí" : "Video no disponible"}
+            >
+              <Play className="h-3 w-3" />
+              {canPlay ? "Ver video" : "Video no disponible"}
+            </Button>
+            {watchUrl && (
+              <Button
+                asChild
+                size="sm"
+                variant="ghost"
+                className="h-7 gap-1 px-2 text-[10.5px]"
+              >
+                <a href={watchUrl} target="_blank" rel="noopener noreferrer">
+                  <ArrowUpRight className="h-3 w-3" /> Abrir en YouTube
+                </a>
+              </Button>
+            )}
+          </div>
         )}
 
         <div className="flex items-center justify-between border-t border-border/50 pt-3">
@@ -999,6 +1079,48 @@ function ViralTrendCard({
           </div>
         </div>
       </div>
+
+      {canPlay && (
+        <Dialog open={playerOpen} onOpenChange={setPlayerOpen}>
+          <DialogContent className="max-w-3xl border-border/60 bg-card p-0 sm:p-0">
+            <DialogHeader className="px-5 pt-5">
+              <DialogTitle className="text-[14px] leading-snug">{t.title}</DialogTitle>
+              <DialogDescription className="text-[11px]">
+                {t.channel_title ?? "YouTube"}
+                {publishedLabel ? ` · ${publishedLabel}` : ""}
+                {viewsLabel ? ` · ${viewsLabel} vistas` : ""}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="aspect-video w-full overflow-hidden bg-black sm:rounded-b-lg">
+              {playerOpen && (
+                <iframe
+                  src={`${embedUrl}?autoplay=1&rel=0`}
+                  title={t.title}
+                  className="h-full w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              )}
+            </div>
+            {watchUrl && (
+              <div className="flex justify-end px-5 pb-4">
+                <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 text-[11px]">
+                  <a href={watchUrl} target="_blank" rel="noopener noreferrer">
+                    <ArrowUpRight className="h-3.5 w-3.5" /> Abrir en YouTube
+                  </a>
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
+}
+
+function formatCount(n: number): string {
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
 }

@@ -52,10 +52,18 @@ export type ViralTrend = {
   thumbnail_url: string | null;
   created_at: string;
   updated_at: string;
+  url?: string | null;
+  video_id?: string | null;
+  embed_url?: string | null;
+  channel_title?: string | null;
+  views?: number | null;
+  likes?: number | null;
+  published_at?: string | null;
+  external_id?: string | null;
 };
 
 const SELECT_COLS =
-  "id, title, platform, country, category, viral_score, keywords, source, favorite, saved, thumbnail_url, created_at, updated_at";
+  "id, title, platform, country, category, viral_score, keywords, source, favorite, saved, thumbnail_url, created_at, updated_at, url, video_id, embed_url, channel_title, views, likes, published_at, external_id";
 
 const ListSchema = z.object({
   platform: z.string().trim().max(40).nullable().optional(),
@@ -302,6 +310,7 @@ type YouTubeVideoItem = {
     description?: string;
     publishedAt?: string;
     categoryId?: string;
+    channelTitle?: string;
     tags?: string[];
     thumbnails?: { high?: { url?: string }; medium?: { url?: string }; default?: { url?: string } };
   };
@@ -382,6 +391,9 @@ export const fetchYouTubeTrends = createServerFn({ method: "POST" })
               likes,
               published_at: sn.publishedAt ?? null,
               external_id: videoId,
+              video_id: videoId,
+              embed_url: `https://www.youtube.com/embed/${videoId}`,
+              channel_title: (sn as { channelTitle?: string }).channelTitle ?? null,
             };
             // upsert por (user_id, source, external_id) — manual: intentar update, si 0 filas insertar.
             const { data: existing } = await supabaseAdmin
@@ -405,6 +417,9 @@ export const fetchYouTubeTrends = createServerFn({ method: "POST" })
                   published_at: row.published_at,
                   category: row.category,
                   country: row.country,
+                  video_id: row.video_id,
+                  embed_url: row.embed_url,
+                  channel_title: row.channel_title,
                 })
                 .eq("id", existing.id);
               if (upErr) {

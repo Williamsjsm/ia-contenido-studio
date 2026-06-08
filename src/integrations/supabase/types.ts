@@ -562,8 +562,10 @@ export type Database = {
       viral_trends: {
         Row: {
           category: string
+          channel_title: string | null
           country: string
           created_at: string
+          embed_url: string | null
           external_id: string | null
           favorite: boolean
           id: string
@@ -578,13 +580,16 @@ export type Database = {
           updated_at: string
           url: string | null
           user_id: string
+          video_id: string | null
           views: number | null
           viral_score: number
         }
         Insert: {
           category: string
+          channel_title?: string | null
           country: string
           created_at?: string
+          embed_url?: string | null
           external_id?: string | null
           favorite?: boolean
           id?: string
@@ -599,13 +604,16 @@ export type Database = {
           updated_at?: string
           url?: string | null
           user_id: string
+          video_id?: string | null
           views?: number | null
           viral_score?: number
         }
         Update: {
           category?: string
+          channel_title?: string | null
           country?: string
           created_at?: string
+          embed_url?: string | null
           external_id?: string | null
           favorite?: boolean
           id?: string
@@ -620,6 +628,7 @@ export type Database = {
           updated_at?: string
           url?: string | null
           user_id?: string
+          video_id?: string | null
           views?: number | null
           viral_score?: number
         }
