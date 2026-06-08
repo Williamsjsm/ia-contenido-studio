@@ -389,6 +389,7 @@ export const fetchYouTubeTrends = createServerFn({ method: "POST" })
               viral_score: viralScoreFromViews(views),
               keywords: (sn.tags ?? []).slice(0, 8).join(", ") || null,
               source: "youtube_api",
+              source_type: "youtube_api",
               thumbnail_url: thumb,
               url: `https://www.youtube.com/watch?v=${videoId}`,
               views,
@@ -398,6 +399,7 @@ export const fetchYouTubeTrends = createServerFn({ method: "POST" })
               video_id: videoId,
               embed_url: `https://www.youtube.com/embed/${videoId}`,
               channel_title: (sn as { channelTitle?: string }).channelTitle ?? null,
+              creator_name: (sn as { channelTitle?: string }).channelTitle ?? null,
             };
             // upsert por (user_id, source, external_id) — manual: intentar update, si 0 filas insertar.
             const { data: existing } = await supabaseAdmin
