@@ -116,6 +116,8 @@ export type Database = {
       image_generations: {
         Row: {
           created_at: string
+          final_resolution: string | null
+          generated_resolution: string | null
           id: string
           image_base64: string | null
           image_url: string | null
@@ -123,10 +125,13 @@ export type Database = {
           prompt: string
           provider: string
           resolution: string | null
+          upscale_level: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
+          final_resolution?: string | null
+          generated_resolution?: string | null
           id?: string
           image_base64?: string | null
           image_url?: string | null
@@ -134,10 +139,13 @@ export type Database = {
           prompt: string
           provider: string
           resolution?: string | null
+          upscale_level?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
+          final_resolution?: string | null
+          generated_resolution?: string | null
           id?: string
           image_base64?: string | null
           image_url?: string | null
@@ -145,6 +153,7 @@ export type Database = {
           prompt?: string
           provider?: string
           resolution?: string | null
+          upscale_level?: string | null
           user_id?: string
         }
         Relationships: []
