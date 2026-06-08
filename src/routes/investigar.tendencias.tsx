@@ -14,7 +14,7 @@ import {
   Flame, TrendingUp, Rocket, Sparkles, Eye, Heart, Wand2, Bookmark,
   Play, ArrowUpRight, Zap, Target, Users, Lightbulb, ChevronRight,
   Clock, Star, Globe2, Loader2, Trash2, RefreshCw, Library as LibraryIcon,
-  Copy, FileText, Share2,
+  Copy, FileText, Share2, Hash, Facebook as FacebookIcon, Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FlowConnector } from "@/components/flow-connector";
@@ -25,11 +25,17 @@ import {
   toggleSavedTrend,
   deleteViralTrend,
   fetchYouTubeTrends,
+  fetchInstagramHashtagTrends,
+  fetchFacebookPageTrends,
+  fetchTikTokTrends,
+  importManualTrend,
   VIRAL_PLATFORMS,
   VIRAL_COUNTRIES,
   VIRAL_CATEGORIES,
   type ViralTrend,
 } from "@/lib/viral-trends.functions";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   generateTrendRecreationPrompt,
   listTrendRecreations,
