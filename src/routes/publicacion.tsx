@@ -270,7 +270,7 @@ function CentroPublicacion() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] space-y-6 p-4 lg:p-8">
+    <div className="mx-auto w-full max-w-[1800px] space-y-6 p-4 lg:p-8">
       <PageHeader
         title="Centro de Publicación"
         subtitle="Genera el paquete completo —título viral, descripción optimizada y hashtags— listo para publicar."
