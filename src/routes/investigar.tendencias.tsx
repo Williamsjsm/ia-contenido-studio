@@ -1041,6 +1041,14 @@ function ViralTrendCard({
           </p>
         )}
 
+        <Button
+          size="sm"
+          className="w-full gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+          onClick={() => setRecreateOpen(true)}
+        >
+          <Sparkles className="h-3.5 w-3.5" /> Recrear con IA
+        </Button>
+
         {isYouTube && (
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
             <Button
