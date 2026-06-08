@@ -1025,6 +1025,32 @@ function ViralRadar({
         isLoading={recreationsQuery.isLoading}
         onDelete={(id) => delRecreationMut.mutate({ data: { id } })}
       />
+
+      <InstagramHashtagDialog
+        open={igOpen}
+        onOpenChange={setIgOpen}
+        defaultCountry={country ?? undefined}
+        defaultCategory={category ?? undefined}
+        onRun={(payload) => igMut.mutate({ data: payload })}
+        isPending={igMut.isPending}
+      />
+      <FacebookPageDialog
+        open={fbOpen}
+        onOpenChange={setFbOpen}
+        defaultCountry={country ?? undefined}
+        defaultCategory={category ?? undefined}
+        onRun={(payload) => fbMut.mutate({ data: payload })}
+        isPending={fbMut.isPending}
+      />
+      <TikTokImportDialog
+        open={ttOpen}
+        onOpenChange={setTtOpen}
+        defaultCountry={country ?? undefined}
+        defaultCategory={category ?? undefined}
+        onProbeAPI={() => ttMut.mutate({ data: {} })}
+        onImport={(payload) => importMut.mutate({ data: payload })}
+        isPending={importMut.isPending || ttMut.isPending}
+      />
     </div>
   );
 }
