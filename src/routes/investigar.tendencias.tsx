@@ -659,6 +659,10 @@ function ViralRadar({
   const toggleSaved = useServerFn(toggleSavedTrend);
   const remove = useServerFn(deleteViralTrend);
   const fetchYouTube = useServerFn(fetchYouTubeTrends);
+  const fetchInstagram = useServerFn(fetchInstagramHashtagTrends);
+  const fetchFacebook = useServerFn(fetchFacebookPageTrends);
+  const fetchTikTok = useServerFn(fetchTikTokTrends);
+  const importManual = useServerFn(importManualTrend);
   const listRecreations = useServerFn(listTrendRecreations);
   const removeRecreation = useServerFn(deleteTrendRecreation);
 
@@ -758,6 +762,59 @@ function ViralRadar({
       toast.error((err as Error)?.message ?? "Error YouTube");
     },
   });
+
+  const igMut = useMutation({
+    mutationFn: fetchInstagram,
+    onSuccess: (res) => {
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      toast.success(`Instagram · ${res.inserted} nuevas, ${res.updated} actualizadas`);
+      invalidate();
+    },
+    onError: (err: unknown) => toast.error((err as Error)?.message ?? "Error Instagram"),
+  });
+  const fbMut = useMutation({
+    mutationFn: fetchFacebook,
+    onSuccess: (res) => {
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      toast.success(`Facebook · ${res.inserted} nuevas, ${res.updated} actualizadas`);
+      invalidate();
+    },
+    onError: (err: unknown) => toast.error((err as Error)?.message ?? "Error Facebook"),
+  });
+  const ttMut = useMutation({
+    mutationFn: fetchTikTok,
+    onSuccess: (res) => {
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      toast.success("TikTok actualizado");
+      invalidate();
+    },
+    onError: (err: unknown) => toast.error((err as Error)?.message ?? "Error TikTok"),
+  });
+  const importMut = useMutation({
+    mutationFn: importManual,
+    onSuccess: (res) => {
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      toast.success(res.status === "inserted" ? "Tendencia importada" : "Tendencia actualizada");
+      invalidate();
+    },
+    onError: (err: unknown) => toast.error((err as Error)?.message ?? "Error al importar"),
+  });
+
+  const [igOpen, setIgOpen] = useState(false);
+  const [fbOpen, setFbOpen] = useState(false);
+  const [ttOpen, setTtOpen] = useState(false);
 
   const trends = trendsQuery.data ?? [];
   const saved = savedQuery.data ?? [];
