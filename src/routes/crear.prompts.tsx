@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, Save, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library, AlertCircle, X } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { Copy, Save, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library, AlertCircle, X, Users } from "lucide-react";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { PageHeader } from "@/components/page-header";
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { ClientOnly, SelectTriggerSkeleton } from "@/components/ui/client-only";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   generatePrompt,
@@ -27,6 +28,10 @@ import {
   type GeneratePromptResult,
 } from "@/lib/generate-prompt.functions";
 import { savePrompt } from "@/lib/prompts.functions";
+import {
+  listVirtualCharacters,
+  type VirtualCharacter,
+} from "@/lib/visual-library.functions";
 
 const searchSchema = z.object({
   from: fallback(z.string(), "").default(""),
@@ -36,6 +41,7 @@ const searchSchema = z.object({
   categoria: fallback(z.string(), "").default(""),
   tags: fallback(z.string(), "").default(""),
   tipo: fallback(z.string(), "").default(""),
+  personajeId: fallback(z.string(), "").default(""),
 });
 
 export const Route = createFileRoute("/crear/prompts")({
@@ -74,6 +80,13 @@ const VARIANT_TABS: { key: VariantKey; label: string }[] = [
 
 type SuccessResult = Extract<GeneratePromptResult, { ok: true }>;
 
+type ReferenceMode = "none" | "reference" | "character";
+type CharacterMode =
+  | "text_only"
+  | "keep_character"
+  | "keep_style"
+  | "keep_character_style";
+
 const MAX_LEN = 20_000;
 
 function PromptsGenerator() {
@@ -92,6 +105,18 @@ function PromptsGenerator() {
   const [saving, setSaving] = useState(false);
   const [lastSavedSignature, setLastSavedSignature] = useState<string | null>(null);
   const [showTrendAlert, setShowTrendAlert] = useState(false);
+  const [referenceMode, setReferenceMode] = useState<ReferenceMode>("none");
+  const [characterMode, setCharacterMode] = useState<CharacterMode>("keep_character");
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string>("");
+
+  const listCharactersFn = useServerFn(listVirtualCharacters);
+  const charactersQuery = useQuery({
+    queryKey: ["library", "characters"],
+    queryFn: () => listCharactersFn(),
+  });
+  const characters: VirtualCharacter[] = charactersQuery.data ?? [];
+  const selectedCharacter =
+    characters.find((c) => c.id === selectedCharacterId) ?? null;
 
   // Prefill form from trend search params
   useEffect(() => {
@@ -138,6 +163,13 @@ function PromptsGenerator() {
     setShowTrendAlert(true);
   }, [search]);
 
+  // Preselect character coming from /biblioteca/personajes
+  useEffect(() => {
+    if (!search.personajeId) return;
+    setReferenceMode("character");
+    setSelectedCharacterId(search.personajeId);
+  }, [search.personajeId]);
+
   useEffect(() => {
     checkKey()
       .then((r) => setKeyConfigured(r.configured))
@@ -157,6 +189,8 @@ function PromptsGenerator() {
     setStatus("loading");
     setErrorMsg("");
     try {
+      const useCharacter =
+        referenceMode === "character" && !!selectedCharacter;
       const r = await runGenerate({
         data: {
           idea: [form.categoria, form.descripcion].filter((s) => s.trim()).join(" — "),
@@ -164,6 +198,15 @@ function PromptsGenerator() {
           idioma: form.idioma,
           duracion: form.duracion,
           plataforma: form.plataforma,
+          mode: useCharacter ? characterMode : "text_only",
+          character: useCharacter
+            ? {
+                name: selectedCharacter!.name,
+                description: selectedCharacter!.description,
+                master_prompt: selectedCharacter!.master_prompt,
+                tags: selectedCharacter!.tags ?? [],
+              }
+            : null,
         },
       });
       if (r.ok) {
