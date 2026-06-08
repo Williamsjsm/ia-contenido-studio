@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -13,6 +13,8 @@ import {
   Upload,
   ImagePlus,
   X,
+  Wand2,
+  Image as ImageIcon,
 } from "lucide-react";
 import { LibraryShell, EmptyState } from "@/components/library-shell";
 import { Button } from "@/components/ui/button";
@@ -76,6 +78,7 @@ const emptyForm: FormState = {
 
 function PersonajesPage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const list = useServerFn(listVirtualCharacters);
   const createFn = useServerFn(createVirtualCharacter);
   const updateFn = useServerFn(updateVirtualCharacter);
@@ -250,6 +253,25 @@ function PersonajesPage() {
                   </div>
                 )}
                 <div className="mt-auto flex flex-wrap gap-1.5 pt-2">
+                  <Button
+                    size="sm"
+                    className="h-7 gap-1 px-2"
+                    onClick={() =>
+                      navigate({ to: "/crear/prompts", search: { personajeId: c.id } })
+                    }
+                  >
+                    <Wand2 className="h-3 w-3" /> Generador
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 gap-1 px-2"
+                    onClick={() =>
+                      navigate({ to: "/crear/imagen", search: { personajeId: c.id } })
+                    }
+                  >
+                    <ImageIcon className="h-3 w-3" /> Imagen IA
+                  </Button>
                   <Button size="sm" variant="outline" className="h-7 gap-1 px-2" onClick={() => openEdit(c)}>
                     <Pencil className="h-3 w-3" /> Editar
                   </Button>
