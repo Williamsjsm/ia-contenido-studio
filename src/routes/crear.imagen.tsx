@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle } from "lucide-react";
+import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info } from "lucide-react";
 import { generateImage, listImageGenerations } from "@/lib/image-generation.functions";
 
 export const Route = createFileRoute("/crear/imagen")({
@@ -19,7 +19,48 @@ export const Route = createFileRoute("/crear/imagen")({
 
 type Provider = "gemini" | "openai";
 type Resolution = "1024x1024" | "1792x1024" | "1024x1792";
+type FinalRes = "1024" | "2048" | "3840" | "7680" | "12288";
+type Upscale = "none" | "2k" | "4k" | "8k" | "12k";
 type Status = "idle" | "loading" | "success" | "error";
+
+const FINAL_LABEL: Record<FinalRes, string> = {
+  "1024": "1024×1024",
+  "2048": "2048×2048 (2K)",
+  "3840": "3840×2160 (4K)",
+  "7680": "7680×4320 (8K)",
+  "12288": "12288×6480 (12K)",
+};
+
+const UPSCALE_LABEL: Record<Upscale, string> = {
+  none: "Sin upscaling",
+  "2k": "Upscaling 2K",
+  "4k": "Upscaling 4K",
+  "8k": "Upscaling 8K",
+  "12k": "Upscaling 12K",
+};
+
+async function upscaleDataUrl(dataUrl: string, targetW: number, targetH: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("Canvas no disponible"));
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+        resolve(canvas.toDataURL("image/png"));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = () => reject(new Error("No se pudo cargar imagen para upscaling"));
+    img.src = dataUrl;
+  });
+}
 
 function ImagenIA() {
   const navigate = useNavigate();
@@ -30,9 +71,15 @@ function ImagenIA() {
   const [prompt, setPrompt] = useState("");
   const [provider, setProvider] = useState<Provider>("gemini");
   const [resolution, setResolution] = useState<Resolution>("1024x1024");
+  const [finalRes, setFinalRes] = useState<FinalRes>("1024");
+  const [upscale, setUpscale] = useState<Upscale>("none");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
+  const [generatedResLabel, setGeneratedResLabel] = useState<string>("");
+  const [finalResLabel, setFinalResLabel] = useState<string>("");
+  const [upscaledImage, setUpscaledImage] = useState<string | null>(null);
+  const [upscaling, setUpscaling] = useState(false);
   const [lastPrompt, setLastPrompt] = useState<string>("");
 
   const history = useQuery({
@@ -49,19 +96,40 @@ function ImagenIA() {
     setStatus("loading");
     setErrorMsg(null);
     setImageData(null);
+    setUpscaledImage(null);
     try {
-      const res = await generate({ data: { prompt: trimmed, provider, resolution } });
+      const res = await generate({
+        data: { prompt: trimmed, provider, resolution, finalResolution: finalRes, upscaleLevel: upscale },
+      });
       if (!res.ok) {
         setStatus("error");
         setErrorMsg(res.message);
         toast.error(res.message);
         return;
       }
-      setImageData(`data:${res.mime_type};base64,${res.image_base64}`);
+      const dataUrl = `data:${res.mime_type};base64,${res.image_base64}`;
+      setImageData(dataUrl);
       setLastPrompt(res.prompt);
+      setGeneratedResLabel(res.generated_resolution);
+      setFinalResLabel(res.final_resolution);
       setStatus("success");
       toast.success("Imagen generada.");
       qc.invalidateQueries({ queryKey: ["image-generations"] });
+      // Apply client-side upscaling if final differs from generated
+      const [gw, gh] = res.generated_resolution.split("x").map((n) => parseInt(n, 10));
+      const [fw, fh] = res.final_resolution.split("x").map((n) => parseInt(n, 10));
+      if (fw > gw || fh > gh) {
+        setUpscaling(true);
+        try {
+          const upDataUrl = await upscaleDataUrl(dataUrl, fw, fh);
+          setUpscaledImage(upDataUrl);
+        } catch (e) {
+          console.error("upscale error", e);
+          toast.error("No se pudo aplicar upscaling. Se conserva la resolución original.");
+        } finally {
+          setUpscaling(false);
+        }
+      }
     } catch (err) {
       console.error(err);
       setStatus("error");
@@ -71,9 +139,10 @@ function ImagenIA() {
   }
 
   function downloadCurrent() {
-    if (!imageData) return;
+    const src = upscaledImage ?? imageData;
+    if (!src) return;
     const a = document.createElement("a");
-    a.href = imageData;
+    a.href = src;
     a.download = `imagen-${Date.now()}.png`;
     document.body.appendChild(a);
     a.click();
@@ -145,6 +214,32 @@ function ImagenIA() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Resolución final</Label>
+              <Select value={finalRes} onValueChange={(v) => setFinalRes(v as FinalRes)} disabled={status === "loading"}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(FINAL_LABEL) as FinalRes[]).map((k) => (
+                    <SelectItem key={k} value={k}>{FINAL_LABEL[k]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Upscaling IA</Label>
+              <Select value={upscale} onValueChange={(v) => setUpscale(v as Upscale)} disabled={status === "loading"}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(UPSCALE_LABEL) as Upscale[]).map((k) => (
+                    <SelectItem key={k} value={k}>{UPSCALE_LABEL[k]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-start gap-2 rounded-md border border-border/40 bg-muted/30 p-2 text-[11px] text-muted-foreground">
+              <Info className="mt-0.5 h-3 w-3 shrink-0" />
+              <span>La resolución final puede utilizar upscaling IA dependiendo de las capacidades del proveedor.</span>
+            </div>
             <Button
               className="w-full bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
               onClick={handleGenerate}
@@ -175,7 +270,19 @@ function ImagenIA() {
             ) : imageData ? (
               <div className="flex flex-1 flex-col gap-4">
                 <div className="flex flex-1 items-center justify-center overflow-hidden rounded-md bg-muted/30">
-                  <img src={imageData} alt={lastPrompt} className="max-h-[60vh] max-w-full object-contain" />
+                  <img src={upscaledImage ?? imageData} alt={lastPrompt} className="max-h-[60vh] max-w-full object-contain" />
+                </div>
+                <div className="flex flex-wrap gap-3 text-xs">
+                  <span className="rounded-md border border-border/40 bg-muted/40 px-2 py-1">
+                    <span className="text-muted-foreground">Resolución generada:</span>{" "}
+                    <span className="font-medium text-foreground">{generatedResLabel}</span>
+                  </span>
+                  <span className="rounded-md border border-border/40 bg-muted/40 px-2 py-1">
+                    <span className="text-muted-foreground">Resolución final:</span>{" "}
+                    <span className="font-medium text-foreground">
+                      {finalResLabel}{upscaling ? " (upscaling…)" : ""}
+                    </span>
+                  </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="secondary" size="sm" onClick={downloadCurrent}>
