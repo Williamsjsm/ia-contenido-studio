@@ -1214,11 +1214,14 @@ function ViralTrendCard({
     t.thumbnail_url ?? (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null);
   const views = typeof t.views === "number" ? t.views : null;
   const viewsLabel = views !== null ? formatCount(views) : null;
+  const likes = typeof t.likes === "number" ? t.likes : null;
+  const likesLabel = likes !== null ? formatCount(likes) : null;
   const publishedLabel = t.published_at
     ? new Date(t.published_at).toLocaleDateString("es", { day: "2-digit", month: "short", year: "2-digit" })
     : null;
   const canPlay = isYouTube && !!embedUrl;
   const [recreateOpen, setRecreateOpen] = useState(false);
+  const [analyzeOpen, setAnalyzeOpen] = useState(false);
   return (
     <div className="surface-card hover-lift overflow-hidden p-0">
       {isYouTube && thumb && (
@@ -1276,6 +1279,17 @@ function ViralTrendCard({
           </p>
         )}
 
+        {(viewsLabel || likesLabel) && (
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            {viewsLabel && (
+              <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {viewsLabel}</span>
+            )}
+            {likesLabel && (
+              <span className="flex items-center gap-1"><ThumbsUp className="h-3 w-3" /> {likesLabel}</span>
+            )}
+          </div>
+        )}
+
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[11px]">
             <span className="text-muted-foreground">Viral score</span>
@@ -1290,13 +1304,23 @@ function ViralTrendCard({
           </p>
         )}
 
-        <Button
-          size="sm"
-          className="w-full gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
-          onClick={() => setRecreateOpen(true)}
-        >
-          <Sparkles className="h-3.5 w-3.5" /> Recrear con IA
-        </Button>
+        <div className="grid grid-cols-2 gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => setAnalyzeOpen(true)}
+          >
+            <Brain className="h-3.5 w-3.5" /> Analizar
+          </Button>
+          <Button
+            size="sm"
+            className="gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+            onClick={() => setRecreateOpen(true)}
+          >
+            <Sparkles className="h-3.5 w-3.5" /> Recrear con IA
+          </Button>
+        </div>
 
         {isYouTube && (
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
@@ -1416,6 +1440,7 @@ function ViralTrendCard({
         trend={t}
         onCreated={onRecreated}
       />
+      <AnalyzeDialog open={analyzeOpen} onOpenChange={setAnalyzeOpen} trend={t} />
     </div>
   );
 }
