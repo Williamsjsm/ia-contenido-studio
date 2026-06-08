@@ -1,5 +1,5 @@
 import { createServerFn, createMiddleware } from "@tanstack/react-start";
-import { getCookie, setCookie, deleteCookie } from "@tanstack/react-start/server";
+import { getCookie, getRequestHeader, setCookie, deleteCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 
 /**
@@ -18,7 +18,13 @@ export const requireAccess = createMiddleware({ type: "function" }).server(
     const { verifySessionToken, SESSION_COOKIE_NAME } = await import(
       "./access-control.server"
     );
-    const token = getCookie(SESSION_COOKIE_NAME);
+    const { PREVIEW_SESSION_COOKIE_NAME, isPreviewSandboxHost } = await import(
+      "./access-control.server"
+    );
+    const host = getRequestHeader("host");
+    const token =
+      getCookie(SESSION_COOKIE_NAME) ??
+      (isPreviewSandboxHost(host) ? getCookie(PREVIEW_SESSION_COOKIE_NAME) : undefined);
     if (!verifySessionToken(token)) {
       throw new Response("Unauthorized", { status: 401 });
     }
@@ -37,7 +43,9 @@ export const loginWithSecret = createServerFn({ method: "POST" })
       verifySharedSecret,
       signSessionToken,
       SESSION_COOKIE_NAME,
+      PREVIEW_SESSION_COOKIE_NAME,
       SESSION_TTL_SECONDS,
+      isPreviewSandboxHost,
     } = await import("./access-control.server");
     if (!verifySharedSecret(data.password)) {
       // Pequeño delay para mitigar fuerza bruta básica.
@@ -52,12 +60,23 @@ export const loginWithSecret = createServerFn({ method: "POST" })
       path: "/",
       maxAge: SESSION_TTL_SECONDS,
     });
+    const host = getRequestHeader("host");
+    if (isPreviewSandboxHost(host)) {
+      setCookie(PREVIEW_SESSION_COOKIE_NAME, token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: "/",
+        maxAge: SESSION_TTL_SECONDS,
+      });
+    }
     return { ok: true as const };
   });
 
 export const logoutSession = createServerFn({ method: "POST" }).handler(async () => {
-  const { SESSION_COOKIE_NAME } = await import("./access-control.server");
+  const { SESSION_COOKIE_NAME, PREVIEW_SESSION_COOKIE_NAME } = await import("./access-control.server");
   deleteCookie(SESSION_COOKIE_NAME, { path: "/" });
+  deleteCookie(PREVIEW_SESSION_COOKIE_NAME, { path: "/" });
   return { ok: true as const };
 });
 
@@ -65,6 +84,12 @@ export const getAccessStatus = createServerFn({ method: "GET" }).handler(async (
   const { verifySessionToken, SESSION_COOKIE_NAME } = await import(
     "./access-control.server"
   );
-  const token = getCookie(SESSION_COOKIE_NAME);
+  const { PREVIEW_SESSION_COOKIE_NAME, isPreviewSandboxHost } = await import(
+    "./access-control.server"
+  );
+  const host = getRequestHeader("host");
+  const token =
+    getCookie(SESSION_COOKIE_NAME) ??
+    (isPreviewSandboxHost(host) ? getCookie(PREVIEW_SESSION_COOKIE_NAME) : undefined);
   return { authenticated: verifySessionToken(token) };
 });
