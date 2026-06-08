@@ -47,7 +47,19 @@ function AccesoPage() {
         toast.error(res.message ?? "Acceso incorrecto.");
         return;
       }
-      storeAccessSessionToken(res.sessionToken);
+      // Solo persistimos el token en sessionStorage cuando estamos dentro del iframe
+      // de preview de Lovable, donde las cookies SameSite=Lax pueden ser bloqueadas.
+      // En producción confiamos exclusivamente en la cookie httpOnly.
+      if (typeof window !== "undefined") {
+        const host = window.location.hostname.toLowerCase();
+        const isPreview =
+          host.includes("lovableproject.com") ||
+          host.startsWith("id-preview--") ||
+          host.includes("-dev.lovable.app");
+        if (isPreview && res.sessionToken) {
+          storeAccessSessionToken(res.sessionToken);
+        }
+      }
       qc.setQueryData(["access", "status"], { authenticated: true });
       toast.success("Acceso concedido.");
       window.location.replace("/");
