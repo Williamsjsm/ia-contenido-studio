@@ -472,12 +472,15 @@ function viralScoreFromEngagement(likes: number, comments: number): number {
   return Math.max(0, Math.min(100, score));
 }
 
+type SocialTrendRow = {
+  user_id: string;
+  source_type: string;
+  external_id: string;
+  [k: string]: unknown;
+};
+
 async function upsertSocialTrend(
-  row: Record<string, unknown> & {
-    user_id: string;
-    source_type: string;
-    external_id: string;
-  },
+  row: SocialTrendRow,
 ): Promise<"inserted" | "updated" | "error"> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: existing } = await supabaseAdmin
@@ -490,11 +493,11 @@ async function upsertSocialTrend(
   if (existing?.id) {
     const { error } = await supabaseAdmin
       .from("viral_trends")
-      .update(row)
+      .update(row as never)
       .eq("id", existing.id);
     return error ? "error" : "updated";
   }
-  const { error } = await supabaseAdmin.from("viral_trends").insert(row);
+  const { error } = await supabaseAdmin.from("viral_trends").insert(row as never);
   return error ? "error" : "inserted";
 }
 
