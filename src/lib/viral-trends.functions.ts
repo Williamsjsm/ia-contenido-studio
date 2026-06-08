@@ -309,9 +309,32 @@ const YT_ID_TO_CATEGORY: Record<string, string> = {
 
 function viralScoreFromViews(views: number): number {
   if (!views || views <= 0) return 0;
-  // 1k → ~30, 100k → ~50, 1M → ~70, 10M → ~85, 100M → ~98
   const score = Math.round(Math.log10(views) * 16);
   return Math.max(0, Math.min(100, score));
+}
+
+/** Score compuesto: views + ratio likes/views + recencia. */
+function viralScoreYouTube(opts: {
+  views: number;
+  likes: number;
+  publishedAt?: string | null;
+}): number {
+  const v = opts.views || 0;
+  const l = opts.likes || 0;
+  if (v <= 0) return 0;
+  const base = Math.log10(v) * 14; // 1k→42, 1M→84, 100M→112(cap)
+  const ratio = v > 0 ? l / v : 0;
+  // Buen engagement YT ~ 3-5% → bonus hasta 12
+  const ratioBonus = Math.min(12, ratio * 240);
+  let recencyBonus = 0;
+  if (opts.publishedAt) {
+    const hours = (Date.now() - new Date(opts.publishedAt).getTime()) / 36e5;
+    if (hours <= 24) recencyBonus = 10;
+    else if (hours <= 72) recencyBonus = 7;
+    else if (hours <= 168) recencyBonus = 4;
+    else if (hours <= 720) recencyBonus = 2;
+  }
+  return Math.max(0, Math.min(100, Math.round(base + ratioBonus + recencyBonus)));
 }
 
 const FetchYouTubeSchema = z.object({
