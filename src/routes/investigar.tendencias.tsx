@@ -1827,6 +1827,115 @@ function InstagramHashtagDialog({
   );
 }
 
+function AnalyzeDialog({
+  open, onOpenChange, trend,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  trend: ViralTrend;
+}) {
+  const analyze = useServerFn(analyzeTrend);
+  const [result, setResult] = useState<TrendAnalysis | null>(null);
+  const mut = useMutation({
+    mutationFn: analyze,
+    onSuccess: (res) => {
+      if (res.ok) setResult(res.analysis);
+      else toast.error(res.message);
+    },
+    onError: (err: unknown) => toast.error((err as Error)?.message ?? "Error"),
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    if (result || mut.isPending || mut.isError) return;
+    mut.mutate({
+      data: {
+        title: trend.title,
+        platform: trend.platform,
+        country: trend.country,
+        category: trend.category,
+        channel_title: trend.channel_title ?? undefined,
+        views: typeof trend.views === "number" ? trend.views : undefined,
+        likes: typeof trend.likes === "number" ? trend.likes : undefined,
+        published_at: trend.published_at ?? undefined,
+        keywords: trend.keywords ?? undefined,
+        url: trend.url ?? undefined,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const handleOpenChange = (v: boolean) => {
+    onOpenChange(v);
+    if (!v) {
+      setResult(null);
+      mut.reset();
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-border/60 bg-card">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-[14px]">
+            <Brain className="h-4 w-4 text-primary" /> Analizar tendencia
+          </DialogTitle>
+          <DialogDescription className="text-[11.5px]">
+            Análisis estratégico con IA — por qué funciona, formato, riesgos y recomendación original.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="rounded-md border border-border/60 bg-background/40 p-3 text-[11.5px]">
+          <p className="font-medium text-foreground">{trend.title}</p>
+          <p className="text-muted-foreground">
+            {trend.platform} · {trend.country} · {trend.category}
+            {trend.channel_title ? ` · ${trend.channel_title}` : ""}
+          </p>
+        </div>
+
+        {mut.isPending && !result && (
+          <div className="flex items-center justify-center gap-2 py-10 text-[12px] text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Analizando con IA…
+          </div>
+        )}
+
+        {result && (
+          <div className="space-y-3">
+            <Section title="Por qué está funcionando" value={result.why_working} />
+            <Section title="Hook usado" value={result.hook} />
+            <Section title="Público objetivo" value={result.target_audience} />
+            <Section title="Formato" value={result.format} />
+            <Section title="Oportunidad de recreación" value={result.recreation_opportunity} />
+            <Section title="Riesgo de copiar demasiado" value={result.copy_risk} />
+            <Section title="Recomendación original" value={result.original_recommendation} />
+            <div className="flex justify-end gap-2 border-t border-border/50 pt-3">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1.5 text-[11px]"
+                onClick={() => { setResult(null); mut.reset(); }}
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Regenerar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-[11px]"
+                onClick={() => {
+                  const text = `Por qué funciona: ${result.why_working}\nHook: ${result.hook}\nPúblico: ${result.target_audience}\nFormato: ${result.format}\nOportunidad: ${result.recreation_opportunity}\nRiesgo: ${result.copy_risk}\nRecomendación: ${result.original_recommendation}`;
+                  copyText(text, "Análisis");
+                }}
+              >
+                <Copy className="h-3.5 w-3.5" /> Copiar análisis
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function FacebookPageDialog({
   open, onOpenChange, defaultCountry, defaultCategory, onRun, isPending,
 }: {
