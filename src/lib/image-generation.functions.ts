@@ -92,14 +92,22 @@ export const generateImage = createServerFn({ method: "POST" })
       headers["Authorization"] = `Bearer ${provider.apiKey}`;
     }
 
-    const body: Record<string, unknown> = {
-      model: provider.model,
-      prompt: data.prompt,
-      size: data.resolution,
-      n: 1,
-    };
-    if (provider.kind === "openai") {
-      body.quality = "low";
+    let body: Record<string, unknown>;
+    if (provider.kind === "gemini") {
+      // Lovable Gateway requires chat-completions image shape for Gemini image models.
+      body = {
+        model: provider.model,
+        messages: [{ role: "user", content: data.prompt }],
+        modalities: ["image", "text"],
+      };
+    } else {
+      body = {
+        model: provider.model,
+        prompt: data.prompt,
+        size: data.resolution,
+        n: 1,
+        quality: "low",
+      };
     }
 
     const controller = new AbortController();
