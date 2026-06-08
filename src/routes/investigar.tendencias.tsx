@@ -944,11 +944,13 @@ function ViralTrendCard({
   onFav,
   onSave,
   onDelete,
+  onRecreated,
 }: {
   t: ViralTrend;
   onFav: () => void;
   onSave: () => void;
   onDelete: () => void;
+  onRecreated?: () => void;
 }) {
   const score = Math.max(0, Math.min(100, t.viral_score));
   const detected = new Date(t.created_at).toLocaleDateString("es", {
@@ -968,6 +970,7 @@ function ViralTrendCard({
     ? new Date(t.published_at).toLocaleDateString("es", { day: "2-digit", month: "short", year: "2-digit" })
     : null;
   const canPlay = isYouTube && !!embedUrl;
+  const [recreateOpen, setRecreateOpen] = useState(false);
   return (
     <div className="surface-card hover-lift overflow-hidden p-0">
       {isYouTube && thumb && (
