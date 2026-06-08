@@ -6,6 +6,7 @@ import { createHmac, timingSafeEqual } from "crypto";
  * El secreto NUNCA sale del servidor.
  */
 const COOKIE_NAME = "app_session";
+const PREVIEW_COOKIE_NAME = "app_session_preview";
 const DEFAULT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
 
 function getSecret(): string {
@@ -84,4 +85,15 @@ export function verifySharedSecret(input: string | undefined | null): boolean {
 }
 
 export const SESSION_COOKIE_NAME = COOKIE_NAME;
+export const PREVIEW_SESSION_COOKIE_NAME = PREVIEW_COOKIE_NAME;
 export const SESSION_TTL_SECONDS = Math.floor(DEFAULT_TTL_MS / 1000);
+
+export function isPreviewSandboxHost(host: string | undefined | null): boolean {
+  if (typeof host !== "string") return false;
+  const normalizedHost = host.toLowerCase();
+  return (
+    normalizedHost.includes("lovableproject.com") ||
+    normalizedHost.startsWith("id-preview--") ||
+    normalizedHost.includes("-dev.lovable.app")
+  );
+}
