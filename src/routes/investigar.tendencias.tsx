@@ -1131,6 +1131,7 @@ function ViralTrendCard({
           <Badge variant="secondary" className="rounded-full text-[10px] font-normal">
             {t.category}
           </Badge>
+          <SourceBadge sourceType={t.source_type ?? t.source ?? null} />
         </div>
 
         <h3 className="line-clamp-2 text-[13.5px] font-semibold leading-snug">{t.title}</h3>
