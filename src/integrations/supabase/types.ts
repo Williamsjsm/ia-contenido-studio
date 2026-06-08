@@ -448,6 +448,69 @@ export type Database = {
         }
         Relationships: []
       }
+      trend_recreation_prompts: {
+        Row: {
+          alternative_title: string | null
+          created_at: string
+          hashtags: string | null
+          hook: string | null
+          id: string
+          idea_base: string | null
+          platform: string | null
+          prompt_image: string | null
+          prompt_video: string | null
+          publication_description: string | null
+          recommended_platforms: string | null
+          short_script: string | null
+          title: string
+          trend_id: string | null
+          updated_at: string
+          user_id: string
+          video_structure: string | null
+          visual_style: string | null
+        }
+        Insert: {
+          alternative_title?: string | null
+          created_at?: string
+          hashtags?: string | null
+          hook?: string | null
+          id?: string
+          idea_base?: string | null
+          platform?: string | null
+          prompt_image?: string | null
+          prompt_video?: string | null
+          publication_description?: string | null
+          recommended_platforms?: string | null
+          short_script?: string | null
+          title: string
+          trend_id?: string | null
+          updated_at?: string
+          user_id: string
+          video_structure?: string | null
+          visual_style?: string | null
+        }
+        Update: {
+          alternative_title?: string | null
+          created_at?: string
+          hashtags?: string | null
+          hook?: string | null
+          id?: string
+          idea_base?: string | null
+          platform?: string | null
+          prompt_image?: string | null
+          prompt_video?: string | null
+          publication_description?: string | null
+          recommended_platforms?: string | null
+          short_script?: string | null
+          title?: string
+          trend_id?: string | null
+          updated_at?: string
+          user_id?: string
+          video_structure?: string | null
+          visual_style?: string | null
+        }
+        Relationships: []
+      }
       trends: {
         Row: {
           category: string | null

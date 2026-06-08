@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ import {
   Flame, TrendingUp, Rocket, Sparkles, Eye, Heart, Wand2, Bookmark,
   Play, ArrowUpRight, Zap, Target, Users, Lightbulb, ChevronRight,
   Clock, Star, Globe2, Loader2, Trash2, RefreshCw, Library as LibraryIcon,
+  Copy, FileText, Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FlowConnector } from "@/components/flow-connector";
@@ -29,6 +30,12 @@ import {
   VIRAL_CATEGORIES,
   type ViralTrend,
 } from "@/lib/viral-trends.functions";
+import {
+  generateTrendRecreationPrompt,
+  listTrendRecreations,
+  deleteTrendRecreation,
+  type TrendRecreation,
+} from "@/lib/trend-recreations.functions";
 
 export const Route = createFileRoute("/investigar/tendencias")({
   head: () => ({
@@ -646,6 +653,8 @@ function ViralRadar({
   const toggleSaved = useServerFn(toggleSavedTrend);
   const remove = useServerFn(deleteViralTrend);
   const fetchYouTube = useServerFn(fetchYouTubeTrends);
+  const listRecreations = useServerFn(listTrendRecreations);
+  const removeRecreation = useServerFn(deleteTrendRecreation);
 
   const [savedOnly, setSavedOnly] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -659,11 +668,29 @@ function ViralRadar({
     queryKey: ["viral", "saved"],
     queryFn: () => list({ data: { savedOnly: true, limit: 30 } }),
   });
+  const recreationsQuery = useQuery({
+    queryKey: ["viral", "recreations"],
+    queryFn: () => listRecreations({ data: {} }),
+  });
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["viral"] });
     qc.invalidateQueries({ queryKey: ["radar", "stats"] });
   };
+  const invalidateRecreations = () => {
+    qc.invalidateQueries({ queryKey: ["viral", "recreations"] });
+  };
+  const delRecreationMut = useMutation({
+    mutationFn: removeRecreation,
+    onSuccess: (res) => {
+      if (res.ok) {
+        toast.success("Recreación eliminada");
+        invalidateRecreations();
+      } else {
+        toast.error(res.message);
+      }
+    },
+  });
 
   const seedMut = useMutation({
     mutationFn: seed,
@@ -842,6 +869,7 @@ function ViralRadar({
               onFav={() => favMut.mutate({ data: { id: t.id } })}
               onSave={() => savedMut.mutate({ data: { id: t.id } })}
               onDelete={() => delMut.mutate({ data: { id: t.id } })}
+              onRecreated={invalidateRecreations}
             />
           ))}
         </div>
@@ -900,6 +928,13 @@ function ViralRadar({
           </ul>
         )}
       </div>
+
+      {/* Historial · recreaciones IA */}
+      <RecreationsHistory
+        items={recreationsQuery.data ?? []}
+        isLoading={recreationsQuery.isLoading}
+        onDelete={(id) => delRecreationMut.mutate({ data: { id } })}
+      />
     </div>
   );
 }
@@ -909,11 +944,13 @@ function ViralTrendCard({
   onFav,
   onSave,
   onDelete,
+  onRecreated,
 }: {
   t: ViralTrend;
   onFav: () => void;
   onSave: () => void;
   onDelete: () => void;
+  onRecreated?: () => void;
 }) {
   const score = Math.max(0, Math.min(100, t.viral_score));
   const detected = new Date(t.created_at).toLocaleDateString("es", {
@@ -933,6 +970,7 @@ function ViralTrendCard({
     ? new Date(t.published_at).toLocaleDateString("es", { day: "2-digit", month: "short", year: "2-digit" })
     : null;
   const canPlay = isYouTube && !!embedUrl;
+  const [recreateOpen, setRecreateOpen] = useState(false);
   return (
     <div className="surface-card hover-lift overflow-hidden p-0">
       {isYouTube && thumb && (
@@ -1002,6 +1040,14 @@ function ViralTrendCard({
             {t.keywords.split(",").map((k) => `#${k.trim()}`).join(" ")}
           </p>
         )}
+
+        <Button
+          size="sm"
+          className="w-full gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+          onClick={() => setRecreateOpen(true)}
+        >
+          <Sparkles className="h-3.5 w-3.5" /> Recrear con IA
+        </Button>
 
         {isYouTube && (
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
@@ -1114,6 +1160,13 @@ function ViralTrendCard({
           </DialogContent>
         </Dialog>
       )}
+
+      <RecreateDialog
+        open={recreateOpen}
+        onOpenChange={setRecreateOpen}
+        trend={t}
+        onCreated={onRecreated}
+      />
     </div>
   );
 }
@@ -1123,4 +1176,306 @@ function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return String(n);
+}
+
+// ============ Recreate with AI ============
+function copyText(text: string | null | undefined, label: string) {
+  if (!text) {
+    toast.error("Nada que copiar");
+    return;
+  }
+  navigator.clipboard
+    .writeText(text)
+    .then(() => toast.success(`${label} copiado`))
+    .catch(() => toast.error("No se pudo copiar"));
+}
+
+function buildCopyAll(r: TrendRecreation): string {
+  const lines: string[] = [];
+  lines.push(`# ${r.alternative_title ?? r.title}`);
+  if (r.idea_base) lines.push(`\nIDEA BASE\n${r.idea_base}`);
+  if (r.hook) lines.push(`\nHOOK\n${r.hook}`);
+  if (r.prompt_image) lines.push(`\nPROMPT IMAGEN\n${r.prompt_image}`);
+  if (r.prompt_video) lines.push(`\nPROMPT VIDEO\n${r.prompt_video}`);
+  if (r.short_script) lines.push(`\nGUION CORTO\n${r.short_script}`);
+  if (r.video_structure) lines.push(`\nESTRUCTURA\n${r.video_structure}`);
+  if (r.visual_style) lines.push(`\nESTILO VISUAL\n${r.visual_style}`);
+  if (r.publication_description) lines.push(`\nDESCRIPCIÓN\n${r.publication_description}`);
+  if (r.hashtags) lines.push(`\nHASHTAGS\n${r.hashtags}`);
+  if (r.recommended_platforms) lines.push(`\nPLATAFORMAS\n${r.recommended_platforms}`);
+  return lines.join("\n");
+}
+
+function RecreateDialog({
+  open,
+  onOpenChange,
+  trend,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  trend: ViralTrend;
+  onCreated?: () => void;
+}) {
+  const generate = useServerFn(generateTrendRecreationPrompt);
+  const [result, setResult] = useState<TrendRecreation | null>(null);
+  const mut = useMutation({
+    mutationFn: generate,
+    onSuccess: (res) => {
+      if (res.ok) {
+        setResult(res.item);
+        toast.success("Recreación generada");
+        onCreated?.();
+      } else {
+        toast.error(res.message);
+      }
+    },
+    onError: (err: unknown) => toast.error((err as Error)?.message ?? "Error"),
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    if (result || mut.isPending || mut.isError) return;
+    mut.mutate({
+      data: {
+        trend_id: trend.id,
+        title: trend.title,
+        platform: trend.platform,
+        country: trend.country,
+        category: trend.category,
+        keywords: trend.keywords ?? undefined,
+        source: trend.source ?? undefined,
+        url: trend.url ?? undefined,
+        channel_title: trend.channel_title ?? undefined,
+        views: typeof trend.views === "number" ? trend.views : undefined,
+        likes: typeof trend.likes === "number" ? trend.likes : undefined,
+        published_at: trend.published_at ?? undefined,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const handleOpenChange = (v: boolean) => {
+    onOpenChange(v);
+    if (!v) {
+      // reset so next open re-generates fresh
+      setResult(null);
+      mut.reset();
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto border-border/60 bg-card">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-[14px]">
+            <Sparkles className="h-4 w-4 text-primary" /> Recrear con IA
+          </DialogTitle>
+          <DialogDescription className="text-[11.5px]">
+            Versión original e inspirada — no copia el contenido original.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="rounded-md border border-border/60 bg-background/40 p-3 text-[11.5px]">
+          <p className="font-medium text-foreground">{trend.title}</p>
+          <p className="text-muted-foreground">
+            {trend.platform} · {trend.country} · {trend.category}
+            {trend.channel_title ? ` · ${trend.channel_title}` : ""}
+          </p>
+        </div>
+
+        {mut.isPending && !result && (
+          <div className="flex items-center justify-center gap-2 py-10 text-[12px] text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Generando paquete creativo…
+          </div>
+        )}
+
+        {result && (
+          <div className="space-y-4">
+            <Section title="Idea base" value={result.idea_base} />
+            <Section title="Hook" value={result.hook} />
+            <Section title="Prompt imagen" value={result.prompt_image} mono />
+            <Section title="Prompt video" value={result.prompt_video} mono />
+            <Section title="Guion corto" value={result.short_script} />
+            <Section title="Estructura del video" value={result.video_structure} />
+            <Section title="Estilo visual" value={result.visual_style} />
+            <Section title="Título alternativo" value={result.alternative_title} />
+            <Section title="Descripción publicación" value={result.publication_description} />
+            <Section title="Hashtags" value={result.hashtags} />
+            <Section title="Plataformas recomendadas" value={result.recommended_platforms} />
+
+            <div className="flex flex-wrap gap-2 border-t border-border/50 pt-3">
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 text-[11px]" onClick={() => copyText(buildCopyAll(result), "Paquete")}>
+                <Copy className="h-3.5 w-3.5" /> Copiar todo
+              </Button>
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 text-[11px]" onClick={() => copyText(result.prompt_image, "Prompt imagen")}>
+                <Copy className="h-3.5 w-3.5" /> Prompt imagen
+              </Button>
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 text-[11px]" onClick={() => copyText(result.prompt_video, "Prompt video")}>
+                <Copy className="h-3.5 w-3.5" /> Prompt video
+              </Button>
+              <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 text-[11px]">
+                <Link
+                  to="/crear/prompts"
+                  search={{
+                    from: "recreacion",
+                    idea: result.alternative_title ?? trend.title,
+                    plataforma: trend.platform.toLowerCase(),
+                    pais: trend.country,
+                    categoria: trend.category,
+                    tags: result.hashtags ?? trend.keywords ?? trend.title,
+                  }}
+                >
+                  <Wand2 className="h-3.5 w-3.5" /> Crear Prompt
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 text-[11px]">
+                <Link
+                  to="/crear/flow"
+                  search={{
+                    from: "recreacion",
+                    prompt: result.prompt_video ?? result.prompt_image ?? "",
+                    titulo: result.alternative_title ?? trend.title,
+                    plataforma: trend.platform.toLowerCase(),
+                    categoria: trend.category,
+                  }}
+                >
+                  <Play className="h-3.5 w-3.5" /> Enviar a Flow
+                </Link>
+              </Button>
+              <Button asChild size="sm" className="h-8 gap-1.5 bg-[image:var(--gradient-primary)] text-[11px] text-primary-foreground hover:opacity-90">
+                <Link
+                  to="/publicacion"
+                  search={{
+                    prompt: result.publication_description ?? result.idea_base ?? "",
+                    titulo: result.alternative_title ?? trend.title,
+                    plataforma: trend.platform.toLowerCase(),
+                    categoria: trend.category,
+                    flow_job_id: "",
+                  }}
+                >
+                  <Share2 className="h-3.5 w-3.5" /> Enviar a Publicación
+                </Link>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="ml-auto h-8 gap-1.5 text-[11px]"
+                onClick={() => {
+                  setResult(null);
+                  mut.reset();
+                }}
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Regenerar
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Section({ title, value, mono }: { title: string; value: string | null; mono?: boolean }) {
+  if (!value) return null;
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</h4>
+        <Button size="icon" variant="ghost" className="h-6 w-6" title="Copiar" onClick={() => copyText(value, title)}>
+          <Copy className="h-3 w-3" />
+        </Button>
+      </div>
+      <div className={cn("rounded-md border border-border/60 bg-background/40 px-3 py-2 text-[12px] leading-relaxed whitespace-pre-wrap", mono && "font-mono text-[11.5px]")}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function RecreationsHistory({
+  items,
+  isLoading,
+  onDelete,
+}: {
+  items: TrendRecreation[];
+  isLoading: boolean;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="surface-card p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-primary" />
+        <h3 className="text-[13.5px] font-semibold">Recreaciones generadas</h3>
+        <Badge variant="outline" className="ml-auto border-border/60 bg-background/60 text-[10px] font-normal">
+          {items.length}
+        </Badge>
+      </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
+          <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Cargando…
+        </div>
+      ) : items.length === 0 ? (
+        <p className="py-4 text-center text-[12px] text-muted-foreground">
+          Aún no has recreado tendencias. Usa el botón "Recrear con IA" en cualquier tarjeta.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border/50">
+          {items.map((r) => (
+            <li key={r.id} className="flex flex-wrap items-center gap-2 py-2.5">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
+                <Sparkles className="h-3.5 w-3.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[12.5px] font-medium">{r.alternative_title ?? r.title}</p>
+                <p className="truncate text-[10.5px] text-muted-foreground">
+                  {r.platform ?? "—"} · {new Date(r.created_at).toLocaleDateString("es", { day: "2-digit", month: "short" })}
+                </p>
+              </div>
+              <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[10.5px]" onClick={() => copyText(buildCopyAll(r), "Paquete")}>
+                <Copy className="h-3 w-3" /> Copiar
+              </Button>
+              <Button asChild size="sm" variant="outline" className="h-7 gap-1 px-2 text-[10.5px]">
+                <Link
+                  to="/crear/flow"
+                  search={{
+                    from: "recreacion",
+                    prompt: r.prompt_video ?? r.prompt_image ?? "",
+                    titulo: r.alternative_title ?? r.title,
+                    plataforma: (r.platform ?? "").toLowerCase(),
+                    categoria: "",
+                  }}
+                >
+                  <Play className="h-3 w-3" /> Flow
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="outline" className="h-7 gap-1 px-2 text-[10.5px]">
+                <Link
+                  to="/publicacion"
+                  search={{
+                    prompt: r.publication_description ?? r.idea_base ?? "",
+                    titulo: r.alternative_title ?? r.title,
+                    plataforma: (r.platform ?? "").toLowerCase(),
+                    categoria: "",
+                    flow_job_id: "",
+                  }}
+                >
+                  <Share2 className="h-3 w-3" /> Publicar
+                </Link>
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 text-destructive hover:text-destructive"
+                title="Eliminar"
+                onClick={() => onDelete(r.id)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
