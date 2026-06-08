@@ -226,6 +226,7 @@ function ImagenIA() {
   }
 
   return (
+    <>
     <div className="mx-auto w-full max-w-7xl space-y-6 p-6 lg:p-10">
       <PageHeader title="Imagen IA" subtitle="Genera imágenes reales con Gemini Imagen o OpenAI Images." />
       <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
