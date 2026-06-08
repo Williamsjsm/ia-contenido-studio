@@ -1759,6 +1759,7 @@ function SourceBadge({ sourceType }: { sourceType: string | null }) {
   if (!sourceType) return null;
   const meta: Record<string, { label: string; cls: string }> = {
     youtube_api: { label: "YouTube API", cls: "border-red-500/40 bg-red-500/10 text-red-300" },
+    youtube_search: { label: "YouTube Search", cls: "border-red-500/40 bg-red-500/10 text-red-200" },
     instagram_hashtag: { label: "Instagram Hashtag", cls: "border-pink-500/40 bg-pink-500/10 text-pink-300" },
     facebook_page: { label: "Facebook Page", cls: "border-blue-500/40 bg-blue-500/10 text-blue-300" },
     tiktok_research: { label: "TikTok API", cls: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300" },
