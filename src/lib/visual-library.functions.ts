@@ -10,6 +10,19 @@ function ownerId(): string {
 const BUCKET = "visual-references";
 const SIGNED_TTL = 60 * 60 * 24 * 7; // 7 días
 
+/**
+ * Defensa en profundidad: garantiza que cualquier path recibido del cliente
+ * pertenece al owner actual. Bloquea IDOR aunque el cliente envíe paths
+ * arbitrarios a createSignedUrl / remove / update.
+ */
+function assertOwnedPath(path: string | null | undefined, owner: string): void {
+  if (!path) return;
+  const normalized = path.replace(/^\/+/, "");
+  if (normalized.includes("..") || !normalized.startsWith(`${owner}/`)) {
+    throw new Error("Forbidden: path no pertenece al usuario");
+  }
+}
+
 async function sign(path: string | null | undefined): Promise<string | null> {
   if (!path) return null;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -22,7 +35,7 @@ async function sign(path: string | null | undefined): Promise<string | null> {
 
 const UploadSchema = z.object({
   filename: z.string().min(1).max(200),
-  contentType: z.string().min(1).max(100),
+  contentType: z.enum(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]),
   // base64 (sin prefijo data:)
   base64: z.string().min(1).max(15_000_000),
   scope: z.enum(["reference", "character"]).default("reference"),
@@ -73,6 +86,7 @@ export const createVisualReference = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ ok: true; ref: VisualReference } | { ok: false; message: string }> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = ownerId();
+    assertOwnedPath(data.image_path, owner);
     const signedUrl = (await sign(data.image_path)) ?? "";
     const { data: row, error } = await supabaseAdmin
       .from("visual_references")
@@ -163,6 +177,7 @@ export const createVirtualCharacter = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = ownerId();
+    assertOwnedPath(data.reference_image_path, owner);
     const signedUrl = data.reference_image_path ? await sign(data.reference_image_path) : null;
     const { data: row, error } = await supabaseAdmin
       .from("virtual_characters")
@@ -189,6 +204,7 @@ export const updateVirtualCharacter = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = ownerId();
+    assertOwnedPath(data.reference_image_path, owner);
     const signedUrl = data.reference_image_path ? await sign(data.reference_image_path) : null;
     const { error } = await supabaseAdmin
       .from("virtual_characters")

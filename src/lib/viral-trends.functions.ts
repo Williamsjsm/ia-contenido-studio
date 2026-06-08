@@ -104,10 +104,13 @@ export const listViralTrends = createServerFn({ method: "POST" })
       q = q.in("source_type", data.sourceTypes);
     }
     if (data.keyword && data.keyword.trim().length > 0) {
-      const term = data.keyword.trim().replace(/[%,]/g, "");
+      // Strip any PostgREST structural chars; keep alphanumerics, spaces, hyphen, #, @, _
+      const term = data.keyword.trim().replace(/[^\w\s\-#@]/g, "").slice(0, 80);
+      if (term.length > 0) {
       q = q.or(
         `title.ilike.%${term}%,keywords.ilike.%${term}%,channel_title.ilike.%${term}%`,
       );
+      }
     }
     const { data: rows, error } = await q;
     if (error) {
