@@ -15,6 +15,7 @@ import {
   X,
   Wand2,
   Image as ImageIcon,
+  Sparkles,
 } from "lucide-react";
 import { LibraryShell, EmptyState } from "@/components/library-shell";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,7 @@ import {
   uploadVisualImage,
   type VirtualCharacter,
 } from "@/lib/visual-library.functions";
+import { ImportCharacterDialog } from "@/components/import-character-dialog";
 
 export const Route = createFileRoute("/biblioteca/personajes")({
   head: () => ({ meta: [{ title: "Personajes Virtuales — AI Content Studio" }] }),
@@ -92,6 +94,7 @@ function PersonajesPage() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [confirmDelete, setConfirmDelete] = useState<VirtualCharacter | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   function openCreate() {
@@ -205,9 +208,18 @@ function PersonajesPage() {
             Mantén consistencia visual reutilizando identidades en todos tus prompts.
           </p>
         </div>
-        <Button onClick={openCreate} className="gap-1.5">
-          <Plus className="h-4 w-4" /> Crear personaje
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+            className="gap-1.5"
+          >
+            <Sparkles className="h-4 w-4" /> Importar desde imagen
+          </Button>
+          <Button onClick={openCreate} className="gap-1.5">
+            <Plus className="h-4 w-4" /> Crear personaje
+          </Button>
+        </div>
       </div>
 
       {query.isLoading ? (
@@ -446,6 +458,12 @@ function PersonajesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ImportCharacterDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        mode="save"
+      />
     </LibraryShell>
   );
 }

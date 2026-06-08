@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, Save, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library, AlertCircle, X, Users } from "lucide-react";
+import { Copy, Save, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library, AlertCircle, X, Users, ImagePlus, UserPlus } from "lucide-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
@@ -32,6 +32,7 @@ import {
   listVirtualCharacters,
   type VirtualCharacter,
 } from "@/lib/visual-library.functions";
+import { ImportCharacterDialog } from "@/components/import-character-dialog";
 
 const searchSchema = z.object({
   from: fallback(z.string(), "").default(""),
@@ -108,6 +109,7 @@ function PromptsGenerator() {
   const [referenceMode, setReferenceMode] = useState<ReferenceMode>("none");
   const [characterMode, setCharacterMode] = useState<CharacterMode>("keep_character");
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>("");
+  const [importMode, setImportMode] = useState<"save" | "temporal" | null>(null);
 
   const listCharactersFn = useServerFn(listVirtualCharacters);
   const charactersQuery = useQuery({
@@ -447,6 +449,29 @@ function PromptsGenerator() {
               disabled={status === "loading"}
             />
 
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setImportMode("temporal")}
+                disabled={status === "loading"}
+              >
+                <ImagePlus className="h-3.5 w-3.5" /> Subir imagen de referencia
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setImportMode("save")}
+                disabled={status === "loading"}
+              >
+                <UserPlus className="h-3.5 w-3.5" /> Crear personaje desde imagen
+              </Button>
+            </div>
+
             {referenceMode === "character" && selectedCharacter && (
               <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary">
                 <Users className="h-3.5 w-3.5" />
@@ -517,6 +542,30 @@ function PromptsGenerator() {
           </CardContent>
         </Card>
       </div>
+
+      <ImportCharacterDialog
+        open={importMode !== null}
+        onOpenChange={(o) => { if (!o) setImportMode(null); }}
+        mode={importMode ?? "save"}
+        onSaved={(c) => {
+          setImportMode(null);
+          queryClient.invalidateQueries({ queryKey: ["library", "characters"] });
+          setReferenceMode("character");
+          setSelectedCharacterId(c.id);
+        }}
+        onAnalyzed={(payload) => {
+          setImportMode(null);
+          const injection = [
+            payload.master_prompt,
+            payload.description ? `Descripción: ${payload.description}` : "",
+          ].filter(Boolean).join("\n");
+          setForm((f) => ({
+            ...f,
+            descripcion: [f.descripcion, `Referencia visual:\n${injection}`].filter(Boolean).join("\n\n"),
+          }));
+          toast.success("Referencia visual añadida a la descripción.");
+        }}
+      />
     </div>
   );
 }
