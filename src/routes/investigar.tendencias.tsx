@@ -869,6 +869,7 @@ function ViralRadar({
               onFav={() => favMut.mutate({ data: { id: t.id } })}
               onSave={() => savedMut.mutate({ data: { id: t.id } })}
               onDelete={() => delMut.mutate({ data: { id: t.id } })}
+              onRecreated={invalidateRecreations}
             />
           ))}
         </div>
