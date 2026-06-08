@@ -459,3 +459,308 @@ export const fetchYouTubeTrends = createServerFn({ method: "POST" })
       errors: errors.slice(0, 5),
     };
   });
+
+// =========================================================
+// Instagram Graph API · Hashtag Search
+// Requiere META_ACCESS_TOKEN + INSTAGRAM_BUSINESS_ACCOUNT_ID.
+// =========================================================
+
+function viralScoreFromEngagement(likes: number, comments: number): number {
+  const total = likes + comments * 2;
+  if (total <= 0) return 0;
+  const score = Math.round(Math.log10(Math.max(1, total)) * 18);
+  return Math.max(0, Math.min(100, score));
+}
+
+async function upsertSocialTrend(
+  row: Record<string, unknown> & {
+    user_id: string;
+    source_type: string;
+    external_id: string;
+  },
+): Promise<"inserted" | "updated" | "error"> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: existing } = await supabaseAdmin
+    .from("viral_trends")
+    .select("id")
+    .eq("user_id", row.user_id)
+    .eq("source_type", row.source_type)
+    .eq("external_id", row.external_id)
+    .maybeSingle();
+  if (existing?.id) {
+    const { error } = await supabaseAdmin
+      .from("viral_trends")
+      .update(row)
+      .eq("id", existing.id);
+    return error ? "error" : "updated";
+  }
+  const { error } = await supabaseAdmin.from("viral_trends").insert(row);
+  return error ? "error" : "inserted";
+}
+
+const FetchInstagramSchema = z.object({
+  hashtag: z.string().trim().min(1).max(80),
+  country: z.string().trim().max(60).nullable().optional(),
+  category: z.string().trim().max(60).nullable().optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+
+type IGMediaItem = {
+  id: string;
+  caption?: string;
+  media_type?: string;
+  media_url?: string;
+  permalink?: string;
+  thumbnail_url?: string;
+  timestamp?: string;
+  like_count?: number;
+  comments_count?: number;
+  username?: string;
+};
+
+export const fetchInstagramHashtagTrends = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => FetchInstagramSchema.parse(input ?? {}))
+  .handler(async ({ data }) => {
+    const token = process.env.META_ACCESS_TOKEN?.trim();
+    const igUserId = process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID?.trim();
+    if (!token || !igUserId) {
+      return {
+        ok: false as const,
+        configured: false as const,
+        message: "Instagram API no configurada",
+      };
+    }
+    const owner = resolveOwnerId();
+    const limit = data.limit ?? 20;
+    try {
+      const tag = data.hashtag.replace(/^#/, "");
+      // 1. Resolve hashtag id
+      const tagRes = await fetch(
+        `https://graph.facebook.com/v19.0/ig_hashtag_search?user_id=${encodeURIComponent(igUserId)}&q=${encodeURIComponent(tag)}&access_token=${encodeURIComponent(token)}`,
+      );
+      if (!tagRes.ok) {
+        const txt = await tagRes.text();
+        return { ok: false as const, configured: true as const, message: `IG hashtag_search ${tagRes.status}: ${txt.slice(0, 120)}` };
+      }
+      const tagJson = (await tagRes.json()) as { data?: Array<{ id: string }> };
+      const hashtagId = tagJson.data?.[0]?.id;
+      if (!hashtagId) {
+        return { ok: false as const, configured: true as const, message: "Hashtag no encontrado" };
+      }
+      // 2. Top media
+      const fields = "id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,like_count,comments_count";
+      const mediaRes = await fetch(
+        `https://graph.facebook.com/v19.0/${hashtagId}/top_media?user_id=${encodeURIComponent(igUserId)}&fields=${fields}&limit=${limit}&access_token=${encodeURIComponent(token)}`,
+      );
+      if (!mediaRes.ok) {
+        const txt = await mediaRes.text();
+        return { ok: false as const, configured: true as const, message: `IG top_media ${mediaRes.status}: ${txt.slice(0, 120)}` };
+      }
+      const mediaJson = (await mediaRes.json()) as { data?: IGMediaItem[] };
+      const items = mediaJson.data ?? [];
+      let inserted = 0;
+      let updated = 0;
+      let errors = 0;
+      for (const it of items) {
+        const likes = it.like_count ?? 0;
+        const comments = it.comments_count ?? 0;
+        const thumb = it.thumbnail_url || (it.media_type === "IMAGE" ? it.media_url ?? null : null);
+        const title = (it.caption ?? `Instagram #${tag}`).slice(0, 280);
+        const row = {
+          user_id: owner,
+          title,
+          platform: "Instagram",
+          country: data.country ?? "Global",
+          category: data.category ?? "Viral General",
+          viral_score: viralScoreFromEngagement(likes, comments),
+          keywords: `#${tag}`,
+          source: "instagram_hashtag",
+          source_type: "instagram_hashtag",
+          thumbnail_url: thumb,
+          url: it.permalink ?? null,
+          views: null,
+          likes,
+          comment_count: comments,
+          published_at: it.timestamp ?? null,
+          external_id: it.id,
+          creator_name: it.username ?? null,
+          raw_payload: it as unknown as Record<string, unknown>,
+        };
+        const r = await upsertSocialTrend(row);
+        if (r === "inserted") inserted++;
+        else if (r === "updated") updated++;
+        else errors++;
+      }
+      return { ok: true as const, configured: true as const, inserted, updated, errors };
+    } catch (err) {
+      console.error("[instagram] failed", err);
+      return { ok: false as const, configured: true as const, message: (err as Error).message };
+    }
+  });
+
+// =========================================================
+// Facebook Graph API · Page Posts
+// Requiere META_ACCESS_TOKEN (Page access token con permisos).
+// =========================================================
+
+const FetchFacebookSchema = z.object({
+  page_id: z.string().trim().min(1).max(120),
+  country: z.string().trim().max(60).nullable().optional(),
+  category: z.string().trim().max(60).nullable().optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+
+type FBPostItem = {
+  id: string;
+  message?: string;
+  permalink_url?: string;
+  created_time?: string;
+  full_picture?: string;
+  from?: { name?: string };
+  reactions?: { summary?: { total_count?: number } };
+  comments?: { summary?: { total_count?: number } };
+  shares?: { count?: number };
+};
+
+export const fetchFacebookPageTrends = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => FetchFacebookSchema.parse(input ?? {}))
+  .handler(async ({ data }) => {
+    const token = process.env.META_ACCESS_TOKEN?.trim();
+    if (!token) {
+      return {
+        ok: false as const,
+        configured: false as const,
+        message: "Facebook API no configurada",
+      };
+    }
+    const owner = resolveOwnerId();
+    const limit = data.limit ?? 15;
+    try {
+      const fields =
+        "id,message,permalink_url,created_time,full_picture,from,reactions.summary(true),comments.summary(true),shares";
+      const res = await fetch(
+        `https://graph.facebook.com/v19.0/${encodeURIComponent(data.page_id)}/posts?fields=${encodeURIComponent(fields)}&limit=${limit}&access_token=${encodeURIComponent(token)}`,
+      );
+      if (!res.ok) {
+        const txt = await res.text();
+        return { ok: false as const, configured: true as const, message: `FB ${res.status}: ${txt.slice(0, 120)}` };
+      }
+      const json = (await res.json()) as { data?: FBPostItem[] };
+      const items = json.data ?? [];
+      let inserted = 0;
+      let updated = 0;
+      let errors = 0;
+      for (const it of items) {
+        const likes = it.reactions?.summary?.total_count ?? 0;
+        const comments = it.comments?.summary?.total_count ?? 0;
+        const shares = it.shares?.count ?? 0;
+        const title = (it.message ?? `Post de ${it.from?.name ?? data.page_id}`).slice(0, 280);
+        const row = {
+          user_id: owner,
+          title,
+          platform: "Facebook",
+          country: data.country ?? "Global",
+          category: data.category ?? "Viral General",
+          viral_score: viralScoreFromEngagement(likes + shares * 3, comments),
+          keywords: null,
+          source: "facebook_page",
+          source_type: "facebook_page",
+          thumbnail_url: it.full_picture ?? null,
+          url: it.permalink_url ?? null,
+          views: null,
+          likes,
+          comment_count: comments,
+          share_count: shares,
+          published_at: it.created_time ?? null,
+          external_id: it.id,
+          creator_name: it.from?.name ?? data.page_id,
+          raw_payload: it as unknown as Record<string, unknown>,
+        };
+        const r = await upsertSocialTrend(row);
+        if (r === "inserted") inserted++;
+        else if (r === "updated") updated++;
+        else errors++;
+      }
+      return { ok: true as const, configured: true as const, inserted, updated, errors };
+    } catch (err) {
+      console.error("[facebook] failed", err);
+      return { ok: false as const, configured: true as const, message: (err as Error).message };
+    }
+  });
+
+// =========================================================
+// TikTok · modo preparado (Research API requiere aprobación).
+// =========================================================
+
+const FetchTikTokSchema = z.object({
+  keyword: z.string().trim().max(80).optional(),
+  country: z.string().trim().max(60).nullable().optional(),
+});
+
+export const fetchTikTokTrends = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => FetchTikTokSchema.parse(input ?? {}))
+  .handler(async () => {
+    const token = process.env.TIKTOK_RESEARCH_TOKEN?.trim();
+    if (!token) {
+      return {
+        ok: false as const,
+        configured: false as const,
+        message: "TikTok API requiere aprobación o proveedor externo",
+      };
+    }
+    // Placeholder: Research API call goes here once approval is granted.
+    return {
+      ok: false as const,
+      configured: true as const,
+      message: "TikTok Research API aún no implementada — usa importar URL manual",
+    };
+  });
+
+// =========================================================
+// Importar tendencia manual (TikTok URL u otra fuente externa).
+// =========================================================
+
+const ImportManualSchema = z.object({
+  url: z.string().trim().url().max(600),
+  title: z.string().trim().min(1).max(280),
+  platform: z.enum(["TikTok", "Instagram", "Facebook", "YouTube"]),
+  category: z.string().trim().min(1).max(60).optional(),
+  country: z.string().trim().min(1).max(60).optional(),
+  keywords: z.string().trim().max(280).optional(),
+  thumbnail_url: z.string().trim().url().max(600).optional(),
+  creator_name: z.string().trim().max(120).optional(),
+});
+
+function tiktokIdFromUrl(url: string): string | null {
+  const m = url.match(/\/video\/(\d+)/);
+  return m?.[1] ?? null;
+}
+
+export const importManualTrend = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => ImportManualSchema.parse(input ?? {}))
+  .handler(async ({ data }) => {
+    const owner = resolveOwnerId();
+    const external = data.platform === "TikTok" ? tiktokIdFromUrl(data.url) ?? data.url : data.url;
+    const row = {
+      user_id: owner,
+      title: data.title,
+      platform: data.platform,
+      country: data.country ?? "Global",
+      category: data.category ?? "Viral General",
+      viral_score: 50,
+      keywords: data.keywords ?? null,
+      source: "manual_url",
+      source_type: "manual_url",
+      thumbnail_url: data.thumbnail_url ?? null,
+      url: data.url,
+      external_id: external,
+      creator_name: data.creator_name ?? null,
+    };
+    const result = await upsertSocialTrend(row);
+    if (result === "error") return { ok: false as const, message: "No se pudo guardar" };
+    return { ok: true as const, status: result };
+  });
