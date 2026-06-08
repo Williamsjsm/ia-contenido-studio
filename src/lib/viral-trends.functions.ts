@@ -310,6 +310,7 @@ type YouTubeVideoItem = {
     description?: string;
     publishedAt?: string;
     categoryId?: string;
+    channelTitle?: string;
     tags?: string[];
     thumbnails?: { high?: { url?: string }; medium?: { url?: string }; default?: { url?: string } };
   };
