@@ -8,11 +8,15 @@ function resolveOwnerId(): string {
 }
 
 const ProviderEnum = z.enum(["gemini", "openai"]);
+const UpscaleEnum = z.enum(["none", "2k", "4k", "8k", "12k"]);
+const FinalResEnum = z.enum(["1024", "2048", "3840", "7680", "12288"]);
 
 const InputSchema = z.object({
   prompt: z.string().trim().min(1, "Describe la imagen.").max(2000),
   provider: ProviderEnum.default("gemini"),
   resolution: z.enum(["1024x1024", "1792x1024", "1024x1792"]).default("1024x1024"),
+  finalResolution: FinalResEnum.default("1024"),
+  upscaleLevel: UpscaleEnum.default("none"),
 });
 
 export type GenerateImageInput = z.input<typeof InputSchema>;
@@ -24,6 +28,9 @@ export type GenerateImageResult =
       provider: "gemini" | "openai";
       model: string;
       resolution: string;
+      generated_resolution: string;
+      final_resolution: string;
+      upscale_level: "none" | "2k" | "4k" | "8k" | "12k";
       image_base64: string;
       mime_type: string;
       prompt: string;
