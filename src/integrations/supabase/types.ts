@@ -635,8 +635,10 @@ export type Database = {
         Row: {
           category: string
           channel_title: string | null
+          comment_count: number | null
           country: string
           created_at: string
+          creator_name: string | null
           embed_url: string | null
           external_id: string | null
           favorite: boolean
@@ -645,8 +647,11 @@ export type Database = {
           likes: number | null
           platform: string
           published_at: string | null
+          raw_payload: Json | null
           saved: boolean
+          share_count: number | null
           source: string | null
+          source_type: string | null
           thumbnail_url: string | null
           title: string
           updated_at: string
@@ -659,8 +664,10 @@ export type Database = {
         Insert: {
           category: string
           channel_title?: string | null
+          comment_count?: number | null
           country: string
           created_at?: string
+          creator_name?: string | null
           embed_url?: string | null
           external_id?: string | null
           favorite?: boolean
@@ -669,8 +676,11 @@ export type Database = {
           likes?: number | null
           platform: string
           published_at?: string | null
+          raw_payload?: Json | null
           saved?: boolean
+          share_count?: number | null
           source?: string | null
+          source_type?: string | null
           thumbnail_url?: string | null
           title: string
           updated_at?: string
@@ -683,8 +693,10 @@ export type Database = {
         Update: {
           category?: string
           channel_title?: string | null
+          comment_count?: number | null
           country?: string
           created_at?: string
+          creator_name?: string | null
           embed_url?: string | null
           external_id?: string | null
           favorite?: boolean
@@ -693,8 +705,11 @@ export type Database = {
           likes?: number | null
           platform?: string
           published_at?: string | null
+          raw_payload?: Json | null
           saved?: boolean
+          share_count?: number | null
           source?: string | null
+          source_type?: string | null
           thumbnail_url?: string | null
           title?: string
           updated_at?: string
