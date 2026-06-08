@@ -896,6 +896,33 @@ function ViralRadar({
           )}
           Actualizar YouTube real
         </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          onClick={() => setIgOpen(true)}
+          title="Buscar tendencias por hashtag de Instagram"
+        >
+          <Hash className="h-3.5 w-3.5" /> Buscar Instagram hashtag
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          onClick={() => setFbOpen(true)}
+          title="Importar últimos posts de una página de Facebook"
+        >
+          <FacebookIcon className="h-3.5 w-3.5" /> Actualizar Facebook página
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          onClick={() => setTtOpen(true)}
+          title="Importar URL de TikTok como tendencia manual"
+        >
+          <Link2 className="h-3.5 w-3.5" /> Importar TikTok URL
+        </Button>
       </div>
 
       <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-[11px] text-muted-foreground">
