@@ -113,6 +113,42 @@ export type Database = {
         }
         Relationships: []
       }
+      image_generations: {
+        Row: {
+          created_at: string
+          id: string
+          image_base64: string | null
+          image_url: string | null
+          model: string | null
+          prompt: string
+          provider: string
+          resolution: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_base64?: string | null
+          image_url?: string | null
+          model?: string | null
+          prompt: string
+          provider: string
+          resolution?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_base64?: string | null
+          image_url?: string | null
+          model?: string | null
+          prompt?: string
+          provider?: string
+          resolution?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       images: {
         Row: {
           created_at: string
