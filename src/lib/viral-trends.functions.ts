@@ -390,6 +390,9 @@ export const fetchYouTubeTrends = createServerFn({ method: "POST" })
               likes,
               published_at: sn.publishedAt ?? null,
               external_id: videoId,
+              video_id: videoId,
+              embed_url: `https://www.youtube.com/embed/${videoId}`,
+              channel_title: (sn as { channelTitle?: string }).channelTitle ?? null,
             };
             // upsert por (user_id, source, external_id) — manual: intentar update, si 0 filas insertar.
             const { data: existing } = await supabaseAdmin
@@ -413,6 +416,9 @@ export const fetchYouTubeTrends = createServerFn({ method: "POST" })
                   published_at: row.published_at,
                   category: row.category,
                   country: row.country,
+                  video_id: row.video_id,
+                  embed_url: row.embed_url,
+                  channel_title: row.channel_title,
                 })
                 .eq("id", existing.id);
               if (upErr) {
