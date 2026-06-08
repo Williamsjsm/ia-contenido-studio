@@ -15,6 +15,7 @@ import {
   Play, ArrowUpRight, Zap, Target, Users, Lightbulb, ChevronRight,
   Clock, Star, Globe2, Loader2, Trash2, RefreshCw, Library as LibraryIcon,
   Copy, FileText, Share2, Hash, Facebook as FacebookIcon, Link2,
+  Search, ThumbsUp, Brain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FlowConnector } from "@/components/flow-connector";
@@ -29,11 +30,14 @@ import {
   fetchFacebookPageTrends,
   fetchTikTokTrends,
   importManualTrend,
+  searchYouTubeTrends,
+  analyzeTrend,
   VIRAL_PLATFORMS,
   VIRAL_COUNTRIES,
   VIRAL_CATEGORIES,
   type ViralTrend,
 } from "@/lib/viral-trends.functions";
+import type { TrendAnalysis } from "@/lib/viral-trends.functions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -663,12 +667,29 @@ function ViralRadar({
   const fetchFacebook = useServerFn(fetchFacebookPageTrends);
   const fetchTikTok = useServerFn(fetchTikTokTrends);
   const importManual = useServerFn(importManualTrend);
+  const searchYT = useServerFn(searchYouTubeTrends);
   const listRecreations = useServerFn(listTrendRecreations);
   const removeRecreation = useServerFn(deleteTrendRecreation);
 
   const [savedOnly, setSavedOnly] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const filters = { platform, country, category, savedOnly, favoritesOnly };
+  const [keywordInput, setKeywordInput] = useState("");
+  const [keywordFilter, setKeywordFilter] = useState("");
+  const [duration, setDuration] = useState<"any" | "short" | "medium" | "long">("any");
+  const [orderBy, setOrderBy] = useState<"viral_score" | "views" | "likes" | "published_at" | "created_at">("viral_score");
+  const [sourceMode, setSourceMode] = useState<"all" | "youtube_real">("all");
+
+  const sourceTypes = sourceMode === "youtube_real" ? ["youtube_api", "youtube_search"] : undefined;
+  const filters = {
+    platform,
+    country,
+    category,
+    savedOnly,
+    favoritesOnly,
+    keyword: keywordFilter || null,
+    orderBy,
+    sourceTypes,
+  };
 
   const trendsQuery = useQuery({
     queryKey: ["viral", "list", filters],
@@ -763,6 +784,21 @@ function ViralRadar({
     },
   });
 
+  const searchMut = useMutation({
+    mutationFn: searchYT,
+    onSuccess: (res) => {
+      if (!res.ok) {
+        toast.error(res.message ?? "Error búsqueda");
+        return;
+      }
+      toast.success(`Búsqueda · ${res.inserted} nuevas, ${res.updated} actualizadas`);
+      setSourceMode("youtube_real");
+      setKeywordFilter(keywordInput.trim());
+      invalidate();
+    },
+    onError: (err: unknown) => toast.error((err as Error)?.message ?? "Error búsqueda"),
+  });
+
   const igMut = useMutation({
     mutationFn: fetchInstagram,
     onSuccess: (res) => {
@@ -831,6 +867,24 @@ function ViralRadar({
             {category ? ` · ${category}` : ""}
           </span>
         </div>
+        <div className="flex items-center gap-1 rounded-md border border-border/60 bg-background/40 p-0.5">
+          <Button
+            size="sm"
+            variant={sourceMode === "all" ? "default" : "ghost"}
+            className="h-7 px-2.5 text-[11px]"
+            onClick={() => setSourceMode("all")}
+          >
+            Todas
+          </Button>
+          <Button
+            size="sm"
+            variant={sourceMode === "youtube_real" ? "default" : "ghost"}
+            className="h-7 gap-1 px-2.5 text-[11px]"
+            onClick={() => setSourceMode("youtube_real")}
+          >
+            <Play className="h-3 w-3" /> YouTube Real
+          </Button>
+        </div>
         <Button
           size="sm"
           variant={savedOnly ? "default" : "outline"}
@@ -847,6 +901,21 @@ function ViralRadar({
         >
           <Heart className="h-3.5 w-3.5" /> Favoritas
         </Button>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Orden</span>
+          <Select value={orderBy} onValueChange={(v) => setOrderBy(v as typeof orderBy)}>
+            <SelectTrigger className="h-8 w-[140px] border-border/60 bg-background/40 text-[11.5px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="viral_score">Viral score</SelectItem>
+              <SelectItem value="views">Vistas</SelectItem>
+              <SelectItem value="likes">Likes</SelectItem>
+              <SelectItem value="published_at">Fecha publicación</SelectItem>
+              <SelectItem value="created_at">Detectada</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <Button
           size="sm"
           variant="outline"
@@ -925,9 +994,72 @@ function ViralRadar({
         </Button>
       </div>
 
-      <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-[11px] text-muted-foreground">
-        Mostrando catálogo curado de Radar Viral. Las fuentes externas en tiempo real se
-        conectarán cuando el conector correspondiente esté disponible.
+      {/* YouTube real search bar */}
+      <div className="surface-card flex flex-wrap items-center gap-2 p-3">
+        <Search className="h-3.5 w-3.5 text-primary" />
+        <span className="text-[10.5px] uppercase tracking-wider text-muted-foreground">YouTube Search</span>
+        <Input
+          placeholder="Buscar por keyword en YouTube (ej. minecraft animal)"
+          value={keywordInput}
+          onChange={(e) => setKeywordInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && keywordInput.trim() && !searchMut.isPending) {
+              searchMut.mutate({
+                data: {
+                  keyword: keywordInput.trim(),
+                  country: country ?? undefined,
+                  category: category ?? undefined,
+                  duration,
+                  order: "viewCount",
+                },
+              });
+            }
+          }}
+          className="h-8 flex-1 min-w-[200px] text-[12px]"
+        />
+        <Select value={duration} onValueChange={(v) => setDuration(v as typeof duration)}>
+          <SelectTrigger className="h-8 w-[120px] border-border/60 bg-background/40 text-[11.5px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">Cualquier duración</SelectItem>
+            <SelectItem value="short">Shorts (&lt;4m)</SelectItem>
+            <SelectItem value="medium">Medios (4–20m)</SelectItem>
+            <SelectItem value="long">Largos (&gt;20m)</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          size="sm"
+          className="gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+          disabled={!keywordInput.trim() || searchMut.isPending}
+          onClick={() =>
+            searchMut.mutate({
+              data: {
+                keyword: keywordInput.trim(),
+                country: country ?? undefined,
+                category: category ?? undefined,
+                duration,
+                order: "viewCount",
+              },
+            })
+          }
+        >
+          {searchMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+          Buscar en YouTube
+        </Button>
+        {keywordFilter && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 gap-1 text-[11px]"
+            onClick={() => {
+              setKeywordFilter("");
+              setKeywordInput("");
+            }}
+          >
+            Limpiar filtro: "{keywordFilter}"
+          </Button>
+        )}
       </div>
 
       {trendsQuery.isLoading ? (
@@ -1082,11 +1214,14 @@ function ViralTrendCard({
     t.thumbnail_url ?? (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null);
   const views = typeof t.views === "number" ? t.views : null;
   const viewsLabel = views !== null ? formatCount(views) : null;
+  const likes = typeof t.likes === "number" ? t.likes : null;
+  const likesLabel = likes !== null ? formatCount(likes) : null;
   const publishedLabel = t.published_at
     ? new Date(t.published_at).toLocaleDateString("es", { day: "2-digit", month: "short", year: "2-digit" })
     : null;
   const canPlay = isYouTube && !!embedUrl;
   const [recreateOpen, setRecreateOpen] = useState(false);
+  const [analyzeOpen, setAnalyzeOpen] = useState(false);
   return (
     <div className="surface-card hover-lift overflow-hidden p-0">
       {isYouTube && thumb && (
@@ -1144,6 +1279,17 @@ function ViralTrendCard({
           </p>
         )}
 
+        {(viewsLabel || likesLabel) && (
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            {viewsLabel && (
+              <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {viewsLabel}</span>
+            )}
+            {likesLabel && (
+              <span className="flex items-center gap-1"><ThumbsUp className="h-3 w-3" /> {likesLabel}</span>
+            )}
+          </div>
+        )}
+
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[11px]">
             <span className="text-muted-foreground">Viral score</span>
@@ -1158,13 +1304,23 @@ function ViralTrendCard({
           </p>
         )}
 
-        <Button
-          size="sm"
-          className="w-full gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
-          onClick={() => setRecreateOpen(true)}
-        >
-          <Sparkles className="h-3.5 w-3.5" /> Recrear con IA
-        </Button>
+        <div className="grid grid-cols-2 gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => setAnalyzeOpen(true)}
+          >
+            <Brain className="h-3.5 w-3.5" /> Analizar
+          </Button>
+          <Button
+            size="sm"
+            className="gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+            onClick={() => setRecreateOpen(true)}
+          >
+            <Sparkles className="h-3.5 w-3.5" /> Recrear con IA
+          </Button>
+        </div>
 
         {isYouTube && (
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
@@ -1284,6 +1440,7 @@ function ViralTrendCard({
         trend={t}
         onCreated={onRecreated}
       />
+      <AnalyzeDialog open={analyzeOpen} onOpenChange={setAnalyzeOpen} trend={t} />
     </div>
   );
 }
@@ -1602,6 +1759,7 @@ function SourceBadge({ sourceType }: { sourceType: string | null }) {
   if (!sourceType) return null;
   const meta: Record<string, { label: string; cls: string }> = {
     youtube_api: { label: "YouTube API", cls: "border-red-500/40 bg-red-500/10 text-red-300" },
+    youtube_search: { label: "YouTube Search", cls: "border-red-500/40 bg-red-500/10 text-red-200" },
     instagram_hashtag: { label: "Instagram Hashtag", cls: "border-pink-500/40 bg-pink-500/10 text-pink-300" },
     facebook_page: { label: "Facebook Page", cls: "border-blue-500/40 bg-blue-500/10 text-blue-300" },
     tiktok_research: { label: "TikTok API", cls: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300" },
@@ -1664,6 +1822,115 @@ function InstagramHashtagDialog({
             </Button>
           </div>
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AnalyzeDialog({
+  open, onOpenChange, trend,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  trend: ViralTrend;
+}) {
+  const analyze = useServerFn(analyzeTrend);
+  const [result, setResult] = useState<TrendAnalysis | null>(null);
+  const mut = useMutation({
+    mutationFn: analyze,
+    onSuccess: (res) => {
+      if (res.ok) setResult(res.analysis);
+      else toast.error(res.message);
+    },
+    onError: (err: unknown) => toast.error((err as Error)?.message ?? "Error"),
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    if (result || mut.isPending || mut.isError) return;
+    mut.mutate({
+      data: {
+        title: trend.title,
+        platform: trend.platform,
+        country: trend.country,
+        category: trend.category,
+        channel_title: trend.channel_title ?? undefined,
+        views: typeof trend.views === "number" ? trend.views : undefined,
+        likes: typeof trend.likes === "number" ? trend.likes : undefined,
+        published_at: trend.published_at ?? undefined,
+        keywords: trend.keywords ?? undefined,
+        url: trend.url ?? undefined,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const handleOpenChange = (v: boolean) => {
+    onOpenChange(v);
+    if (!v) {
+      setResult(null);
+      mut.reset();
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-border/60 bg-card">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-[14px]">
+            <Brain className="h-4 w-4 text-primary" /> Analizar tendencia
+          </DialogTitle>
+          <DialogDescription className="text-[11.5px]">
+            Análisis estratégico con IA — por qué funciona, formato, riesgos y recomendación original.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="rounded-md border border-border/60 bg-background/40 p-3 text-[11.5px]">
+          <p className="font-medium text-foreground">{trend.title}</p>
+          <p className="text-muted-foreground">
+            {trend.platform} · {trend.country} · {trend.category}
+            {trend.channel_title ? ` · ${trend.channel_title}` : ""}
+          </p>
+        </div>
+
+        {mut.isPending && !result && (
+          <div className="flex items-center justify-center gap-2 py-10 text-[12px] text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Analizando con IA…
+          </div>
+        )}
+
+        {result && (
+          <div className="space-y-3">
+            <Section title="Por qué está funcionando" value={result.why_working} />
+            <Section title="Hook usado" value={result.hook} />
+            <Section title="Público objetivo" value={result.target_audience} />
+            <Section title="Formato" value={result.format} />
+            <Section title="Oportunidad de recreación" value={result.recreation_opportunity} />
+            <Section title="Riesgo de copiar demasiado" value={result.copy_risk} />
+            <Section title="Recomendación original" value={result.original_recommendation} />
+            <div className="flex justify-end gap-2 border-t border-border/50 pt-3">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1.5 text-[11px]"
+                onClick={() => { setResult(null); mut.reset(); }}
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Regenerar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-[11px]"
+                onClick={() => {
+                  const text = `Por qué funciona: ${result.why_working}\nHook: ${result.hook}\nPúblico: ${result.target_audience}\nFormato: ${result.format}\nOportunidad: ${result.recreation_opportunity}\nRiesgo: ${result.copy_risk}\nRecomendación: ${result.original_recommendation}`;
+                  copyText(text, "Análisis");
+                }}
+              >
+                <Copy className="h-3.5 w-3.5" /> Copiar análisis
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

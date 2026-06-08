@@ -76,6 +76,9 @@ const ListSchema = z.object({
   savedOnly: z.boolean().optional(),
   favoritesOnly: z.boolean().optional(),
   limit: z.number().int().min(1).max(200).optional(),
+  sourceTypes: z.array(z.string().min(1).max(40)).max(10).optional(),
+  keyword: z.string().trim().max(120).nullable().optional(),
+  orderBy: z.enum(["viral_score", "views", "likes", "published_at", "created_at"]).optional(),
 });
 
 export const listViralTrends = createServerFn({ method: "POST" })
@@ -87,15 +90,25 @@ export const listViralTrends = createServerFn({ method: "POST" })
     let q = supabaseAdmin
       .from("viral_trends")
       .select(SELECT_COLS)
-      .eq("user_id", owner)
-      .order("viral_score", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(data.limit ?? 60);
+      .eq("user_id", owner);
+    const orderCol = data.orderBy ?? "viral_score";
+    q = q.order(orderCol, { ascending: false, nullsFirst: false });
+    if (orderCol !== "created_at") q = q.order("created_at", { ascending: false });
+    q = q.limit(data.limit ?? 60);
     if (data.platform) q = q.eq("platform", data.platform);
     if (data.country) q = q.eq("country", data.country);
     if (data.category) q = q.eq("category", data.category);
     if (data.savedOnly) q = q.eq("saved", true);
     if (data.favoritesOnly) q = q.eq("favorite", true);
+    if (data.sourceTypes && data.sourceTypes.length > 0) {
+      q = q.in("source_type", data.sourceTypes);
+    }
+    if (data.keyword && data.keyword.trim().length > 0) {
+      const term = data.keyword.trim().replace(/[%,]/g, "");
+      q = q.or(
+        `title.ilike.%${term}%,keywords.ilike.%${term}%,channel_title.ilike.%${term}%`,
+      );
+    }
     const { data: rows, error } = await q;
     if (error) {
       console.error("listViralTrends failed:", error);
@@ -296,9 +309,32 @@ const YT_ID_TO_CATEGORY: Record<string, string> = {
 
 function viralScoreFromViews(views: number): number {
   if (!views || views <= 0) return 0;
-  // 1k → ~30, 100k → ~50, 1M → ~70, 10M → ~85, 100M → ~98
   const score = Math.round(Math.log10(views) * 16);
   return Math.max(0, Math.min(100, score));
+}
+
+/** Score compuesto: views + ratio likes/views + recencia. */
+function viralScoreYouTube(opts: {
+  views: number;
+  likes: number;
+  publishedAt?: string | null;
+}): number {
+  const v = opts.views || 0;
+  const l = opts.likes || 0;
+  if (v <= 0) return 0;
+  const base = Math.log10(v) * 14; // 1k→42, 1M→84, 100M→112(cap)
+  const ratio = v > 0 ? l / v : 0;
+  // Buen engagement YT ~ 3-5% → bonus hasta 12
+  const ratioBonus = Math.min(12, ratio * 240);
+  let recencyBonus = 0;
+  if (opts.publishedAt) {
+    const hours = (Date.now() - new Date(opts.publishedAt).getTime()) / 36e5;
+    if (hours <= 24) recencyBonus = 10;
+    else if (hours <= 72) recencyBonus = 7;
+    else if (hours <= 168) recencyBonus = 4;
+    else if (hours <= 720) recencyBonus = 2;
+  }
+  return Math.max(0, Math.min(100, Math.round(base + ratioBonus + recencyBonus)));
 }
 
 const FetchYouTubeSchema = z.object({
@@ -386,7 +422,7 @@ export const fetchYouTubeTrends = createServerFn({ method: "POST" })
               platform: "YouTube",
               country: REGION_TO_COUNTRY[regionCode] ?? countryName,
               category: inferredCategory,
-              viral_score: viralScoreFromViews(views),
+              viral_score: viralScoreYouTube({ views, likes, publishedAt: sn.publishedAt }),
               keywords: (sn.tags ?? []).slice(0, 8).join(", ") || null,
               source: "youtube_api",
               source_type: "youtube_api",
@@ -766,4 +802,214 @@ export const importManualTrend = createServerFn({ method: "POST" })
     const result = await upsertSocialTrend(row);
     if (result === "error") return { ok: false as const, message: "No se pudo guardar" };
     return { ok: true as const, status: result };
+  });
+
+// =========================================================
+// YouTube · búsqueda por keyword (Search API + Videos API).
+// =========================================================
+
+const SearchYouTubeSchema = z.object({
+  keyword: z.string().trim().min(1).max(120),
+  country: z.string().trim().max(60).nullable().optional(),
+  category: z.string().trim().max(60).nullable().optional(),
+  duration: z.enum(["any", "short", "medium", "long"]).optional(),
+  order: z.enum(["relevance", "viewCount", "date", "rating"]).optional(),
+  limit: z.number().int().min(1).max(25).optional(),
+});
+
+export const searchYouTubeTrends = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => SearchYouTubeSchema.parse(input ?? {}))
+  .handler(async ({ data }) => {
+    const apiKey = process.env.YOUTUBE_API_KEY?.trim();
+    if (!apiKey) {
+      return { ok: false as const, configured: false as const, message: "YouTube API no configurada" };
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = resolveOwnerId();
+    const limit = data.limit ?? 12;
+    const regionCode = data.country ? COUNTRY_TO_REGION[data.country] : undefined;
+
+    const searchParams = new URLSearchParams({
+      part: "snippet",
+      q: data.keyword,
+      type: "video",
+      maxResults: String(limit),
+      order: data.order ?? "viewCount",
+      key: apiKey,
+    });
+    if (regionCode) searchParams.set("regionCode", regionCode);
+    if (data.duration && data.duration !== "any") searchParams.set("videoDuration", data.duration);
+
+    try {
+      const sres = await fetch(`https://www.googleapis.com/youtube/v3/search?${searchParams.toString()}`);
+      if (!sres.ok) {
+        const txt = await sres.text();
+        return { ok: false as const, configured: true as const, message: `search ${sres.status}: ${txt.slice(0, 160)}` };
+      }
+      const sjson = (await sres.json()) as { items?: Array<{ id?: { videoId?: string } }> };
+      const ids = (sjson.items ?? []).map((it) => it.id?.videoId).filter(Boolean) as string[];
+      if (ids.length === 0) {
+        return { ok: true as const, configured: true as const, inserted: 0, updated: 0, errors: 0 };
+      }
+      const vparams = new URLSearchParams({
+        part: "snippet,statistics",
+        id: ids.join(","),
+        key: apiKey,
+      });
+      const vres = await fetch(`https://www.googleapis.com/youtube/v3/videos?${vparams.toString()}`);
+      if (!vres.ok) {
+        const txt = await vres.text();
+        return { ok: false as const, configured: true as const, message: `videos ${vres.status}: ${txt.slice(0, 160)}` };
+      }
+      const vjson = (await vres.json()) as { items?: YouTubeVideoItem[] };
+      const items = vjson.items ?? [];
+      let inserted = 0;
+      let updated = 0;
+      let errors = 0;
+      for (const it of items) {
+        const videoId = it.id;
+        if (!videoId) continue;
+        const sn = it.snippet ?? {};
+        const st = it.statistics ?? {};
+        const views = Number(st.viewCount ?? 0) || 0;
+        const likes = Number(st.likeCount ?? 0) || 0;
+        const inferredCategory = YT_ID_TO_CATEGORY[sn.categoryId ?? ""] ?? data.category ?? "Viral General";
+        const thumb = sn.thumbnails?.high?.url || sn.thumbnails?.medium?.url || sn.thumbnails?.default?.url || null;
+        const row = {
+          user_id: owner,
+          title: sn.title?.slice(0, 280) ?? "(sin título)",
+          platform: "YouTube",
+          country: regionCode ? REGION_TO_COUNTRY[regionCode] ?? data.country ?? "Global" : data.country ?? "Global",
+          category: data.category ?? inferredCategory,
+          viral_score: viralScoreYouTube({ views, likes, publishedAt: sn.publishedAt }),
+          keywords: (sn.tags ?? []).slice(0, 8).join(", ") || data.keyword,
+          source: "youtube_search",
+          source_type: "youtube_search",
+          thumbnail_url: thumb,
+          url: `https://www.youtube.com/watch?v=${videoId}`,
+          views,
+          likes,
+          published_at: sn.publishedAt ?? null,
+          external_id: videoId,
+          video_id: videoId,
+          embed_url: `https://www.youtube.com/embed/${videoId}`,
+          channel_title: (sn as { channelTitle?: string }).channelTitle ?? null,
+          creator_name: (sn as { channelTitle?: string }).channelTitle ?? null,
+        };
+        const r = await upsertSocialTrend(row as SocialTrendRow);
+        if (r === "inserted") inserted++;
+        else if (r === "updated") updated++;
+        else errors++;
+      }
+      return { ok: true as const, configured: true as const, inserted, updated, errors };
+    } catch (err) {
+      console.error("[youtube search] failed", err);
+      return { ok: false as const, configured: true as const, message: (err as Error).message };
+    }
+  });
+
+// =========================================================
+// Analizar tendencia con IA (Lovable AI Gateway).
+// =========================================================
+
+const AnalyzeSchema = z.object({
+  title: z.string().trim().min(1).max(300),
+  platform: z.string().trim().max(40).optional(),
+  country: z.string().trim().max(60).optional(),
+  category: z.string().trim().max(60).optional(),
+  channel_title: z.string().trim().max(120).optional(),
+  views: z.number().int().nonnegative().optional(),
+  likes: z.number().int().nonnegative().optional(),
+  published_at: z.string().trim().max(60).optional(),
+  keywords: z.string().trim().max(280).optional(),
+  url: z.string().trim().max(600).optional(),
+});
+
+export type TrendAnalysis = {
+  why_working: string;
+  hook: string;
+  target_audience: string;
+  format: string;
+  recreation_opportunity: string;
+  copy_risk: string;
+  original_recommendation: string;
+};
+
+export const analyzeTrend = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => AnalyzeSchema.parse(input ?? {}))
+  .handler(async ({ data }) => {
+    const key = process.env.LOVABLE_API_KEY?.trim();
+    if (!key) return { ok: false as const, message: "LOVABLE_API_KEY no configurada" };
+
+    const sys = `Eres analista senior de tendencias virales en redes sociales. Devuelves SIEMPRE JSON puro con las claves exactas: why_working, hook, target_audience, format, recreation_opportunity, copy_risk, original_recommendation. Cada valor es texto en español, conciso (2-4 frases), accionable, sin markdown ni listas con asteriscos.`;
+    const user = `Analiza esta tendencia y responde SOLO con el JSON pedido.
+TÍTULO: ${data.title}
+PLATAFORMA: ${data.platform ?? "n/d"}
+PAÍS: ${data.country ?? "n/d"}
+CATEGORÍA: ${data.category ?? "n/d"}
+CANAL/CREADOR: ${data.channel_title ?? "n/d"}
+VISTAS: ${data.views ?? "n/d"}
+LIKES: ${data.likes ?? "n/d"}
+PUBLICADO: ${data.published_at ?? "n/d"}
+KEYWORDS: ${data.keywords ?? "n/d"}
+URL: ${data.url ?? "n/d"}
+
+Claves esperadas:
+- why_working: por qué está funcionando ahora.
+- hook: gancho concreto usado en los primeros segundos.
+- target_audience: público objetivo (edad, intereses, ubicación).
+- format: formato, duración, estructura visual.
+- recreation_opportunity: cómo recrearlo manteniendo originalidad.
+- copy_risk: riesgo de copiar demasiado (legal/reputacional/algoritmo).
+- original_recommendation: idea concreta y original inspirada en la tendencia.`;
+
+    try {
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Lovable-API-Key": key,
+          "X-Lovable-AIG-SDK": "raw-fetch",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: sys },
+            { role: "user", content: user },
+          ],
+          response_format: { type: "json_object" },
+        }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        if (res.status === 402) return { ok: false as const, message: "Sin créditos en AI Gateway" };
+        if (res.status === 429) return { ok: false as const, message: "Demasiadas solicitudes, espera unos segundos" };
+        return { ok: false as const, message: `AI ${res.status}: ${txt.slice(0, 200)}` };
+      }
+      const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+      const content = json.choices?.[0]?.message?.content?.trim() ?? "";
+      let parsed: Partial<TrendAnalysis>;
+      try {
+        parsed = JSON.parse(content) as Partial<TrendAnalysis>;
+      } catch {
+        // intentar recortar bloque JSON
+        const m = content.match(/\{[\s\S]*\}/);
+        parsed = m ? (JSON.parse(m[0]) as Partial<TrendAnalysis>) : {};
+      }
+      const analysis: TrendAnalysis = {
+        why_working: parsed.why_working ?? "",
+        hook: parsed.hook ?? "",
+        target_audience: parsed.target_audience ?? "",
+        format: parsed.format ?? "",
+        recreation_opportunity: parsed.recreation_opportunity ?? "",
+        copy_risk: parsed.copy_risk ?? "",
+        original_recommendation: parsed.original_recommendation ?? "",
+      };
+      return { ok: true as const, analysis };
+    } catch (err) {
+      console.error("[analyzeTrend] failed", err);
+      return { ok: false as const, message: (err as Error).message };
+    }
   });
