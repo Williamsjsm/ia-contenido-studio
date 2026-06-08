@@ -13,6 +13,7 @@ import { Route as PublicarRouteImport } from './routes/publicar'
 import { Route as PublicacionRouteImport } from './routes/publicacion'
 import { Route as IntegracionesRouteImport } from './routes/integraciones'
 import { Route as ConfiguracionRouteImport } from './routes/configuracion'
+import { Route as AccesoRouteImport } from './routes/acceso'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InvestigarTendenciasRouteImport } from './routes/investigar.tendencias'
 import { Route as InvestigarInspiracionRouteImport } from './routes/investigar.inspiracion'
@@ -46,6 +47,11 @@ const IntegracionesRoute = IntegracionesRouteImport.update({
 const ConfiguracionRoute = ConfiguracionRouteImport.update({
   id: '/configuracion',
   path: '/configuracion',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccesoRoute = AccesoRouteImport.update({
+  id: '/acceso',
+  path: '/acceso',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -121,6 +127,7 @@ const BibliotecaDescargasRoute = BibliotecaDescargasRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/acceso': typeof AccesoRoute
   '/configuracion': typeof ConfiguracionRoute
   '/integraciones': typeof IntegracionesRoute
   '/publicacion': typeof PublicacionRoute
@@ -141,6 +148,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/acceso': typeof AccesoRoute
   '/configuracion': typeof ConfiguracionRoute
   '/integraciones': typeof IntegracionesRoute
   '/publicacion': typeof PublicacionRoute
@@ -162,6 +170,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/acceso': typeof AccesoRoute
   '/configuracion': typeof ConfiguracionRoute
   '/integraciones': typeof IntegracionesRoute
   '/publicacion': typeof PublicacionRoute
@@ -184,6 +193,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/acceso'
     | '/configuracion'
     | '/integraciones'
     | '/publicacion'
@@ -204,6 +214,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/acceso'
     | '/configuracion'
     | '/integraciones'
     | '/publicacion'
@@ -224,6 +235,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/acceso'
     | '/configuracion'
     | '/integraciones'
     | '/publicacion'
@@ -245,6 +257,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccesoRoute: typeof AccesoRoute
   ConfiguracionRoute: typeof ConfiguracionRoute
   IntegracionesRoute: typeof IntegracionesRoute
   PublicacionRoute: typeof PublicacionRoute
@@ -292,6 +305,13 @@ declare module '@tanstack/react-router' {
       path: '/configuracion'
       fullPath: '/configuracion'
       preLoaderRoute: typeof ConfiguracionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/acceso': {
+      id: '/acceso'
+      path: '/acceso'
+      fullPath: '/acceso'
+      preLoaderRoute: typeof AccesoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -397,6 +417,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccesoRoute: AccesoRoute,
   ConfiguracionRoute: ConfiguracionRoute,
   IntegracionesRoute: IntegracionesRoute,
   PublicacionRoute: PublicacionRoute,
