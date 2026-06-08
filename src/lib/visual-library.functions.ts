@@ -86,6 +86,7 @@ export const createVisualReference = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ ok: true; ref: VisualReference } | { ok: false; message: string }> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = ownerId();
+    assertOwnedPath(data.image_path, owner);
     const signedUrl = (await sign(data.image_path)) ?? "";
     const { data: row, error } = await supabaseAdmin
       .from("visual_references")
@@ -176,6 +177,7 @@ export const createVirtualCharacter = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = ownerId();
+    assertOwnedPath(data.reference_image_path, owner);
     const signedUrl = data.reference_image_path ? await sign(data.reference_image_path) : null;
     const { data: row, error } = await supabaseAdmin
       .from("virtual_characters")
@@ -202,6 +204,7 @@ export const updateVirtualCharacter = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = ownerId();
+    assertOwnedPath(data.reference_image_path, owner);
     const signedUrl = data.reference_image_path ? await sign(data.reference_image_path) : null;
     const { error } = await supabaseAdmin
       .from("virtual_characters")
