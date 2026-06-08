@@ -667,12 +667,29 @@ function ViralRadar({
   const fetchFacebook = useServerFn(fetchFacebookPageTrends);
   const fetchTikTok = useServerFn(fetchTikTokTrends);
   const importManual = useServerFn(importManualTrend);
+  const searchYT = useServerFn(searchYouTubeTrends);
   const listRecreations = useServerFn(listTrendRecreations);
   const removeRecreation = useServerFn(deleteTrendRecreation);
 
   const [savedOnly, setSavedOnly] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const filters = { platform, country, category, savedOnly, favoritesOnly };
+  const [keywordInput, setKeywordInput] = useState("");
+  const [keywordFilter, setKeywordFilter] = useState("");
+  const [duration, setDuration] = useState<"any" | "short" | "medium" | "long">("any");
+  const [orderBy, setOrderBy] = useState<"viral_score" | "views" | "likes" | "published_at" | "created_at">("viral_score");
+  const [sourceMode, setSourceMode] = useState<"all" | "youtube_real">("all");
+
+  const sourceTypes = sourceMode === "youtube_real" ? ["youtube_api", "youtube_search"] : undefined;
+  const filters = {
+    platform,
+    country,
+    category,
+    savedOnly,
+    favoritesOnly,
+    keyword: keywordFilter || null,
+    orderBy,
+    sourceTypes,
+  };
 
   const trendsQuery = useQuery({
     queryKey: ["viral", "list", filters],
@@ -765,6 +782,21 @@ function ViralRadar({
     onError: (err: unknown) => {
       toast.error((err as Error)?.message ?? "Error YouTube");
     },
+  });
+
+  const searchMut = useMutation({
+    mutationFn: searchYT,
+    onSuccess: (res) => {
+      if (!res.ok) {
+        toast.error(res.message ?? "Error búsqueda");
+        return;
+      }
+      toast.success(`Búsqueda · ${res.inserted} nuevas, ${res.updated} actualizadas`);
+      setSourceMode("youtube_real");
+      setKeywordFilter(keywordInput.trim());
+      invalidate();
+    },
+    onError: (err: unknown) => toast.error((err as Error)?.message ?? "Error búsqueda"),
   });
 
   const igMut = useMutation({
