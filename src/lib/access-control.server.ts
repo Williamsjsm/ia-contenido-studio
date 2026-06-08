@@ -18,6 +18,7 @@ function getSecret(): string {
 }
 
 function logSecretDiagnostics(secret: string | undefined, input: string | undefined | null): void {
+  if (process.env.NODE_ENV === "production") return;
   console.info("APP_SHARED_SECRET exists:", Boolean(secret));
   console.info("APP_SHARED_SECRET length:", secret?.length ?? 0);
   console.info("Access input length:", input?.length ?? 0);
