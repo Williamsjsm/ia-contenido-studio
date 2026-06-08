@@ -29,6 +29,12 @@ import {
   VIRAL_CATEGORIES,
   type ViralTrend,
 } from "@/lib/viral-trends.functions";
+import {
+  generateTrendRecreationPrompt,
+  listTrendRecreations,
+  deleteTrendRecreation,
+  type TrendRecreation,
+} from "@/lib/trend-recreations.functions";
 
 export const Route = createFileRoute("/investigar/tendencias")({
   head: () => ({
