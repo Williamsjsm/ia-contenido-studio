@@ -13,9 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info, Users } from "lucide-react";
+import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info, Users, ImagePlus, UserPlus } from "lucide-react";
 import { generateImage, listImageGenerations } from "@/lib/image-generation.functions";
 import { listVirtualCharacters, type VirtualCharacter } from "@/lib/visual-library.functions";
+import { ImportCharacterDialog } from "@/components/import-character-dialog";
 
 const searchSchema = z.object({
   personajeId: fallback(z.string(), "").default(""),
@@ -95,6 +96,7 @@ function ImagenIA() {
   const [lastPrompt, setLastPrompt] = useState<string>("");
   const [useCharacter, setUseCharacter] = useState(false);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>("");
+  const [importMode, setImportMode] = useState<"save" | "temporal" | null>(null);
 
   const charactersQuery = useQuery({
     queryKey: ["library", "characters"],
@@ -371,6 +373,28 @@ function ImagenIA() {
                 <><Sparkles className="mr-2 h-4 w-4" /> Generar imagen</>
               )}
             </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="flex-1 gap-1.5"
+                onClick={() => setImportMode("temporal")}
+                disabled={status === "loading"}
+              >
+                <ImagePlus className="h-3.5 w-3.5" /> Referencia temporal
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="flex-1 gap-1.5"
+                onClick={() => setImportMode("save")}
+                disabled={status === "loading"}
+              >
+                <UserPlus className="h-3.5 w-3.5" /> Crear personaje permanente
+              </Button>
+            </div>
             {status === "error" && errorMsg && (
               <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
                 <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
@@ -470,5 +494,29 @@ function ImagenIA() {
         </CardContent>
       </Card>
     </div>
+    {/* Import-from-image dialog */}
+    {/* eslint-disable-next-line react/jsx-no-useless-fragment */}
+    <ImportCharacterDialog
+      open={importMode !== null}
+      onOpenChange={(o) => { if (!o) setImportMode(null); }}
+      mode={importMode ?? "save"}
+      onSaved={(c) => {
+        setImportMode(null);
+        qc.invalidateQueries({ queryKey: ["library", "characters"] });
+        setUseCharacter(true);
+        setSelectedCharacterId(c.id);
+        toast.success(`Personaje "${c.name}" creado y seleccionado.`);
+      }}
+      onAnalyzed={(payload) => {
+        setImportMode(null);
+        const injection = [
+          payload.master_prompt,
+          payload.description ? `(${payload.description})` : "",
+        ].filter(Boolean).join(" ");
+        setPrompt((p) => (p.trim() ? `${p}\n\nReferencia visual: ${injection}` : `Referencia visual: ${injection}`));
+        toast.success("Referencia visual añadida al prompt.");
+      }}
+    />
+    </>
   );
 }
