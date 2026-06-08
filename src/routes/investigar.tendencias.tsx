@@ -14,6 +14,7 @@ import {
   Flame, TrendingUp, Rocket, Sparkles, Eye, Heart, Wand2, Bookmark,
   Play, ArrowUpRight, Zap, Target, Users, Lightbulb, ChevronRight,
   Clock, Star, Globe2, Loader2, Trash2, RefreshCw, Library as LibraryIcon,
+  Copy, FileText, Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FlowConnector } from "@/components/flow-connector";
