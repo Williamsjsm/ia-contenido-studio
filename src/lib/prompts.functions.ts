@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireAccess } from "./access-control.functions";
 
 /**
  * Modo single-owner temporal.
@@ -42,6 +43,7 @@ export type SavePromptResult =
   | { ok: false; error: "validation" | "db_error"; message: string };
 
 export const savePrompt = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
   .inputValidator((input: unknown) => SavePromptSchema.parse(input))
   .handler(async ({ data }): Promise<SavePromptResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -130,6 +132,7 @@ export type StoredPrompt = {
 };
 
 export const listPrompts = createServerFn({ method: "GET" }).handler(
+  // placeholder
   async (): Promise<StoredPrompt[]> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = resolveOwnerId();
