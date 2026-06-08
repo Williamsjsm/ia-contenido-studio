@@ -12,7 +12,7 @@ import { EmptyState as GlobalEmptyState } from "@/components/state/empty-state";
 export function LibraryShell({ children, count }: { children: ReactNode; count?: number }) {
   const path = useRouterState({ select: (r) => r.location.pathname });
   return (
-    <div className="mx-auto w-full max-w-[1440px] space-y-6 p-6 lg:p-10">
+    <div className="mx-auto w-full max-w-[1800px] space-y-6 p-6 lg:p-10">
       <PageHeader
         title="Biblioteca Inteligente"
         subtitle="Todos tus recursos creados en AI Content Studio, centralizados y buscables."
