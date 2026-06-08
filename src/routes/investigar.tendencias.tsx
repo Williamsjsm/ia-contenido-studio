@@ -1596,3 +1596,218 @@ function RecreationsHistory({
     </div>
   );
 }
+
+// ============ Source badge & social fetch dialogs ============
+function SourceBadge({ sourceType }: { sourceType: string | null }) {
+  if (!sourceType) return null;
+  const meta: Record<string, { label: string; cls: string }> = {
+    youtube_api: { label: "YouTube API", cls: "border-red-500/40 bg-red-500/10 text-red-300" },
+    instagram_hashtag: { label: "Instagram Hashtag", cls: "border-pink-500/40 bg-pink-500/10 text-pink-300" },
+    facebook_page: { label: "Facebook Page", cls: "border-blue-500/40 bg-blue-500/10 text-blue-300" },
+    tiktok_research: { label: "TikTok API", cls: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300" },
+    manual_url: { label: "TikTok Manual", cls: "border-violet-500/40 bg-violet-500/10 text-violet-300" },
+    curated: { label: "Curado", cls: "border-amber-500/40 bg-amber-500/10 text-amber-300" },
+  };
+  const m = meta[sourceType] ?? { label: sourceType, cls: "border-border/60 bg-background/40 text-muted-foreground" };
+  return (
+    <Badge variant="outline" className={cn("rounded-full text-[10px] font-normal", m.cls)}>
+      {m.label}
+    </Badge>
+  );
+}
+
+function InstagramHashtagDialog({
+  open, onOpenChange, defaultCountry, defaultCategory, onRun, isPending,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  defaultCountry?: string;
+  defaultCategory?: string;
+  onRun: (payload: { hashtag: string; country?: string; category?: string }) => void;
+  isPending: boolean;
+}) {
+  const [hashtag, setHashtag] = useState("");
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md border-border/60 bg-card">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-[14px]">
+            <Hash className="h-4 w-4 text-primary" /> Buscar Instagram por hashtag
+          </DialogTitle>
+          <DialogDescription className="text-[11.5px]">
+            Requiere META_ACCESS_TOKEN e INSTAGRAM_BUSINESS_ACCOUNT_ID.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-[11px]">Hashtag</Label>
+            <Input
+              autoFocus
+              placeholder="recetasfáciles"
+              value={hashtag}
+              onChange={(e) => setHashtag(e.target.value)}
+            />
+          </div>
+          <p className="text-[10.5px] text-muted-foreground">
+            País: {defaultCountry ?? "Global"} · Categoría: {defaultCategory ?? "Viral General"}
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button
+              size="sm"
+              disabled={isPending || !hashtag.trim()}
+              className="gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+              onClick={() => onRun({ hashtag: hashtag.trim(), country: defaultCountry, category: defaultCategory })}
+            >
+              {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Hash className="h-3.5 w-3.5" />}
+              Buscar
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function FacebookPageDialog({
+  open, onOpenChange, defaultCountry, defaultCategory, onRun, isPending,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  defaultCountry?: string;
+  defaultCategory?: string;
+  onRun: (payload: { page_id: string; country?: string; category?: string }) => void;
+  isPending: boolean;
+}) {
+  const [pageId, setPageId] = useState("");
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md border-border/60 bg-card">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-[14px]">
+            <FacebookIcon className="h-4 w-4 text-primary" /> Importar Facebook página
+          </DialogTitle>
+          <DialogDescription className="text-[11.5px]">
+            Requiere META_ACCESS_TOKEN con permisos sobre la página.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-[11px]">Page ID o slug</Label>
+            <Input
+              autoFocus
+              placeholder="123456789012345"
+              value={pageId}
+              onChange={(e) => setPageId(e.target.value)}
+            />
+          </div>
+          <p className="text-[10.5px] text-muted-foreground">
+            País: {defaultCountry ?? "Global"} · Categoría: {defaultCategory ?? "Viral General"}
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button
+              size="sm"
+              disabled={isPending || !pageId.trim()}
+              className="gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+              onClick={() => onRun({ page_id: pageId.trim(), country: defaultCountry, category: defaultCategory })}
+            >
+              {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FacebookIcon className="h-3.5 w-3.5" />}
+              Importar
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TikTokImportDialog({
+  open, onOpenChange, defaultCountry, defaultCategory, onProbeAPI, onImport, isPending,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  defaultCountry?: string;
+  defaultCategory?: string;
+  onProbeAPI: () => void;
+  onImport: (payload: {
+    url: string;
+    title: string;
+    platform: "TikTok";
+    country?: string;
+    category?: string;
+    keywords?: string;
+    creator_name?: string;
+  }) => void;
+  isPending: boolean;
+}) {
+  const [url, setUrl] = useState("");
+  const [title, setTitle] = useState("");
+  const [creator, setCreator] = useState("");
+  const [keywords, setKeywords] = useState("");
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md border-border/60 bg-card">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-[14px]">
+            <Link2 className="h-4 w-4 text-primary" /> Importar TikTok URL
+          </DialogTitle>
+          <DialogDescription className="text-[11.5px]">
+            La Research API de TikTok requiere aprobación. Mientras tanto, importa cualquier URL manualmente como tendencia.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-[11px]">URL del video</Label>
+            <Input autoFocus placeholder="https://www.tiktok.com/@autor/video/123…" value={url} onChange={(e) => setUrl(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[11px]">Título</Label>
+            <Input placeholder="Descripción corta del video" value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1.5">
+              <Label className="text-[11px]">Creador (opcional)</Label>
+              <Input placeholder="@usuario" value={creator} onChange={(e) => setCreator(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px]">Keywords (opcional)</Label>
+              <Input placeholder="comedia, baile" value={keywords} onChange={(e) => setKeywords(e.target.value)} />
+            </div>
+          </div>
+          <p className="text-[10.5px] text-muted-foreground">
+            País: {defaultCountry ?? "Global"} · Categoría: {defaultCategory ?? "Viral General"}
+          </p>
+          <div className="flex flex-wrap justify-between gap-2 pt-2">
+            <Button variant="ghost" size="sm" onClick={onProbeAPI} disabled={isPending}>
+              Probar Research API
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Cancelar</Button>
+              <Button
+                size="sm"
+                disabled={isPending || !url.trim() || !title.trim()}
+                className="gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+                onClick={() => {
+                  onImport({
+                    url: url.trim(),
+                    title: title.trim(),
+                    platform: "TikTok",
+                    country: defaultCountry,
+                    category: defaultCategory,
+                    keywords: keywords.trim() || undefined,
+                    creator_name: creator.trim() || undefined,
+                  });
+                  setUrl(""); setTitle(""); setCreator(""); setKeywords("");
+                  onOpenChange(false);
+                }}
+              >
+                <Link2 className="h-3.5 w-3.5" /> Importar
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
