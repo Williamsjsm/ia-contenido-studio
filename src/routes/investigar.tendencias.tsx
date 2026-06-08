@@ -653,6 +653,8 @@ function ViralRadar({
   const toggleSaved = useServerFn(toggleSavedTrend);
   const remove = useServerFn(deleteViralTrend);
   const fetchYouTube = useServerFn(fetchYouTubeTrends);
+  const listRecreations = useServerFn(listTrendRecreations);
+  const removeRecreation = useServerFn(deleteTrendRecreation);
 
   const [savedOnly, setSavedOnly] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -666,11 +668,29 @@ function ViralRadar({
     queryKey: ["viral", "saved"],
     queryFn: () => list({ data: { savedOnly: true, limit: 30 } }),
   });
+  const recreationsQuery = useQuery({
+    queryKey: ["viral", "recreations"],
+    queryFn: () => listRecreations({ data: {} }),
+  });
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["viral"] });
     qc.invalidateQueries({ queryKey: ["radar", "stats"] });
   };
+  const invalidateRecreations = () => {
+    qc.invalidateQueries({ queryKey: ["viral", "recreations"] });
+  };
+  const delRecreationMut = useMutation({
+    mutationFn: removeRecreation,
+    onSuccess: (res) => {
+      if (res.ok) {
+        toast.success("Recreación eliminada");
+        invalidateRecreations();
+      } else {
+        toast.error(res.message);
+      }
+    },
+  });
 
   const seedMut = useMutation({
     mutationFn: seed,
