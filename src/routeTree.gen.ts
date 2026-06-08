@@ -25,6 +25,7 @@ import { Route as CrearFlowRouteImport } from './routes/crear.flow'
 import { Route as BibliotecaVideosRouteImport } from './routes/biblioteca.videos'
 import { Route as BibliotecaProyectosRouteImport } from './routes/biblioteca.proyectos'
 import { Route as BibliotecaPromptsRouteImport } from './routes/biblioteca.prompts'
+import { Route as BibliotecaPersonajesRouteImport } from './routes/biblioteca.personajes'
 import { Route as BibliotecaImagenesRouteImport } from './routes/biblioteca.imagenes'
 import { Route as BibliotecaFavoritosRouteImport } from './routes/biblioteca.favoritos'
 import { Route as BibliotecaDescargasRouteImport } from './routes/biblioteca.descargas'
@@ -109,6 +110,11 @@ const BibliotecaPromptsRoute = BibliotecaPromptsRouteImport.update({
   path: '/biblioteca/prompts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BibliotecaPersonajesRoute = BibliotecaPersonajesRouteImport.update({
+  id: '/biblioteca/personajes',
+  path: '/biblioteca/personajes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BibliotecaImagenesRoute = BibliotecaImagenesRouteImport.update({
   id: '/biblioteca/imagenes',
   path: '/biblioteca/imagenes',
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/biblioteca/descargas': typeof BibliotecaDescargasRoute
   '/biblioteca/favoritos': typeof BibliotecaFavoritosRoute
   '/biblioteca/imagenes': typeof BibliotecaImagenesRoute
+  '/biblioteca/personajes': typeof BibliotecaPersonajesRoute
   '/biblioteca/prompts': typeof BibliotecaPromptsRoute
   '/biblioteca/proyectos': typeof BibliotecaProyectosRoute
   '/biblioteca/videos': typeof BibliotecaVideosRoute
@@ -156,6 +163,7 @@ export interface FileRoutesByTo {
   '/biblioteca/descargas': typeof BibliotecaDescargasRoute
   '/biblioteca/favoritos': typeof BibliotecaFavoritosRoute
   '/biblioteca/imagenes': typeof BibliotecaImagenesRoute
+  '/biblioteca/personajes': typeof BibliotecaPersonajesRoute
   '/biblioteca/prompts': typeof BibliotecaPromptsRoute
   '/biblioteca/proyectos': typeof BibliotecaProyectosRoute
   '/biblioteca/videos': typeof BibliotecaVideosRoute
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/biblioteca/descargas': typeof BibliotecaDescargasRoute
   '/biblioteca/favoritos': typeof BibliotecaFavoritosRoute
   '/biblioteca/imagenes': typeof BibliotecaImagenesRoute
+  '/biblioteca/personajes': typeof BibliotecaPersonajesRoute
   '/biblioteca/prompts': typeof BibliotecaPromptsRoute
   '/biblioteca/proyectos': typeof BibliotecaProyectosRoute
   '/biblioteca/videos': typeof BibliotecaVideosRoute
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/biblioteca/descargas'
     | '/biblioteca/favoritos'
     | '/biblioteca/imagenes'
+    | '/biblioteca/personajes'
     | '/biblioteca/prompts'
     | '/biblioteca/proyectos'
     | '/biblioteca/videos'
@@ -222,6 +232,7 @@ export interface FileRouteTypes {
     | '/biblioteca/descargas'
     | '/biblioteca/favoritos'
     | '/biblioteca/imagenes'
+    | '/biblioteca/personajes'
     | '/biblioteca/prompts'
     | '/biblioteca/proyectos'
     | '/biblioteca/videos'
@@ -243,6 +254,7 @@ export interface FileRouteTypes {
     | '/biblioteca/descargas'
     | '/biblioteca/favoritos'
     | '/biblioteca/imagenes'
+    | '/biblioteca/personajes'
     | '/biblioteca/prompts'
     | '/biblioteca/proyectos'
     | '/biblioteca/videos'
@@ -265,6 +277,7 @@ export interface RootRouteChildren {
   BibliotecaDescargasRoute: typeof BibliotecaDescargasRoute
   BibliotecaFavoritosRoute: typeof BibliotecaFavoritosRoute
   BibliotecaImagenesRoute: typeof BibliotecaImagenesRoute
+  BibliotecaPersonajesRoute: typeof BibliotecaPersonajesRoute
   BibliotecaPromptsRoute: typeof BibliotecaPromptsRoute
   BibliotecaProyectosRoute: typeof BibliotecaProyectosRoute
   BibliotecaVideosRoute: typeof BibliotecaVideosRoute
@@ -391,6 +404,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BibliotecaPromptsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/biblioteca/personajes': {
+      id: '/biblioteca/personajes'
+      path: '/biblioteca/personajes'
+      fullPath: '/biblioteca/personajes'
+      preLoaderRoute: typeof BibliotecaPersonajesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/biblioteca/imagenes': {
       id: '/biblioteca/imagenes'
       path: '/biblioteca/imagenes'
@@ -425,6 +445,7 @@ const rootRouteChildren: RootRouteChildren = {
   BibliotecaDescargasRoute: BibliotecaDescargasRoute,
   BibliotecaFavoritosRoute: BibliotecaFavoritosRoute,
   BibliotecaImagenesRoute: BibliotecaImagenesRoute,
+  BibliotecaPersonajesRoute: BibliotecaPersonajesRoute,
   BibliotecaPromptsRoute: BibliotecaPromptsRoute,
   BibliotecaProyectosRoute: BibliotecaProyectosRoute,
   BibliotecaVideosRoute: BibliotecaVideosRoute,
@@ -439,13 +460,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

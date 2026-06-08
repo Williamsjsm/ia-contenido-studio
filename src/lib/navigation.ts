@@ -20,6 +20,7 @@ import {
   Heart,
   FolderKanban,
   Download,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -67,6 +68,7 @@ export const navGroups: { label: NavGroupId; items: NavItem[] }[] = (
 /** Internal tabs of the unified Library module. */
 export const libraryTabs = [
   { to: "/biblioteca/prompts", label: "Prompts", icon: FileText },
+  { to: "/biblioteca/personajes", label: "Personajes", icon: Users },
   { to: "/biblioteca/imagenes", label: "Imágenes", icon: ImageIcon },
   { to: "/biblioteca/videos", label: "Videos", icon: Video },
   { to: "/biblioteca/favoritos", label: "Favoritos", icon: Heart },
