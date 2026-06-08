@@ -928,6 +928,13 @@ function ViralRadar({
           </ul>
         )}
       </div>
+
+      {/* Historial · recreaciones IA */}
+      <RecreationsHistory
+        items={recreationsQuery.data ?? []}
+        isLoading={recreationsQuery.isLoading}
+        onDelete={(id) => delRecreationMut.mutate({ data: { id } })}
+      />
     </div>
   );
 }
