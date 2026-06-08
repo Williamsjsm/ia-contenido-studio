@@ -89,5 +89,11 @@ export const PREVIEW_SESSION_COOKIE_NAME = PREVIEW_COOKIE_NAME;
 export const SESSION_TTL_SECONDS = Math.floor(DEFAULT_TTL_MS / 1000);
 
 export function isPreviewSandboxHost(host: string | undefined | null): boolean {
-  return typeof host === "string" && host.includes("lovableproject.com");
+  if (typeof host !== "string") return false;
+  const normalizedHost = host.toLowerCase();
+  return (
+    normalizedHost.includes("lovableproject.com") ||
+    normalizedHost.startsWith("id-preview--") ||
+    normalizedHost.includes("-dev.lovable.app")
+  );
 }
