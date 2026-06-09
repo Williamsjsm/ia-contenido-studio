@@ -263,6 +263,18 @@ function PromptsGenerator() {
     });
   }
 
+  function sendToImage(text: string) {
+    if (!text) return;
+    navigate({
+      to: "/crear/imagen",
+      search: {
+        prompt: text,
+        personajeId:
+          referenceMode === "character" && selectedCharacter ? selectedCharacter.id : "",
+      },
+    });
+  }
+
   const currentSignature = useMemo(() => {
     if (!result) return "";
     const title = (form.categoria || result.original_prompt.slice(0, 60)).trim();
