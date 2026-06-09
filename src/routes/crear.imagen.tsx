@@ -124,7 +124,7 @@ function ImagenIA() {
   const [importInitial, setImportInitial] = useState<{ path: string; url: string | null } | null>(null);
 
   // Historial: filtros + selección + confirmaciones
-  type HistoryFilter = "all" | "with-character" | "without-character" | "gemini" | "openai";
+  type HistoryFilter = "all" | "favorites" | "with-character" | "without-character" | "gemini" | "openai";
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
