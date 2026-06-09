@@ -257,3 +257,134 @@ export const listImageGenerations = createServerFn({ method: "GET" })
     }
     return { ok: true as const, items: data ?? [] };
   });
+
+// ------------------------ Delete / Cleanup ------------------------
+
+const VISUAL_BUCKET = "visual-references";
+
+/**
+ * Best-effort storage cleanup. Currently image_generations stores image_base64
+ * in the DB row, so there is usually no orphan file. If a row references an
+ * image_url that points to an owned storage path inside the visual-references
+ * bucket, we remove it as well.
+ */
+async function bestEffortRemoveStorage(rows: Array<{ image_url: string | null }>, owner: string) {
+  const paths = rows
+    .map((r) => r.image_url ?? "")
+    .map((u) => {
+      if (!u) return "";
+      // Accept either a raw path or a storage URL containing the bucket.
+      const m = u.match(new RegExp(`${VISUAL_BUCKET}/(.+?)(?:\\?|$)`));
+      const p = m?.[1] ?? (u.startsWith(`${owner}/`) ? u : "");
+      return p;
+    })
+    .filter((p) => p && p.startsWith(`${owner}/`));
+  if (paths.length === 0) return;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.storage.from(VISUAL_BUCKET).remove(paths);
+  } catch (e) {
+    console.warn("bestEffortRemoveStorage failed", e);
+  }
+}
+
+const IdSchema = z.object({ id: z.string().uuid() });
+const IdsSchema = z.object({ ids: z.array(z.string().uuid()).min(1).max(200) });
+
+export const deleteImageGeneration = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => IdSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = resolveOwnerId();
+    const { data: row } = await supabaseAdmin
+      .from("image_generations")
+      .select("image_url")
+      .eq("id", data.id)
+      .eq("user_id", owner)
+      .maybeSingle();
+    if (row) await bestEffortRemoveStorage([row], owner);
+    const { error } = await supabaseAdmin
+      .from("image_generations")
+      .delete()
+      .eq("id", data.id)
+      .eq("user_id", owner);
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const };
+  });
+
+export const deleteImageGenerations = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => IdsSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = resolveOwnerId();
+    const { data: rows } = await supabaseAdmin
+      .from("image_generations")
+      .select("image_url")
+      .in("id", data.ids)
+      .eq("user_id", owner);
+    if (rows && rows.length) await bestEffortRemoveStorage(rows, owner);
+    const { error } = await supabaseAdmin
+      .from("image_generations")
+      .delete()
+      .in("id", data.ids)
+      .eq("user_id", owner);
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const, count: rows?.length ?? 0 };
+  });
+
+export const clearImageGenerations = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .handler(async () => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = resolveOwnerId();
+    const { data: rows } = await supabaseAdmin
+      .from("image_generations")
+      .select("image_url")
+      .eq("user_id", owner);
+    if (rows && rows.length) await bestEffortRemoveStorage(rows, owner);
+    const { error } = await supabaseAdmin
+      .from("image_generations")
+      .delete()
+      .eq("user_id", owner);
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const, count: rows?.length ?? 0 };
+  });
+
+/**
+ * Sube la imagen base64 de una generación al bucket `visual-references`
+ * (scope=character) y devuelve el path. Útil para convertir una imagen del
+ * historial en personaje permanente sin volver a generar.
+ */
+export const promoteGenerationToReference = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => IdSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = resolveOwnerId();
+    const { data: row, error } = await supabaseAdmin
+      .from("image_generations")
+      .select("image_base64, prompt")
+      .eq("id", data.id)
+      .eq("user_id", owner)
+      .maybeSingle();
+    if (error || !row?.image_base64) {
+      return { ok: false as const, message: error?.message ?? "Imagen no encontrada" };
+    }
+    const path = `${owner}/character/${crypto.randomUUID()}.png`;
+    const bytes = Buffer.from(row.image_base64, "base64");
+    const up = await supabaseAdmin.storage
+      .from(VISUAL_BUCKET)
+      .upload(path, bytes, { contentType: "image/png", upsert: false });
+    if (up.error) return { ok: false as const, message: up.error.message };
+    const signed = await supabaseAdmin.storage
+      .from(VISUAL_BUCKET)
+      .createSignedUrl(path, 60 * 60 * 24 * 7);
+    return {
+      ok: true as const,
+      path,
+      url: signed.data?.signedUrl ?? null,
+      prompt: row.prompt,
+    };
+  });
