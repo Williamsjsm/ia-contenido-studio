@@ -250,7 +250,7 @@ export const listImageGenerations = createServerFn({ method: "GET" })
       .select("id, prompt, provider, model, resolution, image_base64, created_at, generated_resolution, final_resolution, upscale_level, character_id, character_name")
       .eq("user_id", owner)
       .order("created_at", { ascending: false })
-      .limit(24);
+      .limit(200);
     if (error) {
       console.error("listImageGenerations error:", error);
       return { ok: false as const, items: [] };
