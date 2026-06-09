@@ -90,6 +90,9 @@ export function ImportCharacterDialog({
   const [tagsText, setTagsText] = useState("");
   const [attributes, setAttributes] = useState<Record<string, string>>({});
   const [analyzed, setAnalyzed] = useState(false);
+  const [secondaryPaths, setSecondaryPaths] = useState<{ path: string; url: string | null }[]>([]);
+  const [uploadingSecondary, setUploadingSecondary] = useState(false);
+  const secondaryRef = useRef<HTMLInputElement | null>(null);
 
   // Auto-load a pre-uploaded image when the dialog opens.
   useEffect(() => {
@@ -114,6 +117,8 @@ export function ImportCharacterDialog({
     setUploading(false);
     setAnalyzing(false);
     setSaving(false);
+    setSecondaryPaths([]);
+    setUploadingSecondary(false);
   }
 
   async function handleFile(file: File) {
@@ -207,6 +212,7 @@ export function ImportCharacterDialog({
           master_prompt: masterPrompt,
           tags,
           reference_image_path: imagePath,
+          secondary_reference_paths: secondaryPaths.map((s) => s.path),
         },
       });
       if (!r.ok) {
