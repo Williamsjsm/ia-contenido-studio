@@ -779,10 +779,12 @@ function ImagenIA() {
     {/* eslint-disable-next-line react/jsx-no-useless-fragment */}
     <ImportCharacterDialog
       open={importMode !== null}
-      onOpenChange={(o) => { if (!o) setImportMode(null); }}
+      onOpenChange={(o) => { if (!o) { setImportMode(null); setImportInitial(null); } }}
       mode={importMode ?? "save"}
+      initialImage={importInitial}
       onSaved={(c) => {
         setImportMode(null);
+        setImportInitial(null);
         qc.invalidateQueries({ queryKey: ["library", "characters"] });
         setUseCharacter(true);
         setSelectedCharacterId(c.id);
@@ -790,6 +792,7 @@ function ImagenIA() {
       }}
       onAnalyzed={(payload) => {
         setImportMode(null);
+        setImportInitial(null);
         const injection = [
           payload.master_prompt,
           payload.description ? `(${payload.description})` : "",
@@ -798,6 +801,60 @@ function ImagenIA() {
         toast.success("Referencia visual añadida al prompt.");
       }}
     />
+    {/* Confirmación de borrado */}
+    <AlertDialog open={confirmDelete !== null} onOpenChange={(o) => { if (!o) setConfirmDelete(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {confirmDelete?.kind === "all"
+              ? "¿Limpiar todo el historial?"
+              : confirmDelete?.kind === "many"
+              ? `¿Eliminar ${confirmDelete.ids.length} imágenes?`
+              : "¿Eliminar esta imagen del historial?"}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta acción no se puede deshacer. Se eliminarán los registros y los archivos asociados.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busyDelete}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={busyDelete}
+            onClick={async (e) => {
+              e.preventDefault();
+              if (!confirmDelete) return;
+              setBusyDelete(true);
+              try {
+                if (confirmDelete.kind === "one") {
+                  const r = await deleteOneFn({ data: { id: confirmDelete.id } });
+                  if (!r.ok) { toast.error(r.message); return; }
+                  toast.success("Imagen eliminada.");
+                } else if (confirmDelete.kind === "many") {
+                  const r = await deleteManyFn({ data: { ids: confirmDelete.ids } });
+                  if (!r.ok) { toast.error(r.message); return; }
+                  toast.success(`${r.count} imágenes eliminadas.`);
+                } else {
+                  const r = await clearAllFn();
+                  if (!r.ok) { toast.error(r.message); return; }
+                  toast.success(`Historial limpio (${r.count}).`);
+                }
+                setSelectedIds(new Set());
+                qc.invalidateQueries({ queryKey: ["image-generations"] });
+              } catch (err) {
+                console.error(err);
+                toast.error("Error al eliminar.");
+              } finally {
+                setBusyDelete(false);
+                setConfirmDelete(null);
+              }
+            }}
+          >
+            {busyDelete ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1.5 h-3.5 w-3.5" />}
+            Eliminar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
