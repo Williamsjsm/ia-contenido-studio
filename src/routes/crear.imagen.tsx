@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { ImageLightbox, type LightboxItem } from "@/components/image-lightbox";
 
 const searchSchema = z.object({
   personajeId: fallback(z.string(), "").default(""),
@@ -142,6 +143,11 @@ function ImagenIA() {
     | { kind: "all" }
   >(null);
   const [busyDelete, setBusyDelete] = useState(false);
+
+  // Lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxSource, setLightboxSource] = useState<"current" | "history">("current");
 
   const deleteOneFn = useServerFn(deleteImageGeneration);
   const deleteManyFn = useServerFn(deleteImageGenerations);
