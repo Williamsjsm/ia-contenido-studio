@@ -201,7 +201,7 @@ function ImagenIA() {
           characterId: character?.id ?? null,
           characterName: character?.name ?? null,
           characterPromptInjection: characterInjection,
-          promptId: search.promptId || null,
+          promptId: search.promptId && search.promptId.length === 36 ? search.promptId : null,
         },
       });
       if (!res.ok) {
