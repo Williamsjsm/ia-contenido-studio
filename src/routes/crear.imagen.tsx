@@ -116,6 +116,25 @@ function ImagenIA() {
   const [useCharacter, setUseCharacter] = useState(false);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>("");
   const [importMode, setImportMode] = useState<"save" | "temporal" | null>(null);
+  const [importInitial, setImportInitial] = useState<{ path: string; url: string | null } | null>(null);
+
+  // Historial: filtros + selección + confirmaciones
+  type HistoryFilter = "all" | "with-character" | "without-character" | "gemini" | "openai";
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState<
+    | null
+    | { kind: "one"; id: string }
+    | { kind: "many"; ids: string[] }
+    | { kind: "all" }
+  >(null);
+  const [busyDelete, setBusyDelete] = useState(false);
+
+  const deleteOneFn = useServerFn(deleteImageGeneration);
+  const deleteManyFn = useServerFn(deleteImageGenerations);
+  const clearAllFn = useServerFn(clearImageGenerations);
+  const promoteFn = useServerFn(promoteGenerationToReference);
 
   const charactersQuery = useQuery({
     queryKey: ["library", "characters"],
