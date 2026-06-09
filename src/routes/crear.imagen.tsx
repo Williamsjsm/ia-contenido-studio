@@ -541,6 +541,7 @@ function ImagenIA() {
         const items = history.data?.ok ? history.data.items : [];
         const filtered = items.filter((it) => {
           switch (historyFilter) {
+            case "favorites": return Boolean((it as { is_favorite?: boolean }).is_favorite);
             case "with-character": return Boolean(it.character_id);
             case "without-character": return !it.character_id;
             case "gemini": return it.provider === "gemini";
