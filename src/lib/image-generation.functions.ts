@@ -14,7 +14,7 @@ const FinalResEnum = z.enum(["1024", "2048", "3840", "7680", "12288"]);
 const InputSchema = z.object({
   prompt: z.string().trim().min(1, "Describe la imagen.").max(2000),
   provider: ProviderEnum.default("gemini"),
-  resolution: z.enum(["1024x1024", "1792x1024", "1024x1792"]).default("1024x1024"),
+  resolution: z.enum(["1024x1024", "1792x1024", "1024x1792", "1536x1024", "1024x1536"]).default("1024x1024"),
   finalResolution: FinalResEnum.default("1024"),
   upscaleLevel: UpscaleEnum.default("none"),
   characterId: z.string().uuid().optional().nullable(),
@@ -48,9 +48,19 @@ export type GenerateImageResult =
         | "quota"
         | "invalid_key"
         | "provider_error"
+        | "invalid_param"
+        | "content_policy"
+        | "model_unavailable"
         | "parse_error"
         | "db_error";
       message: string;
+      details?: {
+        status?: number;
+        type?: string;
+        code?: string;
+        request_id?: string;
+        hint?: string;
+      };
     };
 
 type ProviderResolved =
