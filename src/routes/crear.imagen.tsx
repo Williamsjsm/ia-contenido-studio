@@ -147,7 +147,22 @@ function ImagenIA() {
   // Lightbox state
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-  const [lightboxSource, setLightboxSource] = useState<"current" | "history">("current");
+  const [lightboxItems, setLightboxItems] = useState<LightboxItem[]>([]);
+
+  function openLightboxCurrent() {
+    const src = upscaledImage ?? imageData;
+    if (!src) return;
+    setLightboxItems([{
+      src,
+      prompt: lastPrompt,
+      provider,
+      resolution: finalResLabel || generatedResLabel || resolution,
+      character: selectedCharacter?.name ?? null,
+      date: new Date(),
+    }]);
+    setLightboxIndex(0);
+    setLightboxOpen(true);
+  }
 
   const deleteOneFn = useServerFn(deleteImageGeneration);
   const deleteManyFn = useServerFn(deleteImageGenerations);
