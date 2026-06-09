@@ -318,6 +318,46 @@ export const duplicateVirtualCharacter = createServerFn({ method: "POST" })
 
 // ------------------------ Analyze Image -> Character ------------------------
 
+export type CharacterReferenceImage = {
+  id: string;
+  character_id: string;
+  storage_path: string;
+  is_primary: boolean;
+  sort_order: number;
+  url: string | null;
+};
+
+export const listCharacterReferenceImages = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) =>
+    z.object({ character_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }): Promise<CharacterReferenceImage[]> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    // Ownership: el personaje debe pertenecer al owner.
+    const { data: charRow } = await supabaseAdmin
+      .from("virtual_characters")
+      .select("id")
+      .eq("id", data.character_id)
+      .eq("user_id", owner)
+      .maybeSingle();
+    if (!charRow) return [];
+    const { data: rows } = await supabaseAdmin
+      .from("character_reference_images")
+      .select("id, character_id, storage_path, is_primary, sort_order")
+      .eq("character_id", data.character_id)
+      .order("sort_order", { ascending: true });
+    if (!rows) return [];
+    const signed = await Promise.all(
+      rows.map(async (r) => ({
+        ...r,
+        url: await sign(r.storage_path),
+      })),
+    );
+    return signed as CharacterReferenceImage[];
+  });
+
 const AnalyzeSchema = z.object({
   image_path: z.string().min(1).max(500),
 });
