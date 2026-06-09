@@ -572,6 +572,7 @@ function ImagenIA() {
                 <Tabs value={historyFilter} onValueChange={(v) => setHistoryFilter(v as HistoryFilter)}>
                   <TabsList className="h-8">
                     <TabsTrigger value="all" className="h-6 px-2 text-[11px]"><Filter className="mr-1 h-3 w-3" />Todas</TabsTrigger>
+                    <TabsTrigger value="favorites" className="h-6 px-2 text-[11px]"><Star className="mr-1 h-3 w-3" />Favoritas</TabsTrigger>
                     <TabsTrigger value="with-character" className="h-6 px-2 text-[11px]">Con personaje</TabsTrigger>
                     <TabsTrigger value="without-character" className="h-6 px-2 text-[11px]">Sin personaje</TabsTrigger>
                     <TabsTrigger value="gemini" className="h-6 px-2 text-[11px]">Gemini</TabsTrigger>
