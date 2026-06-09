@@ -772,6 +772,7 @@ function ResultTabs({
   onSave,
   onSaveAndGo,
   onSendFlow,
+  onSendImage,
   saving,
   disabled,
 }: {
@@ -781,6 +782,7 @@ function ResultTabs({
   onSave: () => void;
   onSaveAndGo: () => void;
   onSendFlow: (text: string, variantLabel: string) => void;
+  onSendImage: (text: string) => void;
   saving: boolean;
   disabled: boolean;
 }) {
@@ -813,6 +815,13 @@ function ResultTabs({
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" onClick={() => onCopy(text)}>
                 <Copy className="mr-1.5 h-3.5 w-3.5" /> Copiar
+              </Button>
+              <Button
+                size="sm"
+                className="bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+                onClick={() => onSendImage(text)}
+              >
+                <ImageIcon className="mr-1.5 h-3.5 w-3.5" /> Generar Imagen
               </Button>
               <Button size="sm" variant="outline" onClick={() => onSendFlow(text, t.label)}>
                 <Film className="mr-1.5 h-3.5 w-3.5" /> Enviar a Flow Center
