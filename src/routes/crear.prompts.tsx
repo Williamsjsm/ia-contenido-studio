@@ -545,6 +545,7 @@ function PromptsGenerator() {
                 }}
                 onCopy={copy}
                 onSendFlow={sendToFlow}
+                onSendImage={sendToImage}
                 onSave={handleSave}
                 onSaveAndGo={handleSaveAndGoLibrary}
                 saving={saving}
