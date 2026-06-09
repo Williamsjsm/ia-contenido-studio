@@ -53,7 +53,7 @@ export const Route = createFileRoute("/crear/imagen")({
 });
 
 type Provider = "gemini" | "openai";
-type Resolution = "1024x1024" | "1792x1024" | "1024x1792";
+type Resolution = "1024x1024" | "1792x1024" | "1024x1792" | "1536x1024" | "1024x1536";
 type FinalRes = "1024" | "2048" | "3840" | "7680" | "12288";
 type Upscale = "none" | "2k" | "4k" | "8k" | "12k";
 type Status = "idle" | "loading" | "success" | "error";
@@ -112,6 +112,13 @@ function ImagenIA() {
   const [upscale, setUpscale] = useState<Upscale>("none");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<{
+    status?: number;
+    code?: string;
+    type?: string;
+    request_id?: string;
+    hint?: string;
+  } | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
   const [generatedResLabel, setGeneratedResLabel] = useState<string>("");
   const [finalResLabel, setFinalResLabel] = useState<string>("");
@@ -165,6 +172,16 @@ function ImagenIA() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.prompt]);
 
+  // Si el usuario cambia a OpenAI con resolución incompatible, ajusta a una válida.
+  useEffect(() => {
+    if (provider === "openai" && !["1024x1024", "1536x1024", "1024x1536"].includes(resolution)) {
+      setResolution("1024x1024");
+    }
+    if (provider === "gemini" && !["1024x1024", "1792x1024", "1024x1792"].includes(resolution)) {
+      setResolution("1024x1024");
+    }
+  }, [provider, resolution]);
+
   const history = useQuery({
     queryKey: ["image-generations"],
     queryFn: () => listFn(),
@@ -178,6 +195,7 @@ function ImagenIA() {
     }
     setStatus("loading");
     setErrorMsg(null);
+    setErrorDetails(null);
     setImageData(null);
     setUpscaledImage(null);
     try {
@@ -207,6 +225,7 @@ function ImagenIA() {
       if (!res.ok) {
         setStatus("error");
         setErrorMsg(res.message);
+        setErrorDetails((res as { details?: typeof errorDetails }).details ?? null);
         toast.error(res.message);
         return;
       }
