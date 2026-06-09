@@ -522,6 +522,9 @@ function ImagenIA() {
                   <Button size="sm" onClick={sendToPublish}>
                     <Send className="mr-2 h-3.5 w-3.5" /> Enviar a publicación
                   </Button>
+                  <Button size="sm" variant="outline" onClick={sendToVideo}>
+                    <Video className="mr-2 h-3.5 w-3.5" /> Enviar a Video
+                  </Button>
                 </div>
               </div>
             ) : (
