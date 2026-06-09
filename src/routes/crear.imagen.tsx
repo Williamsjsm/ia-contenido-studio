@@ -749,6 +749,31 @@ function ImagenIA() {
                               size="icon"
                               variant="secondary"
                               className="h-7 w-7"
+                              title={(it as { is_favorite?: boolean }).is_favorite ? "Quitar favorito" : "Marcar favorito"}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const next = !(it as { is_favorite?: boolean }).is_favorite;
+                                try {
+                                  const r = await favoriteFn({ data: { id: it.id, is_favorite: next } });
+                                  if (!r.ok) { toast.error(r.message); return; }
+                                  qc.invalidateQueries({ queryKey: ["image-generations"] });
+                                } catch (err) {
+                                  console.error(err);
+                                  toast.error("No se pudo actualizar el favorito.");
+                                }
+                              }}
+                            >
+                              <Star
+                                className={cn(
+                                  "h-3.5 w-3.5",
+                                  (it as { is_favorite?: boolean }).is_favorite && "fill-yellow-400 text-yellow-400",
+                                )}
+                              />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              className="h-7 w-7"
                               title="Descargar"
                               onClick={(e) => {
                                 e.stopPropagation();
