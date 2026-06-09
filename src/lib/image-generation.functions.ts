@@ -227,6 +227,60 @@ export const generateImage = createServerFn({ method: "POST" })
       // No bloqueamos el resultado al usuario aunque falle el guardado.
     }
 
+    // Vincular automáticamente con un proyecto de creación.
+    if (inserted?.id) {
+      try {
+        const owner2 = resolveOwnerId();
+        let projectId = data.projectId ?? null;
+        if (!projectId && (data.promptId || data.characterId)) {
+          // Reutiliza o crea proyecto para el par (prompt, personaje).
+          let q = supabaseAdmin
+            .from("creation_projects")
+            .select("id, cover_image_id")
+            .eq("user_id", owner2)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          if (data.promptId) q = q.eq("prompt_id", data.promptId);
+          else q = q.is("prompt_id", null);
+          if (data.characterId) q = q.eq("character_id", data.characterId);
+          else q = q.is("character_id", null);
+          const { data: existing } = await q.maybeSingle();
+          if (existing) {
+            projectId = existing.id;
+          } else {
+            const { data: newProj } = await supabaseAdmin
+              .from("creation_projects")
+              .insert({
+                user_id: owner2,
+                title: data.characterName
+                  ? `${data.characterName} — ${effectivePrompt.slice(0, 40)}`
+                  : effectivePrompt.slice(0, 60),
+                prompt_id: data.promptId ?? null,
+                character_id: data.characterId ?? null,
+              })
+              .select("id")
+              .single();
+            projectId = newProj?.id ?? null;
+          }
+        }
+        if (projectId) {
+          await supabaseAdmin
+            .from("creation_project_assets")
+            .upsert(
+              { project_id: projectId, kind: "image", ref_id: inserted.id },
+              { onConflict: "project_id,kind,ref_id" },
+            );
+          await supabaseAdmin
+            .from("creation_projects")
+            .update({ cover_image_id: inserted.id, status: "image_ready" })
+            .eq("id", projectId)
+            .eq("user_id", owner2);
+        }
+      } catch (e) {
+        console.warn("creation_project link failed:", e);
+      }
+    }
+
     return {
       ok: true,
       id: inserted?.id ?? "",
