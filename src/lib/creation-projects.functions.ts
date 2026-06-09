@@ -107,7 +107,10 @@ export const attachAssetToProject = createServerFn({ method: "POST" })
       return { ok: false as const, message: error.message };
     }
 
-    const patch: Record<string, unknown> = {};
+    const patch: {
+      cover_image_id?: string;
+      status?: string;
+    } = {};
     if (data.kind === "image" && (data.setCover || !proj.cover_image_id)) {
       patch.cover_image_id = data.refId;
       patch.status = "image_ready";
