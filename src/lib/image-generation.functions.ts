@@ -254,7 +254,7 @@ export const generateImage = createServerFn({ method: "POST" })
     // Compute final resolution metadata. The provider returns the generated
     // size as requested (data.resolution). Upscaling, if any, is applied
     // client-side; we only record the chosen targets here.
-    const generatedResolution = data.resolution;
+    const generatedResolution = effectiveResolution;
     const [genW, genH] = generatedResolution.split("x").map((n) => parseInt(n, 10));
     const aspect = genW / genH;
     const finalLong = parseInt(data.finalResolution, 10);
