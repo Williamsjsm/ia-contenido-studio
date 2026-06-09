@@ -712,6 +712,11 @@ function ImagenIA() {
                         >
                           {it.provider}
                         </Badge>
+                        {(it as { is_favorite?: boolean }).is_favorite && (
+                          <div className="absolute top-7 right-1.5 rounded bg-background/80 p-0.5 backdrop-blur">
+                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                          </div>
+                        )}
                         {/* Bottom: character + date */}
                         <div className="pointer-events-none absolute inset-x-1 bottom-1 flex items-end justify-between gap-1">
                           {it.character_name ? (
