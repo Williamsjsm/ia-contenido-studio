@@ -1028,6 +1028,13 @@ function ImagenIA() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+    <ImageLightbox
+      open={lightboxOpen}
+      items={lightboxItems}
+      index={lightboxIndex}
+      onClose={() => setLightboxOpen(false)}
+      onIndexChange={setLightboxIndex}
+    />
     </>
   );
 }
