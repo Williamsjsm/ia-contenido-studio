@@ -780,6 +780,21 @@ function ImagenIA() {
                               setStatus("success");
                             }
                           }}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            const mapped: LightboxItem[] = filtered.map((f) => ({
+                              src: `data:image/png;base64,${f.image_base64}`,
+                              prompt: f.prompt,
+                              provider: f.provider,
+                              resolution: (f as { resolution?: string }).resolution,
+                              character: f.character_name ?? null,
+                              date: f.created_at,
+                            }));
+                            const idx = filtered.findIndex((f) => f.id === it.id);
+                            setLightboxItems(mapped);
+                            setLightboxIndex(idx >= 0 ? idx : 0);
+                            setLightboxOpen(true);
+                          }}
                         />
                         {/* Top-left: checkbox in select mode */}
                         {selectMode && (
