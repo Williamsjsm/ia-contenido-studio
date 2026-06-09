@@ -1,22 +1,45 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { z } from "zod";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Video, Sparkles } from "lucide-react";
+import { Video, Sparkles, CheckCircle2 } from "lucide-react";
+
+const searchSchema = z.object({
+  fromImage: fallback(z.string(), "").default(""),
+  flowId: fallback(z.string(), "").default(""),
+});
 
 export const Route = createFileRoute("/crear/video")({
   head: () => ({ meta: [{ title: "Video IA — AI Content Studio" }] }),
+  validateSearch: zodValidator(searchSchema),
   component: VideoIA,
 });
 
 function VideoIA() {
+  const search = Route.useSearch();
+  const prepared = search.fromImage === "1";
   return (
     <div className="mx-auto w-full max-w-[1800px] space-y-6 p-6 lg:p-10">
       <PageHeader title="Video IA" subtitle="Genera videos cortos con IA generativa." />
+      {prepared && (
+        <Card className="border-emerald-500/40 bg-emerald-500/10">
+          <CardContent className="flex items-center gap-3 p-4 text-sm">
+            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+            <div className="flex-1">
+              <p className="font-medium">Borrador de video preparado.</p>
+              <p className="text-xs text-muted-foreground">
+                La generación real de video estará disponible próximamente. El borrador queda guardado en Flow Center.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <div className="grid gap-6 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr]">
         <Card className="border-border/60 bg-card">
           <CardHeader><CardTitle className="text-base">Configuración</CardTitle></CardHeader>
