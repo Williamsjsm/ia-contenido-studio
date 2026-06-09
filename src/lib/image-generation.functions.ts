@@ -303,7 +303,7 @@ export const listImageGenerations = createServerFn({ method: "GET" })
     const owner = resolveOwnerId();
     const { data, error } = await supabaseAdmin
       .from("image_generations")
-      .select("id, prompt, provider, model, resolution, image_base64, created_at, generated_resolution, final_resolution, upscale_level, character_id, character_name")
+      .select("id, prompt, provider, model, resolution, image_base64, created_at, generated_resolution, final_resolution, upscale_level, character_id, character_name, is_favorite")
       .eq("user_id", owner)
       .order("created_at", { ascending: false })
       .limit(200);
