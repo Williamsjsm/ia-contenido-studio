@@ -13,10 +13,29 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info, Users, ImagePlus, UserPlus } from "lucide-react";
-import { generateImage, listImageGenerations } from "@/lib/image-generation.functions";
+import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info, Users, ImagePlus, UserPlus, Trash2, Eye, CheckSquare, Square, X as XIcon, Filter, Wand2 } from "lucide-react";
+import {
+  generateImage,
+  listImageGenerations,
+  deleteImageGeneration,
+  deleteImageGenerations,
+  clearImageGenerations,
+  promoteGenerationToReference,
+} from "@/lib/image-generation.functions";
 import { listVirtualCharacters, type VirtualCharacter } from "@/lib/visual-library.functions";
 import { ImportCharacterDialog } from "@/components/import-character-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const searchSchema = z.object({
   personajeId: fallback(z.string(), "").default(""),
