@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { ImageLightbox, type LightboxItem } from "@/components/image-lightbox";
 
 const searchSchema = z.object({
   personajeId: fallback(z.string(), "").default(""),
@@ -142,6 +143,26 @@ function ImagenIA() {
     | { kind: "all" }
   >(null);
   const [busyDelete, setBusyDelete] = useState(false);
+
+  // Lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxItems, setLightboxItems] = useState<LightboxItem[]>([]);
+
+  function openLightboxCurrent() {
+    const src = upscaledImage ?? imageData;
+    if (!src) return;
+    setLightboxItems([{
+      src,
+      prompt: lastPrompt,
+      provider,
+      resolution: finalResLabel || generatedResLabel || resolution,
+      character: selectedCharacter?.name ?? null,
+      date: new Date(),
+    }]);
+    setLightboxIndex(0);
+    setLightboxOpen(true);
+  }
 
   const deleteOneFn = useServerFn(deleteImageGeneration);
   const deleteManyFn = useServerFn(deleteImageGenerations);
@@ -550,7 +571,13 @@ function ImagenIA() {
             ) : imageData ? (
               <div className="flex flex-1 flex-col gap-4">
                 <div className="flex flex-1 items-center justify-center overflow-hidden rounded-md bg-muted/30">
-                  <img src={upscaledImage ?? imageData} alt={lastPrompt} className="max-h-[78vh] max-w-full object-contain" />
+                  <img
+                    src={upscaledImage ?? imageData}
+                    alt={lastPrompt}
+                    onDoubleClick={openLightboxCurrent}
+                    title="Doble clic para ver en grande"
+                    className="max-h-[78vh] max-w-full cursor-zoom-in object-contain"
+                  />
                 </div>
                 <div className="flex flex-wrap gap-3 text-xs">
                   <span className="rounded-md border border-border/40 bg-muted/40 px-2 py-1">
@@ -752,6 +779,21 @@ function ImagenIA() {
                               setLastPrompt(it.prompt);
                               setStatus("success");
                             }
+                          }}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            const mapped: LightboxItem[] = filtered.map((f) => ({
+                              src: `data:image/png;base64,${f.image_base64}`,
+                              prompt: f.prompt,
+                              provider: f.provider,
+                              resolution: (f as { resolution?: string }).resolution,
+                              character: f.character_name ?? null,
+                              date: f.created_at,
+                            }));
+                            const idx = filtered.findIndex((f) => f.id === it.id);
+                            setLightboxItems(mapped);
+                            setLightboxIndex(idx >= 0 ? idx : 0);
+                            setLightboxOpen(true);
                           }}
                         />
                         {/* Top-left: checkbox in select mode */}
@@ -986,6 +1028,13 @@ function ImagenIA() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+    <ImageLightbox
+      open={lightboxOpen}
+      items={lightboxItems}
+      index={lightboxIndex}
+      onClose={() => setLightboxOpen(false)}
+      onIndexChange={setLightboxIndex}
+    />
     </>
   );
 }
