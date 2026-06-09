@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info, Users, ImagePlus, UserPlus, Trash2, Eye, CheckSquare, Square, Filter, Wand2 } from "lucide-react";
+import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info, Users, ImagePlus, UserPlus, Trash2, Eye, CheckSquare, Square, Filter, Wand2, Star, Video } from "lucide-react";
 import {
   generateImage,
   listImageGenerations,
@@ -21,7 +21,9 @@ import {
   deleteImageGenerations,
   clearImageGenerations,
   promoteGenerationToReference,
+  toggleImageFavorite,
 } from "@/lib/image-generation.functions";
+import { saveFlowJob } from "@/lib/flow-jobs.functions";
 import { listVirtualCharacters, type VirtualCharacter } from "@/lib/visual-library.functions";
 import { ImportCharacterDialog } from "@/components/import-character-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -40,6 +42,8 @@ import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({
   personajeId: fallback(z.string(), "").default(""),
+  prompt: fallback(z.string(), "").default(""),
+  promptId: fallback(z.string(), "").default(""),
 });
 
 export const Route = createFileRoute("/crear/imagen")({
