@@ -20,6 +20,8 @@ const InputSchema = z.object({
   characterId: z.string().uuid().optional().nullable(),
   characterName: z.string().trim().max(120).optional().nullable(),
   characterPromptInjection: z.string().trim().max(20_000).optional().nullable(),
+  promptId: z.string().uuid().optional().nullable(),
+  projectId: z.string().uuid().optional().nullable(),
 });
 
 export type GenerateImageInput = z.input<typeof InputSchema>;
@@ -225,6 +227,60 @@ export const generateImage = createServerFn({ method: "POST" })
       // No bloqueamos el resultado al usuario aunque falle el guardado.
     }
 
+    // Vincular automáticamente con un proyecto de creación.
+    if (inserted?.id) {
+      try {
+        const owner2 = resolveOwnerId();
+        let projectId = data.projectId ?? null;
+        if (!projectId && (data.promptId || data.characterId)) {
+          // Reutiliza o crea proyecto para el par (prompt, personaje).
+          let q = supabaseAdmin
+            .from("creation_projects")
+            .select("id, cover_image_id")
+            .eq("user_id", owner2)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          if (data.promptId) q = q.eq("prompt_id", data.promptId);
+          else q = q.is("prompt_id", null);
+          if (data.characterId) q = q.eq("character_id", data.characterId);
+          else q = q.is("character_id", null);
+          const { data: existing } = await q.maybeSingle();
+          if (existing) {
+            projectId = existing.id;
+          } else {
+            const { data: newProj } = await supabaseAdmin
+              .from("creation_projects")
+              .insert({
+                user_id: owner2,
+                title: data.characterName
+                  ? `${data.characterName} — ${effectivePrompt.slice(0, 40)}`
+                  : effectivePrompt.slice(0, 60),
+                prompt_id: data.promptId ?? null,
+                character_id: data.characterId ?? null,
+              })
+              .select("id")
+              .single();
+            projectId = newProj?.id ?? null;
+          }
+        }
+        if (projectId) {
+          await supabaseAdmin
+            .from("creation_project_assets")
+            .upsert(
+              { project_id: projectId, kind: "image", ref_id: inserted.id },
+              { onConflict: "project_id,kind,ref_id" },
+            );
+          await supabaseAdmin
+            .from("creation_projects")
+            .update({ cover_image_id: inserted.id, status: "image_ready" })
+            .eq("id", projectId)
+            .eq("user_id", owner2);
+        }
+      } catch (e) {
+        console.warn("creation_project link failed:", e);
+      }
+    }
+
     return {
       ok: true,
       id: inserted?.id ?? "",
@@ -247,7 +303,7 @@ export const listImageGenerations = createServerFn({ method: "GET" })
     const owner = resolveOwnerId();
     const { data, error } = await supabaseAdmin
       .from("image_generations")
-      .select("id, prompt, provider, model, resolution, image_base64, created_at, generated_resolution, final_resolution, upscale_level, character_id, character_name")
+      .select("id, prompt, provider, model, resolution, image_base64, created_at, generated_resolution, final_resolution, upscale_level, character_id, character_name, is_favorite")
       .eq("user_id", owner)
       .order("created_at", { ascending: false })
       .limit(200);
@@ -290,6 +346,23 @@ async function bestEffortRemoveStorage(rows: Array<{ image_url: string | null }>
 
 const IdSchema = z.object({ id: z.string().uuid() });
 const IdsSchema = z.object({ ids: z.array(z.string().uuid()).min(1).max(200) });
+
+const FavoriteSchema = z.object({ id: z.string().uuid(), is_favorite: z.boolean() });
+
+export const toggleImageFavorite = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => FavoriteSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = resolveOwnerId();
+    const { error } = await supabaseAdmin
+      .from("image_generations")
+      .update({ is_favorite: data.is_favorite })
+      .eq("id", data.id)
+      .eq("user_id", owner);
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const };
+  });
 
 export const deleteImageGeneration = createServerFn({ method: "POST" })
   .middleware([requireAccess])

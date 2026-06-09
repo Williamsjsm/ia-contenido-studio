@@ -90,6 +90,9 @@ export function ImportCharacterDialog({
   const [tagsText, setTagsText] = useState("");
   const [attributes, setAttributes] = useState<Record<string, string>>({});
   const [analyzed, setAnalyzed] = useState(false);
+  const [secondaryPaths, setSecondaryPaths] = useState<{ path: string; url: string | null }[]>([]);
+  const [uploadingSecondary, setUploadingSecondary] = useState(false);
+  const secondaryRef = useRef<HTMLInputElement | null>(null);
 
   // Auto-load a pre-uploaded image when the dialog opens.
   useEffect(() => {
@@ -114,6 +117,8 @@ export function ImportCharacterDialog({
     setUploading(false);
     setAnalyzing(false);
     setSaving(false);
+    setSecondaryPaths([]);
+    setUploadingSecondary(false);
   }
 
   async function handleFile(file: File) {
@@ -207,6 +212,7 @@ export function ImportCharacterDialog({
           master_prompt: masterPrompt,
           tags,
           reference_image_path: imagePath,
+          secondary_reference_paths: secondaryPaths.map((s) => s.path),
         },
       });
       if (!r.ok) {
@@ -365,6 +371,100 @@ export function ImportCharacterDialog({
                     </Badge>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {mode === "save" && analyzed && (
+              <div className="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Imágenes secundarias ({secondaryPaths.length})
+                  </Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1"
+                    onClick={() => secondaryRef.current?.click()}
+                    disabled={uploadingSecondary || secondaryPaths.length >= 10}
+                  >
+                    {uploadingSecondary ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Upload className="h-3 w-3" />
+                    )}
+                    Añadir
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  La imagen principal es la analizada arriba. Añade hasta 10 referencias adicionales (poses, ángulos, vestuario).
+                </p>
+                {secondaryPaths.length > 0 && (
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {secondaryPaths.map((s, i) => (
+                      <div
+                        key={s.path}
+                        className="relative aspect-square overflow-hidden rounded border border-border/60 bg-muted/30"
+                      >
+                        {s.url ? (
+                          <img src={s.url} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                            #{i + 1}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSecondaryPaths((arr) => arr.filter((x) => x.path !== s.path))
+                          }
+                          className="absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 hover:bg-background"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <input
+                  ref={secondaryRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  multiple
+                  className="hidden"
+                  onChange={async (e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    e.target.value = "";
+                    if (files.length === 0) return;
+                    setUploadingSecondary(true);
+                    try {
+                      for (const file of files) {
+                        if (file.size > 10 * 1024 * 1024) {
+                          toast.error(`${file.name}: máx. 10 MB`);
+                          continue;
+                        }
+                        const ct = (file.type || "image/png") as (typeof ALLOWED_MIME)[number];
+                        if (!ALLOWED_MIME.includes(ct)) continue;
+                        const base64 = await fileToBase64(file);
+                        const r = await uploadFn({
+                          data: { filename: file.name, contentType: ct, base64, scope: "character" },
+                        });
+                        if (r.ok) {
+                          setSecondaryPaths((arr) =>
+                            arr.length >= 10 ? arr : [...arr, { path: r.path, url: r.url }],
+                          );
+                        } else {
+                          toast.error(`${file.name}: ${r.message}`);
+                        }
+                      }
+                    } catch (err) {
+                      console.error(err);
+                      toast.error("Error al subir referencias.");
+                    } finally {
+                      setUploadingSecondary(false);
+                    }
+                  }}
+                />
               </div>
             )}
           </div>

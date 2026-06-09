@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, Save, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library, AlertCircle, X, Users, ImagePlus, UserPlus } from "lucide-react";
+import { Copy, Save, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library, AlertCircle, X, Users, ImagePlus, UserPlus, Image as ImageIcon } from "lucide-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
@@ -259,6 +259,18 @@ function PromptsGenerator() {
         titulo: form.categoria || text.slice(0, 60),
         plataforma: form.plataforma,
         categoria: form.categoria,
+      },
+    });
+  }
+
+  function sendToImage(text: string) {
+    if (!text) return;
+    navigate({
+      to: "/crear/imagen",
+      search: {
+        prompt: text,
+        personajeId:
+          referenceMode === "character" && selectedCharacter ? selectedCharacter.id : "",
       },
     });
   }
@@ -533,6 +545,7 @@ function PromptsGenerator() {
                 }}
                 onCopy={copy}
                 onSendFlow={sendToFlow}
+                onSendImage={sendToImage}
                 onSave={handleSave}
                 onSaveAndGo={handleSaveAndGoLibrary}
                 saving={saving}
@@ -759,6 +772,7 @@ function ResultTabs({
   onSave,
   onSaveAndGo,
   onSendFlow,
+  onSendImage,
   saving,
   disabled,
 }: {
@@ -768,6 +782,7 @@ function ResultTabs({
   onSave: () => void;
   onSaveAndGo: () => void;
   onSendFlow: (text: string, variantLabel: string) => void;
+  onSendImage: (text: string) => void;
   saving: boolean;
   disabled: boolean;
 }) {
@@ -800,6 +815,13 @@ function ResultTabs({
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" onClick={() => onCopy(text)}>
                 <Copy className="mr-1.5 h-3.5 w-3.5" /> Copiar
+              </Button>
+              <Button
+                size="sm"
+                className="bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+                onClick={() => onSendImage(text)}
+              >
+                <ImageIcon className="mr-1.5 h-3.5 w-3.5" /> Generar Imagen
               </Button>
               <Button size="sm" variant="outline" onClick={() => onSendFlow(text, t.label)}>
                 <Film className="mr-1.5 h-3.5 w-3.5" /> Enviar a Flow Center

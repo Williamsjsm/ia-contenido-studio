@@ -9,6 +9,7 @@ import {
   Image as ImageIcon,
   Video,
   Workflow,
+  Sparkles,
   TrendingUp,
   Lightbulb,
   Brain,
@@ -41,6 +42,7 @@ export interface NavItem {
 export const primaryRoutes: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, group: "General" },
 
+  { title: "Crear", url: "/crear", icon: Sparkles, group: "Crear" },
   { title: "Generador de Prompts", url: "/crear/prompts", icon: Wand2, group: "Crear" },
   { title: "Imagen IA", url: "/crear/imagen", icon: ImageIcon, group: "Crear" },
   { title: "Video IA", url: "/crear/video", icon: Video, group: "Crear" },

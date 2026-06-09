@@ -47,6 +47,124 @@ export type Database = {
         }
         Relationships: []
       }
+      character_reference_images: {
+        Row: {
+          character_id: string
+          created_at: string
+          id: string
+          is_primary: boolean
+          sort_order: number
+          storage_path: string
+        }
+        Insert: {
+          character_id: string
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          sort_order?: number
+          storage_path: string
+        }
+        Update: {
+          character_id?: string
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          sort_order?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_reference_images_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creation_project_assets: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          project_id: string
+          ref_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          project_id: string
+          ref_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          project_id?: string
+          ref_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creation_project_assets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "creation_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creation_projects: {
+        Row: {
+          character_id: string | null
+          cover_image_id: string | null
+          created_at: string
+          id: string
+          prompt_id: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          character_id?: string | null
+          cover_image_id?: string | null
+          created_at?: string
+          id?: string
+          prompt_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          character_id?: string | null
+          cover_image_id?: string | null
+          created_at?: string
+          id?: string
+          prompt_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creation_projects_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creation_projects_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       flow_jobs: {
         Row: {
           aspect_ratio: string | null
@@ -60,6 +178,7 @@ export type Database = {
           id: string
           model: string | null
           platform: string | null
+          project_id: string | null
           prompt: string
           resolution: string | null
           source_variant: string | null
@@ -81,6 +200,7 @@ export type Database = {
           id?: string
           model?: string | null
           platform?: string | null
+          project_id?: string | null
           prompt: string
           resolution?: string | null
           source_variant?: string | null
@@ -102,6 +222,7 @@ export type Database = {
           id?: string
           model?: string | null
           platform?: string | null
+          project_id?: string | null
           prompt?: string
           resolution?: string | null
           source_variant?: string | null
@@ -111,7 +232,15 @@ export type Database = {
           user_id?: string
           variations?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "flow_jobs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "creation_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       image_generations: {
         Row: {
@@ -123,6 +252,7 @@ export type Database = {
           id: string
           image_base64: string | null
           image_url: string | null
+          is_favorite: boolean
           model: string | null
           prompt: string
           provider: string
@@ -139,6 +269,7 @@ export type Database = {
           id?: string
           image_base64?: string | null
           image_url?: string | null
+          is_favorite?: boolean
           model?: string | null
           prompt: string
           provider: string
@@ -155,6 +286,7 @@ export type Database = {
           id?: string
           image_base64?: string | null
           image_url?: string | null
+          is_favorite?: boolean
           model?: string | null
           prompt?: string
           provider?: string

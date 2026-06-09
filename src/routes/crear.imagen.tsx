@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info, Users, ImagePlus, UserPlus, Trash2, Eye, CheckSquare, Square, Filter, Wand2 } from "lucide-react";
+import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info, Users, ImagePlus, UserPlus, Trash2, Eye, CheckSquare, Square, Filter, Wand2, Star, Video } from "lucide-react";
 import {
   generateImage,
   listImageGenerations,
@@ -21,7 +21,9 @@ import {
   deleteImageGenerations,
   clearImageGenerations,
   promoteGenerationToReference,
+  toggleImageFavorite,
 } from "@/lib/image-generation.functions";
+import { saveFlowJob } from "@/lib/flow-jobs.functions";
 import { listVirtualCharacters, type VirtualCharacter } from "@/lib/visual-library.functions";
 import { ImportCharacterDialog } from "@/components/import-character-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -40,6 +42,8 @@ import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({
   personajeId: fallback(z.string(), "").default(""),
+  prompt: fallback(z.string(), "").default(""),
+  promptId: fallback(z.string(), "").default(""),
 });
 
 export const Route = createFileRoute("/crear/imagen")({
@@ -120,7 +124,7 @@ function ImagenIA() {
   const [importInitial, setImportInitial] = useState<{ path: string; url: string | null } | null>(null);
 
   // Historial: filtros + selección + confirmaciones
-  type HistoryFilter = "all" | "with-character" | "without-character" | "gemini" | "openai";
+  type HistoryFilter = "all" | "favorites" | "with-character" | "without-character" | "gemini" | "openai";
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -136,6 +140,8 @@ function ImagenIA() {
   const deleteManyFn = useServerFn(deleteImageGenerations);
   const clearAllFn = useServerFn(clearImageGenerations);
   const promoteFn = useServerFn(promoteGenerationToReference);
+  const favoriteFn = useServerFn(toggleImageFavorite);
+  const saveFlowFn = useServerFn(saveFlowJob);
 
   const charactersQuery = useQuery({
     queryKey: ["library", "characters"],
@@ -150,6 +156,14 @@ function ImagenIA() {
     setUseCharacter(true);
     setSelectedCharacterId(search.personajeId);
   }, [search.personajeId]);
+
+  // Autorellenar prompt cuando llega desde el generador de prompts.
+  useEffect(() => {
+    if (search.prompt && !prompt) {
+      setPrompt(search.prompt);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.prompt]);
 
   const history = useQuery({
     queryKey: ["image-generations"],
@@ -187,6 +201,7 @@ function ImagenIA() {
           characterId: character?.id ?? null,
           characterName: character?.name ?? null,
           characterPromptInjection: characterInjection,
+          promptId: search.promptId && search.promptId.length === 36 ? search.promptId : null,
         },
       });
       if (!res.ok) {
@@ -262,6 +277,32 @@ function ImagenIA() {
       /* noop */
     }
     navigate({ to: "/publicar" });
+  }
+
+  async function sendToVideo() {
+    if (!imageData || !lastPrompt) {
+      toast.error("Genera o selecciona una imagen primero.");
+      return;
+    }
+    try {
+      const r = await saveFlowFn({
+        data: {
+          title: lastPrompt.slice(0, 60) || "Video sin título",
+          prompt: lastPrompt,
+          source_variant: "imagen",
+          status: "draft",
+        },
+      });
+      if (!r.ok) {
+        toast.error("No se pudo preparar el video.", { description: r.message });
+        return;
+      }
+      toast.success("Borrador de video creado. Generación próximamente.");
+      navigate({ to: "/crear/video", search: { fromImage: "1", flowId: r.job.id } });
+    } catch (e) {
+      console.error(e);
+      toast.error("Error al enviar a Video.");
+    }
   }
 
   return (
@@ -481,6 +522,9 @@ function ImagenIA() {
                   <Button size="sm" onClick={sendToPublish}>
                     <Send className="mr-2 h-3.5 w-3.5" /> Enviar a publicación
                   </Button>
+                  <Button size="sm" variant="outline" onClick={sendToVideo}>
+                    <Video className="mr-2 h-3.5 w-3.5" /> Enviar a Video
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -497,6 +541,7 @@ function ImagenIA() {
         const items = history.data?.ok ? history.data.items : [];
         const filtered = items.filter((it) => {
           switch (historyFilter) {
+            case "favorites": return Boolean((it as { is_favorite?: boolean }).is_favorite);
             case "with-character": return Boolean(it.character_id);
             case "without-character": return !it.character_id;
             case "gemini": return it.provider === "gemini";
@@ -527,6 +572,7 @@ function ImagenIA() {
                 <Tabs value={historyFilter} onValueChange={(v) => setHistoryFilter(v as HistoryFilter)}>
                   <TabsList className="h-8">
                     <TabsTrigger value="all" className="h-6 px-2 text-[11px]"><Filter className="mr-1 h-3 w-3" />Todas</TabsTrigger>
+                    <TabsTrigger value="favorites" className="h-6 px-2 text-[11px]"><Star className="mr-1 h-3 w-3" />Favoritas</TabsTrigger>
                     <TabsTrigger value="with-character" className="h-6 px-2 text-[11px]">Con personaje</TabsTrigger>
                     <TabsTrigger value="without-character" className="h-6 px-2 text-[11px]">Sin personaje</TabsTrigger>
                     <TabsTrigger value="gemini" className="h-6 px-2 text-[11px]">Gemini</TabsTrigger>
@@ -666,6 +712,11 @@ function ImagenIA() {
                         >
                           {it.provider}
                         </Badge>
+                        {(it as { is_favorite?: boolean }).is_favorite && (
+                          <div className="absolute top-7 right-1.5 rounded bg-background/80 p-0.5 backdrop-blur">
+                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                          </div>
+                        )}
                         {/* Bottom: character + date */}
                         <div className="pointer-events-none absolute inset-x-1 bottom-1 flex items-end justify-between gap-1">
                           {it.character_name ? (
@@ -698,6 +749,31 @@ function ImagenIA() {
                               }}
                             >
                               <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              className="h-7 w-7"
+                              title={(it as { is_favorite?: boolean }).is_favorite ? "Quitar favorito" : "Marcar favorito"}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const next = !(it as { is_favorite?: boolean }).is_favorite;
+                                try {
+                                  const r = await favoriteFn({ data: { id: it.id, is_favorite: next } });
+                                  if (!r.ok) { toast.error(r.message); return; }
+                                  qc.invalidateQueries({ queryKey: ["image-generations"] });
+                                } catch (err) {
+                                  console.error(err);
+                                  toast.error("No se pudo actualizar el favorito.");
+                                }
+                              }}
+                            >
+                              <Star
+                                className={cn(
+                                  "h-3.5 w-3.5",
+                                  (it as { is_favorite?: boolean }).is_favorite && "fill-yellow-400 text-yellow-400",
+                                )}
+                              />
                             </Button>
                             <Button
                               size="icon"
