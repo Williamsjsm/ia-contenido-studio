@@ -347,6 +347,23 @@ async function bestEffortRemoveStorage(rows: Array<{ image_url: string | null }>
 const IdSchema = z.object({ id: z.string().uuid() });
 const IdsSchema = z.object({ ids: z.array(z.string().uuid()).min(1).max(200) });
 
+const FavoriteSchema = z.object({ id: z.string().uuid(), is_favorite: z.boolean() });
+
+export const toggleImageFavorite = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => FavoriteSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = resolveOwnerId();
+    const { error } = await supabaseAdmin
+      .from("image_generations")
+      .update({ is_favorite: data.is_favorite })
+      .eq("id", data.id)
+      .eq("user_id", owner);
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const };
+  });
+
 export const deleteImageGeneration = createServerFn({ method: "POST" })
   .middleware([requireAccess])
   .inputValidator((input: unknown) => IdSchema.parse(input))
