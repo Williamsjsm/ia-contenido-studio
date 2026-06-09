@@ -279,6 +279,32 @@ function ImagenIA() {
     navigate({ to: "/publicar" });
   }
 
+  async function sendToVideo() {
+    if (!imageData || !lastPrompt) {
+      toast.error("Genera o selecciona una imagen primero.");
+      return;
+    }
+    try {
+      const r = await saveFlowFn({
+        data: {
+          title: lastPrompt.slice(0, 60) || "Video sin título",
+          prompt: lastPrompt,
+          source_variant: "imagen",
+          status: "draft",
+        },
+      });
+      if (!r.ok) {
+        toast.error("No se pudo preparar el video.", { description: r.message });
+        return;
+      }
+      toast.success("Borrador de video creado. Generación próximamente.");
+      navigate({ to: "/crear/video", search: { fromImage: "1", flowId: r.job.id } });
+    } catch (e) {
+      console.error(e);
+      toast.error("Error al enviar a Video.");
+    }
+  }
+
   return (
     <>
     <div className="mx-auto w-full max-w-[1800px] space-y-6 p-6 lg:p-10">
