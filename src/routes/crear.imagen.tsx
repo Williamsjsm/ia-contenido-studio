@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({
   personajeId: fallback(z.string(), "").default(""),
