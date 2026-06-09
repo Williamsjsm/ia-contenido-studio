@@ -201,6 +201,7 @@ function ImagenIA() {
           characterId: character?.id ?? null,
           characterName: character?.name ?? null,
           characterPromptInjection: characterInjection,
+          promptId: search.promptId || null,
         },
       });
       if (!res.ok) {
