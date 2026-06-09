@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, Save, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library, AlertCircle, X, Users, ImagePlus, UserPlus } from "lucide-react";
+import { Copy, Save, Sparkles, Loader2, AlertTriangle, Film, KeyRound, Library, AlertCircle, X, Users, ImagePlus, UserPlus, Image as ImageIcon } from "lucide-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
