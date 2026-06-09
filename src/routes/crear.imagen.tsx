@@ -140,6 +140,8 @@ function ImagenIA() {
   const deleteManyFn = useServerFn(deleteImageGenerations);
   const clearAllFn = useServerFn(clearImageGenerations);
   const promoteFn = useServerFn(promoteGenerationToReference);
+  const favoriteFn = useServerFn(toggleImageFavorite);
+  const saveFlowFn = useServerFn(saveFlowJob);
 
   const charactersQuery = useQuery({
     queryKey: ["library", "characters"],
@@ -154,6 +156,14 @@ function ImagenIA() {
     setUseCharacter(true);
     setSelectedCharacterId(search.personajeId);
   }, [search.personajeId]);
+
+  // Autorellenar prompt cuando llega desde el generador de prompts.
+  useEffect(() => {
+    if (search.prompt && !prompt) {
+      setPrompt(search.prompt);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.prompt]);
 
   const history = useQuery({
     queryKey: ["image-generations"],
