@@ -13,10 +13,30 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info, Users, ImagePlus, UserPlus } from "lucide-react";
-import { generateImage, listImageGenerations } from "@/lib/image-generation.functions";
+import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info, Users, ImagePlus, UserPlus, Trash2, Eye, CheckSquare, Square, Filter, Wand2 } from "lucide-react";
+import {
+  generateImage,
+  listImageGenerations,
+  deleteImageGeneration,
+  deleteImageGenerations,
+  clearImageGenerations,
+  promoteGenerationToReference,
+} from "@/lib/image-generation.functions";
 import { listVirtualCharacters, type VirtualCharacter } from "@/lib/visual-library.functions";
 import { ImportCharacterDialog } from "@/components/import-character-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({
   personajeId: fallback(z.string(), "").default(""),
@@ -97,6 +117,25 @@ function ImagenIA() {
   const [useCharacter, setUseCharacter] = useState(false);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>("");
   const [importMode, setImportMode] = useState<"save" | "temporal" | null>(null);
+  const [importInitial, setImportInitial] = useState<{ path: string; url: string | null } | null>(null);
+
+  // Historial: filtros + selección + confirmaciones
+  type HistoryFilter = "all" | "with-character" | "without-character" | "gemini" | "openai";
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState<
+    | null
+    | { kind: "one"; id: string }
+    | { kind: "many"; ids: string[] }
+    | { kind: "all" }
+  >(null);
+  const [busyDelete, setBusyDelete] = useState(false);
+
+  const deleteOneFn = useServerFn(deleteImageGeneration);
+  const deleteManyFn = useServerFn(deleteImageGenerations);
+  const clearAllFn = useServerFn(clearImageGenerations);
+  const promoteFn = useServerFn(promoteGenerationToReference);
 
   const charactersQuery = useQuery({
     queryKey: ["library", "characters"],
@@ -454,55 +493,298 @@ function ImagenIA() {
         </Card>
       </div>
 
-      <Card className="border-border/60 bg-card">
-        <CardHeader><CardTitle className="text-base">Historial</CardTitle></CardHeader>
-        <CardContent>
-          {history.data?.ok && history.data.items.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-              {history.data.items.map((it) => (
-                <button
-                  key={it.id}
-                  type="button"
-                  className="group relative aspect-square overflow-hidden rounded-md border border-border/40 hover:border-primary/60"
+      {(() => {
+        const items = history.data?.ok ? history.data.items : [];
+        const filtered = items.filter((it) => {
+          switch (historyFilter) {
+            case "with-character": return Boolean(it.character_id);
+            case "without-character": return !it.character_id;
+            case "gemini": return it.provider === "gemini";
+            case "openai": return it.provider === "openai";
+            default: return true;
+          }
+        });
+        const allSelected = filtered.length > 0 && filtered.every((i) => selectedIds.has(i.id));
+        const toggleId = (id: string) => {
+          setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+          });
+        };
+        const selectedCount = selectedIds.size;
+        return (
+          <Card className="border-border/60 bg-card">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="text-base">
+                Historial
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {filtered.length} {filtered.length === 1 ? "imagen" : "imágenes"}
+                </span>
+              </CardTitle>
+              <div className="flex flex-wrap items-center gap-2">
+                <Tabs value={historyFilter} onValueChange={(v) => setHistoryFilter(v as HistoryFilter)}>
+                  <TabsList className="h-8">
+                    <TabsTrigger value="all" className="h-6 px-2 text-[11px]"><Filter className="mr-1 h-3 w-3" />Todas</TabsTrigger>
+                    <TabsTrigger value="with-character" className="h-6 px-2 text-[11px]">Con personaje</TabsTrigger>
+                    <TabsTrigger value="without-character" className="h-6 px-2 text-[11px]">Sin personaje</TabsTrigger>
+                    <TabsTrigger value="gemini" className="h-6 px-2 text-[11px]">Gemini</TabsTrigger>
+                    <TabsTrigger value="openai" className="h-6 px-2 text-[11px]">OpenAI</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <Button
+                  size="sm"
+                  variant={selectMode ? "default" : "outline"}
+                  className="h-8 gap-1"
                   onClick={() => {
-                    setImageData(`data:image/png;base64,${it.image_base64}`);
-                    setLastPrompt(it.prompt);
-                    setStatus("success");
+                    setSelectMode((s) => !s);
+                    setSelectedIds(new Set());
                   }}
-                  title={it.prompt}
                 >
-                  <img
-                    src={`data:image/png;base64,${it.image_base64}`}
-                    alt={it.prompt}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                  {selectMode ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+                  {selectMode ? "Salir" : "Seleccionar"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 gap-1 text-destructive hover:text-destructive"
+                  onClick={() => setConfirmDelete({ kind: "all" })}
+                  disabled={items.length === 0}
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Limpiar historial
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {selectMode && (
+                <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/40 bg-muted/30 p-2 text-xs">
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={(v) => {
+                      if (v) setSelectedIds(new Set(filtered.map((i) => i.id)));
+                      else setSelectedIds(new Set());
+                    }}
                   />
-                  {it.character_name && (
-                    <Badge
-                      variant="secondary"
-                      className="absolute bottom-1 left-1 max-w-[90%] truncate px-1.5 py-0 text-[9px]"
+                  <span className="text-muted-foreground">
+                    {selectedCount} seleccionada{selectedCount === 1 ? "" : "s"}
+                  </span>
+                  <div className="ml-auto flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1"
+                      disabled={selectedCount === 0}
+                      onClick={() => {
+                        const sel = filtered.filter((i) => selectedIds.has(i.id));
+                        sel.forEach((it, idx) => {
+                          const a = document.createElement("a");
+                          a.href = `data:image/png;base64,${it.image_base64}`;
+                          a.download = `imagen-${it.id.slice(0, 8)}.png`;
+                          document.body.appendChild(a);
+                          setTimeout(() => { a.click(); a.remove(); }, idx * 80);
+                        });
+                      }}
                     >
-                      <Users className="mr-0.5 h-2.5 w-2.5" />
-                      {it.character_name}
-                    </Badge>
-                  )}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Aún no has generado imágenes.</p>
-          )}
-        </CardContent>
-      </Card>
+                      <Download className="h-3.5 w-3.5" /> Descargar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1"
+                      disabled={selectedCount !== 1}
+                      onClick={async () => {
+                        const id = Array.from(selectedIds)[0];
+                        if (!id) return;
+                        try {
+                          const r = await promoteFn({ data: { id } });
+                          if (!r.ok) { toast.error(r.message); return; }
+                          setImportInitial({ path: r.path, url: r.url });
+                          setImportMode("save");
+                        } catch (e) {
+                          console.error(e);
+                          toast.error("No se pudo preparar la imagen.");
+                        }
+                      }}
+                    >
+                      <Wand2 className="h-3.5 w-3.5" /> Crear personaje
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-7 gap-1"
+                      disabled={selectedCount === 0}
+                      onClick={() => setConfirmDelete({ kind: "many", ids: Array.from(selectedIds) })}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Eliminar
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {filtered.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {items.length === 0 ? "Aún no has generado imágenes." : "Ninguna imagen coincide con el filtro."}
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                  {filtered.map((it) => {
+                    const isSelected = selectedIds.has(it.id);
+                    const dataUrl = `data:image/png;base64,${it.image_base64}`;
+                    const date = new Date(it.created_at);
+                    return (
+                      <div
+                        key={it.id}
+                        className={cn(
+                          "group relative aspect-square overflow-hidden rounded-md border bg-muted/20 transition",
+                          isSelected ? "border-primary ring-2 ring-primary/50" : "border-border/40 hover:border-primary/60",
+                        )}
+                      >
+                        <img
+                          src={dataUrl}
+                          alt={it.prompt}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                          onClick={() => {
+                            if (selectMode) toggleId(it.id);
+                            else {
+                              setImageData(dataUrl);
+                              setLastPrompt(it.prompt);
+                              setStatus("success");
+                            }
+                          }}
+                        />
+                        {/* Top-left: checkbox in select mode */}
+                        {selectMode && (
+                          <div className="absolute top-1.5 left-1.5 rounded bg-background/80 p-0.5 backdrop-blur">
+                            <Checkbox checked={isSelected} onCheckedChange={() => toggleId(it.id)} />
+                          </div>
+                        )}
+                        {/* Top-right: provider chip */}
+                        <Badge
+                          variant="secondary"
+                          className="absolute top-1.5 right-1.5 px-1.5 py-0 text-[9px] uppercase"
+                        >
+                          {it.provider}
+                        </Badge>
+                        {/* Bottom: character + date */}
+                        <div className="pointer-events-none absolute inset-x-1 bottom-1 flex items-end justify-between gap-1">
+                          {it.character_name ? (
+                            <Badge
+                              variant="secondary"
+                              className="max-w-[70%] truncate px-1.5 py-0 text-[9px]"
+                            >
+                              <Users className="mr-0.5 h-2.5 w-2.5" />
+                              {it.character_name}
+                            </Badge>
+                          ) : <span />}
+                          <span className="rounded bg-background/70 px-1 py-0.5 text-[9px] text-foreground/80 backdrop-blur">
+                            {date.toLocaleDateString()}
+                          </span>
+                        </div>
+                        {/* Hover overlay actions */}
+                        {!selectMode && (
+                          <div className="absolute inset-0 flex items-end justify-center gap-1 bg-gradient-to-t from-black/70 via-black/20 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              className="h-7 w-7"
+                              title="Ver"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setImageData(dataUrl);
+                                setLastPrompt(it.prompt);
+                                setStatus("success");
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              }}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              className="h-7 w-7"
+                              title="Descargar"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const a = document.createElement("a");
+                                a.href = dataUrl;
+                                a.download = `imagen-${it.id.slice(0, 8)}.png`;
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                              }}
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              className="h-7 w-7"
+                              title="Copiar prompt"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(it.prompt).then(
+                                  () => toast.success("Prompt copiado."),
+                                  () => toast.error("No se pudo copiar."),
+                                );
+                              }}
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              className="h-7 w-7"
+                              title="Usar como referencia"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  const r = await promoteFn({ data: { id: it.id } });
+                                  if (!r.ok) { toast.error(r.message); return; }
+                                  setImportInitial({ path: r.path, url: r.url });
+                                  setImportMode("temporal");
+                                } catch (err) {
+                                  console.error(err);
+                                  toast.error("No se pudo preparar la referencia.");
+                                }
+                              }}
+                            >
+                              <ImagePlus className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="destructive"
+                              className="h-7 w-7"
+                              title="Eliminar"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmDelete({ kind: "one", id: it.id });
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
     </div>
     {/* Import-from-image dialog */}
     {/* eslint-disable-next-line react/jsx-no-useless-fragment */}
     <ImportCharacterDialog
       open={importMode !== null}
-      onOpenChange={(o) => { if (!o) setImportMode(null); }}
+      onOpenChange={(o) => { if (!o) { setImportMode(null); setImportInitial(null); } }}
       mode={importMode ?? "save"}
+      initialImage={importInitial}
       onSaved={(c) => {
         setImportMode(null);
+        setImportInitial(null);
         qc.invalidateQueries({ queryKey: ["library", "characters"] });
         setUseCharacter(true);
         setSelectedCharacterId(c.id);
@@ -510,6 +792,7 @@ function ImagenIA() {
       }}
       onAnalyzed={(payload) => {
         setImportMode(null);
+        setImportInitial(null);
         const injection = [
           payload.master_prompt,
           payload.description ? `(${payload.description})` : "",
@@ -518,6 +801,60 @@ function ImagenIA() {
         toast.success("Referencia visual añadida al prompt.");
       }}
     />
+    {/* Confirmación de borrado */}
+    <AlertDialog open={confirmDelete !== null} onOpenChange={(o) => { if (!o) setConfirmDelete(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {confirmDelete?.kind === "all"
+              ? "¿Limpiar todo el historial?"
+              : confirmDelete?.kind === "many"
+              ? `¿Eliminar ${confirmDelete.ids.length} imágenes?`
+              : "¿Eliminar esta imagen del historial?"}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta acción no se puede deshacer. Se eliminarán los registros y los archivos asociados.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busyDelete}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={busyDelete}
+            onClick={async (e) => {
+              e.preventDefault();
+              if (!confirmDelete) return;
+              setBusyDelete(true);
+              try {
+                if (confirmDelete.kind === "one") {
+                  const r = await deleteOneFn({ data: { id: confirmDelete.id } });
+                  if (!r.ok) { toast.error(r.message); return; }
+                  toast.success("Imagen eliminada.");
+                } else if (confirmDelete.kind === "many") {
+                  const r = await deleteManyFn({ data: { ids: confirmDelete.ids } });
+                  if (!r.ok) { toast.error(r.message); return; }
+                  toast.success(`${r.count} imágenes eliminadas.`);
+                } else {
+                  const r = await clearAllFn();
+                  if (!r.ok) { toast.error(r.message); return; }
+                  toast.success(`Historial limpio (${r.count}).`);
+                }
+                setSelectedIds(new Set());
+                qc.invalidateQueries({ queryKey: ["image-generations"] });
+              } catch (err) {
+                console.error(err);
+                toast.error("Error al eliminar.");
+              } finally {
+                setBusyDelete(false);
+                setConfirmDelete(null);
+              }
+            }}
+          >
+            {busyDelete ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1.5 h-3.5 w-3.5" />}
+            Eliminar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -41,6 +41,12 @@ type Props = {
   onAnalyzed?: (payload: ImportAnalyzedPayload) => void;
   title?: string;
   description?: string;
+  /**
+   * Optional pre-uploaded image (already in storage). If provided when the
+   * dialog opens, the dialog skips the upload step and goes straight to
+   * analysis.
+   */
+  initialImage?: { path: string; url: string | null } | null;
 };
 
 function fileToBase64(file: File): Promise<string> {
@@ -65,6 +71,7 @@ export function ImportCharacterDialog({
   onAnalyzed,
   title,
   description,
+  initialImage,
 }: Props) {
   const uploadFn = useServerFn(uploadVisualImage);
   const analyzeFn = useServerFn(analyzeCharacterFromImage);
@@ -83,6 +90,17 @@ export function ImportCharacterDialog({
   const [tagsText, setTagsText] = useState("");
   const [attributes, setAttributes] = useState<Record<string, string>>({});
   const [analyzed, setAnalyzed] = useState(false);
+
+  // Auto-load a pre-uploaded image when the dialog opens.
+  useEffect(() => {
+    if (!open || !initialImage?.path) return;
+    if (imagePath === initialImage.path) return;
+    setImagePath(initialImage.path);
+    setImageUrl(initialImage.url);
+    setAnalyzed(false);
+    void analyze(initialImage.path);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialImage?.path]);
 
   function reset() {
     setImagePath(null);
