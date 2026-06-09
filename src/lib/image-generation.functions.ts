@@ -20,6 +20,8 @@ const InputSchema = z.object({
   characterId: z.string().uuid().optional().nullable(),
   characterName: z.string().trim().max(120).optional().nullable(),
   characterPromptInjection: z.string().trim().max(20_000).optional().nullable(),
+  promptId: z.string().uuid().optional().nullable(),
+  projectId: z.string().uuid().optional().nullable(),
 });
 
 export type GenerateImageInput = z.input<typeof InputSchema>;
