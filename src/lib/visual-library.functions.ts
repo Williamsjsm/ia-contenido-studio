@@ -169,6 +169,7 @@ const CharacterPayload = z.object({
   reference_image_path: z.string().max(500).optional().nullable(),
   master_prompt: z.string().max(20_000).default(""),
   tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+  secondary_reference_paths: z.array(z.string().min(1).max(500)).max(10).optional().default([]),
 });
 
 export const createVirtualCharacter = createServerFn({ method: "POST" })
@@ -178,6 +179,7 @@ export const createVirtualCharacter = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = ownerId();
     assertOwnedPath(data.reference_image_path, owner);
+    for (const p of data.secondary_reference_paths ?? []) assertOwnedPath(p, owner);
     const signedUrl = data.reference_image_path ? await sign(data.reference_image_path) : null;
     const { data: row, error } = await supabaseAdmin
       .from("virtual_characters")
@@ -193,6 +195,37 @@ export const createVirtualCharacter = createServerFn({ method: "POST" })
       .select("*")
       .single();
     if (error || !row) return { ok: false as const, message: error?.message ?? "Error" };
+
+    // Insertar referencias adicionales (galería del personaje).
+    const refRows: Array<{
+      character_id: string;
+      storage_path: string;
+      is_primary: boolean;
+      sort_order: number;
+    }> = [];
+    if (data.reference_image_path) {
+      refRows.push({
+        character_id: row.id,
+        storage_path: data.reference_image_path,
+        is_primary: true,
+        sort_order: 0,
+      });
+    }
+    (data.secondary_reference_paths ?? []).forEach((p, idx) => {
+      refRows.push({
+        character_id: row.id,
+        storage_path: p,
+        is_primary: false,
+        sort_order: idx + 1,
+      });
+    });
+    if (refRows.length > 0) {
+      const { error: refErr } = await supabaseAdmin
+        .from("character_reference_images")
+        .insert(refRows);
+      if (refErr) console.warn("character_reference_images insert failed:", refErr);
+    }
+
     return { ok: true as const, character: { ...row, reference_image_url: signedUrl } as VirtualCharacter };
   });
 
