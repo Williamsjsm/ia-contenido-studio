@@ -15,6 +15,7 @@ import { Route as IntegracionesRouteImport } from './routes/integraciones'
 import { Route as ConfiguracionRouteImport } from './routes/configuracion'
 import { Route as AccesoRouteImport } from './routes/acceso'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CrearIndexRouteImport } from './routes/crear.index'
 import { Route as InvestigarTendenciasRouteImport } from './routes/investigar.tendencias'
 import { Route as InvestigarInspiracionRouteImport } from './routes/investigar.inspiracion'
 import { Route as InvestigarAprendizajeRouteImport } from './routes/investigar.aprendizaje'
@@ -58,6 +59,11 @@ const AccesoRoute = AccesoRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CrearIndexRoute = CrearIndexRouteImport.update({
+  id: '/crear/',
+  path: '/crear/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InvestigarTendenciasRoute = InvestigarTendenciasRouteImport.update({
@@ -152,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/investigar/aprendizaje': typeof InvestigarAprendizajeRoute
   '/investigar/inspiracion': typeof InvestigarInspiracionRoute
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
+  '/crear/': typeof CrearIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -174,6 +181,7 @@ export interface FileRoutesByTo {
   '/investigar/aprendizaje': typeof InvestigarAprendizajeRoute
   '/investigar/inspiracion': typeof InvestigarInspiracionRoute
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
+  '/crear': typeof CrearIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -197,6 +205,7 @@ export interface FileRoutesById {
   '/investigar/aprendizaje': typeof InvestigarAprendizajeRoute
   '/investigar/inspiracion': typeof InvestigarInspiracionRoute
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
+  '/crear/': typeof CrearIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -221,6 +230,7 @@ export interface FileRouteTypes {
     | '/investigar/aprendizaje'
     | '/investigar/inspiracion'
     | '/investigar/tendencias'
+    | '/crear/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -243,6 +253,7 @@ export interface FileRouteTypes {
     | '/investigar/aprendizaje'
     | '/investigar/inspiracion'
     | '/investigar/tendencias'
+    | '/crear'
   id:
     | '__root__'
     | '/'
@@ -265,6 +276,7 @@ export interface FileRouteTypes {
     | '/investigar/aprendizaje'
     | '/investigar/inspiracion'
     | '/investigar/tendencias'
+    | '/crear/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -288,6 +300,7 @@ export interface RootRouteChildren {
   InvestigarAprendizajeRoute: typeof InvestigarAprendizajeRoute
   InvestigarInspiracionRoute: typeof InvestigarInspiracionRoute
   InvestigarTendenciasRoute: typeof InvestigarTendenciasRoute
+  CrearIndexRoute: typeof CrearIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -332,6 +345,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/crear/': {
+      id: '/crear/'
+      path: '/crear'
+      fullPath: '/crear/'
+      preLoaderRoute: typeof CrearIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/investigar/tendencias': {
@@ -456,7 +476,18 @@ const rootRouteChildren: RootRouteChildren = {
   InvestigarAprendizajeRoute: InvestigarAprendizajeRoute,
   InvestigarInspiracionRoute: InvestigarInspiracionRoute,
   InvestigarTendenciasRoute: InvestigarTendenciasRoute,
+  CrearIndexRoute: CrearIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
