@@ -775,9 +775,12 @@ function ImagenIA() {
                           onClick={() => {
                             if (selectMode) toggleId(it.id);
                             else {
+                              setUpscaledImage(null);
+                              setErrorDetails(null);
                               setImageData(dataUrl);
                               setLastPrompt(it.prompt);
                               setStatus("success");
+                              window.scrollTo({ top: 0, behavior: "smooth" });
                             }
                           }}
                           onDoubleClick={(e) => {
@@ -839,6 +842,8 @@ function ImagenIA() {
                               title="Ver"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setUpscaledImage(null);
+                                setErrorDetails(null);
                                 setImageData(dataUrl);
                                 setLastPrompt(it.prompt);
                                 setStatus("success");
