@@ -53,7 +53,7 @@ export const Route = createFileRoute("/crear/imagen")({
 });
 
 type Provider = "gemini" | "openai";
-type Resolution = "1024x1024" | "1792x1024" | "1024x1792";
+type Resolution = "1024x1024" | "1792x1024" | "1024x1792" | "1536x1024" | "1024x1536";
 type FinalRes = "1024" | "2048" | "3840" | "7680" | "12288";
 type Upscale = "none" | "2k" | "4k" | "8k" | "12k";
 type Status = "idle" | "loading" | "success" | "error";
@@ -112,6 +112,13 @@ function ImagenIA() {
   const [upscale, setUpscale] = useState<Upscale>("none");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<{
+    status?: number;
+    code?: string;
+    type?: string;
+    request_id?: string;
+    hint?: string;
+  } | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
   const [generatedResLabel, setGeneratedResLabel] = useState<string>("");
   const [finalResLabel, setFinalResLabel] = useState<string>("");
@@ -165,6 +172,16 @@ function ImagenIA() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.prompt]);
 
+  // Si el usuario cambia a OpenAI con resolución incompatible, ajusta a una válida.
+  useEffect(() => {
+    if (provider === "openai" && !["1024x1024", "1536x1024", "1024x1536"].includes(resolution)) {
+      setResolution("1024x1024");
+    }
+    if (provider === "gemini" && !["1024x1024", "1792x1024", "1024x1792"].includes(resolution)) {
+      setResolution("1024x1024");
+    }
+  }, [provider, resolution]);
+
   const history = useQuery({
     queryKey: ["image-generations"],
     queryFn: () => listFn(),
@@ -178,6 +195,7 @@ function ImagenIA() {
     }
     setStatus("loading");
     setErrorMsg(null);
+    setErrorDetails(null);
     setImageData(null);
     setUpscaledImage(null);
     try {
@@ -207,6 +225,7 @@ function ImagenIA() {
       if (!res.ok) {
         setStatus("error");
         setErrorMsg(res.message);
+        setErrorDetails((res as { details?: typeof errorDetails }).details ?? null);
         toast.error(res.message);
         return;
       }
@@ -339,10 +358,24 @@ function ImagenIA() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1024x1024">1024×1024 (cuadrado)</SelectItem>
-                  <SelectItem value="1792x1024">1792×1024 (horizontal)</SelectItem>
-                  <SelectItem value="1024x1792">1024×1792 (vertical)</SelectItem>
+                  {provider === "gemini" ? (
+                    <>
+                      <SelectItem value="1792x1024">1792×1024 (horizontal)</SelectItem>
+                      <SelectItem value="1024x1792">1024×1792 (vertical)</SelectItem>
+                    </>
+                  ) : (
+                    <>
+                      <SelectItem value="1536x1024">1536×1024 (horizontal)</SelectItem>
+                      <SelectItem value="1024x1536">1024×1536 (vertical)</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
+              {provider === "openai" && (
+                <p className="text-[10px] text-muted-foreground">
+                  OpenAI gpt-image solo admite 1024×1024, 1536×1024 y 1024×1536.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">Resolución final</Label>
@@ -477,9 +510,31 @@ function ImagenIA() {
               </Button>
             </div>
             {status === "error" && errorMsg && (
-              <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-                <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <span>{errorMsg}</span>
+              <div className="space-y-1 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span className="font-medium">{errorMsg}</span>
+                </div>
+                {errorDetails && (
+                  <div className="ml-5 space-y-0.5 text-[10px] opacity-80">
+                    {errorDetails.status && <div>HTTP {errorDetails.status}</div>}
+                    {errorDetails.code && <div>code: {errorDetails.code}</div>}
+                    {errorDetails.type && <div>type: {errorDetails.type}</div>}
+                    {errorDetails.request_id && <div>request_id: {errorDetails.request_id}</div>}
+                    {errorDetails.hint && <div className="italic">💡 {errorDetails.hint}</div>}
+                    {provider === "openai" && errorDetails.code === "invalid_size" && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="mt-1 h-6 text-[10px]"
+                        onClick={() => setProvider("gemini")}
+                      >
+                        Cambiar a Gemini
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

@@ -14,7 +14,7 @@ const FinalResEnum = z.enum(["1024", "2048", "3840", "7680", "12288"]);
 const InputSchema = z.object({
   prompt: z.string().trim().min(1, "Describe la imagen.").max(2000),
   provider: ProviderEnum.default("gemini"),
-  resolution: z.enum(["1024x1024", "1792x1024", "1024x1792"]).default("1024x1024"),
+  resolution: z.enum(["1024x1024", "1792x1024", "1024x1792", "1536x1024", "1024x1536"]).default("1024x1024"),
   finalResolution: FinalResEnum.default("1024"),
   upscaleLevel: UpscaleEnum.default("none"),
   characterId: z.string().uuid().optional().nullable(),
@@ -48,9 +48,19 @@ export type GenerateImageResult =
         | "quota"
         | "invalid_key"
         | "provider_error"
+        | "invalid_param"
+        | "content_policy"
+        | "model_unavailable"
         | "parse_error"
         | "db_error";
       message: string;
+      details?: {
+        status?: number;
+        type?: string;
+        code?: string;
+        request_id?: string;
+        hint?: string;
+      };
     };
 
 type ProviderResolved =
@@ -108,6 +118,32 @@ export const generateImage = createServerFn({ method: "POST" })
       ? `${data.prompt}\n\n[Identidad visual a mantener — ${data.characterName ?? "personaje"}]:\n${data.characterPromptInjection}`
       : data.prompt;
 
+    // ---- Pre-call validation tailored to each provider ----
+    const MAX_PROMPT = 3800; // safety cap below provider limits
+    if (effectivePrompt.length > MAX_PROMPT) {
+      return {
+        ok: false,
+        error: "invalid_param",
+        message: `El prompt final tiene ${effectivePrompt.length} caracteres (máx. ${MAX_PROMPT}). Acórtalo o reduce los detalles del personaje.`,
+        details: { code: "prompt_too_long" },
+      };
+    }
+    const OPENAI_SIZES = new Set(["1024x1024", "1536x1024", "1024x1536"]);
+    const GEMINI_SIZES = new Set(["1024x1024", "1792x1024", "1024x1792"]);
+    let effectiveResolution = data.resolution;
+    if (provider.kind === "openai" && !OPENAI_SIZES.has(effectiveResolution)) {
+      return {
+        ok: false,
+        error: "invalid_param",
+        message: `OpenAI no soporta la resolución ${effectiveResolution}. Usa 1024×1024, 1536×1024 o 1024×1536.`,
+        details: { code: "invalid_size", hint: "Cambia la resolución o usa Gemini." },
+      };
+    }
+    if (provider.kind === "gemini" && !GEMINI_SIZES.has(effectiveResolution)) {
+      // Gemini ignores size anyway; coerce to square.
+      effectiveResolution = "1024x1024";
+    }
+
     let body: Record<string, unknown>;
     if (provider.kind === "gemini") {
       // Lovable Gateway requires chat-completions image shape for Gemini image models.
@@ -120,7 +156,7 @@ export const generateImage = createServerFn({ method: "POST" })
       body = {
         model: provider.model,
         prompt: effectivePrompt,
-        size: data.resolution,
+        size: effectiveResolution,
         n: 1,
         quality: "low",
       };
@@ -150,11 +186,56 @@ export const generateImage = createServerFn({ method: "POST" })
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");
-      console.error("Image provider error:", response.status, text.slice(0, 500));
-      if (response.status === 401) return { ok: false, error: "invalid_key", message: "API key inválida." };
-      if (response.status === 429) return { ok: false, error: "rate_limited", message: "Límite de peticiones superado. Espera unos segundos." };
-      if (response.status === 402) return { ok: false, error: "quota", message: "Sin crédito disponible en el proveedor." };
-      return { ok: false, error: "provider_error", message: `El proveedor respondió con código ${response.status}.` };
+      const requestId =
+        response.headers.get("x-request-id") ??
+        response.headers.get("x-lovable-aig-run-id") ??
+        undefined;
+      let parsed: { error?: { type?: string; code?: string; message?: string; param?: string }; message?: string } = {};
+      try { parsed = JSON.parse(text); } catch { /* keep text */ }
+      const errType = parsed.error?.type;
+      const errCode = parsed.error?.code;
+      const errMsg = parsed.error?.message ?? parsed.message ?? text.slice(0, 300);
+      // Safe log — never include API key.
+      console.error("[image-gen] provider error", {
+        provider: data.provider,
+        status: response.status,
+        type: errType,
+        code: errCode,
+        message: errMsg?.slice(0, 400),
+        request_id: requestId,
+        body_size: effectivePrompt.length,
+        size: effectiveResolution,
+      });
+      const details = { status: response.status, type: errType, code: errCode, request_id: requestId };
+      if (response.status === 401) return { ok: false, error: "invalid_key", message: "API key inválida o no autorizada.", details };
+      if (response.status === 429) return { ok: false, error: "rate_limited", message: "Has superado el límite de peticiones. Espera unos segundos y reintenta.", details };
+      if (response.status === 402) return { ok: false, error: "quota", message: "Sin crédito disponible en el proveedor. Recarga saldo y reintenta.", details };
+      if (response.status === 400) {
+        const lower = `${errType ?? ""} ${errCode ?? ""} ${errMsg ?? ""}`.toLowerCase();
+        if (lower.includes("content_policy") || lower.includes("moderation") || lower.includes("safety")) {
+          return {
+            ok: false,
+            error: "content_policy",
+            message: "El prompt fue rechazado por las políticas de contenido del proveedor. Reformúlalo evitando marcas, personajes con IP o contenido sensible.",
+            details: { ...details, hint: "Prueba con descripciones genéricas o cambia a Gemini." },
+          };
+        }
+        if (lower.includes("model") && (lower.includes("not") || lower.includes("unavailable") || lower.includes("does not exist"))) {
+          return { ok: false, error: "model_unavailable", message: `Modelo no disponible para este proveedor (${provider.model}).`, details };
+        }
+        return {
+          ok: false,
+          error: "invalid_param",
+          message: `Parámetro inválido para ${data.provider}: ${errMsg || "revisa modelo, resolución y prompt."}`,
+          details: { ...details, hint: "Verifica resolución compatible y largo del prompt." },
+        };
+      }
+      return {
+        ok: false,
+        error: "provider_error",
+        message: `El proveedor respondió con código ${response.status}${errMsg ? `: ${errMsg.slice(0, 160)}` : "."}`,
+        details,
+      };
     }
 
     let payload: unknown;
@@ -173,7 +254,7 @@ export const generateImage = createServerFn({ method: "POST" })
     // Compute final resolution metadata. The provider returns the generated
     // size as requested (data.resolution). Upscaling, if any, is applied
     // client-side; we only record the chosen targets here.
-    const generatedResolution = data.resolution;
+    const generatedResolution = effectiveResolution;
     const [genW, genH] = generatedResolution.split("x").map((n) => parseInt(n, 10));
     const aspect = genW / genH;
     const finalLong = parseInt(data.finalResolution, 10);
