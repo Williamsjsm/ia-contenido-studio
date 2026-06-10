@@ -18,6 +18,11 @@ import {
   Copy as CopyIcon,
   ImagePlus,
   ExternalLink,
+  Clock,
+  Play,
+  Pause,
+  CheckCircle2,
+  Flame,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,7 +55,12 @@ import {
   deleteProject,
   setProjectCover,
   duplicateProject,
+  setProjectStatus,
+  getProjectTimeline,
+  deriveLifecycleStatus,
+  type TimelineEvent,
 } from "@/lib/creation-projects.functions";
+import { StatusBadge } from "@/components/project-status-badge";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/proyectos/$id")({
@@ -58,7 +68,7 @@ export const Route = createFileRoute("/proyectos/$id")({
   component: ProyectoDetalle,
 });
 
-type Tab = "resumen" | "imagenes" | "prompts" | "flow" | "publicaciones";
+type Tab = "resumen" | "timeline" | "imagenes" | "prompts" | "flow" | "publicaciones";
 
 function ProyectoDetalle() {
   const { id } = Route.useParams();
@@ -70,6 +80,8 @@ function ProyectoDetalle() {
   const deleteFn = useServerFn(deleteProject);
   const coverFn = useServerFn(setProjectCover);
   const duplicateFn = useServerFn(duplicateProject);
+  const statusFn = useServerFn(setProjectStatus);
+  const timelineFn = useServerFn(getProjectTimeline);
 
   const [tab, setTab] = useState<Tab>("resumen");
   const [renameOpen, setRenameOpen] = useState(false);
