@@ -16,7 +16,13 @@ export const Route = createFileRoute("/favoritos")({
 function FavoritosPage() {
   const fn = useServerFn(listAllFavorites);
   const q = useQuery({ queryKey: ["favorites-all"], queryFn: () => fn() });
-  const data = q.data ?? { images: [], prompts: [], trends: [], characters: [] };
+  const safe = q.data ?? { images: [], prompts: [], trends: [], characters: [] };
+  const data = {
+    images: Array.isArray(safe.images) ? safe.images : [],
+    prompts: Array.isArray(safe.prompts) ? safe.prompts : [],
+    trends: Array.isArray(safe.trends) ? safe.trends : [],
+    characters: Array.isArray(safe.characters) ? safe.characters : [],
+  };
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 p-6 lg:p-10">
