@@ -36,6 +36,9 @@ import {
   VIDEO_STATUSES,
 } from "@/lib/video-drafts.functions";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { VideoExportPack } from "@/components/video-export-pack";
+import { buildProviderPack } from "@/lib/video-export-pack";
 
 const searchSchema = z.object({
   draftId: fallback(z.string(), "").default(""),
@@ -413,6 +416,8 @@ function VideoHub() {
                   ))}
                 </CardContent>
               </Card>
+
+              <DraftTabs draft={detail.data} />
             </div>
 
             {/* Right: versions */}
