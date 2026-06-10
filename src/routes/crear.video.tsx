@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VideoExportPack } from "@/components/video-export-pack";
 import { buildProviderPack } from "@/lib/video-export-pack";
+import { VideoIntelligencePanel } from "@/components/video-intelligence-panel";
 
 const searchSchema = z.object({
   draftId: fallback(z.string(), "").default(""),
@@ -69,6 +70,13 @@ const PRESETS: Preset[] = [
   { id: "historia", label: "Historia", duration: "15", aspect: "16:9", camera: "tracking", style: "narrative, emotional" },
   { id: "animal-ia", label: "Animal IA", duration: "8", aspect: "9:16", camera: "follow", style: "wildlife, hyperreal" },
   { id: "influencer-ia", label: "Influencer IA", duration: "8", aspect: "9:16", camera: "selfie", style: "vlog, authentic" },
+  { id: "historia-viral", label: "Historia Viral", duration: "15", aspect: "9:16", camera: "tracking", style: "viral hook, emotional beats, fast cuts" },
+  { id: "animal-fruta", label: "Animal + Fruta", duration: "8", aspect: "9:16", camera: "static", style: "macro wildlife, vivid fruit colors, surreal" },
+  { id: "influencer-lifestyle", label: "Influencer Lifestyle", duration: "8", aspect: "9:16", camera: "selfie", style: "lifestyle vlog, golden hour, natural" },
+  { id: "producto-comercial", label: "Producto Comercial", duration: "10", aspect: "16:9", camera: "orbit", style: "commercial, studio lighting, hero product" },
+  { id: "naturaleza-cinematica", label: "Naturaleza Cinemática", duration: "10", aspect: "21:9", camera: "drone", style: "epic landscape, anamorphic, HDR" },
+  { id: "viajes", label: "Viajes", duration: "10", aspect: "16:9", camera: "tracking", style: "travel vlog, vibrant, location-rich" },
+  { id: "documental", label: "Documental", duration: "15", aspect: "16:9", camera: "static", style: "documentary HDR, observational" },
 ];
 
 const PROVIDERS = [
@@ -418,6 +426,7 @@ function VideoHub() {
               </Card>
 
               <DraftTabs draft={detail.data} />
+              <VideoIntelligencePanel draft={detail.data} />
             </div>
 
             {/* Right: versions */}
