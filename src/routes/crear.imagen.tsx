@@ -26,6 +26,7 @@ import {
 import { saveFlowJob } from "@/lib/flow-jobs.functions";
 import { listVirtualCharacters, type VirtualCharacter } from "@/lib/visual-library.functions";
 import { listCreationProjects, moveImagesToProject } from "@/lib/creation-projects.functions";
+import { createVideoDraft } from "@/lib/video-drafts.functions";
 import { ImportCharacterDialog } from "@/components/import-character-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -130,6 +131,7 @@ function ImagenIA() {
     hint?: string;
   } | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
+  const [lastImageId, setLastImageId] = useState<string | null>(null);
   const [generatedResLabel, setGeneratedResLabel] = useState<string>("");
   const [finalResLabel, setFinalResLabel] = useState<string>("");
   const [upscaledImage, setUpscaledImage] = useState<string | null>(null);
@@ -179,6 +181,7 @@ function ImagenIA() {
   const promoteFn = useServerFn(promoteGenerationToReference);
   const favoriteFn = useServerFn(toggleImageFavorite);
   const saveFlowFn = useServerFn(saveFlowJob);
+  const createDraftFn = useServerFn(createVideoDraft);
   const listProjectsFn = useServerFn(listCreationProjects);
   const moveToProjectFn = useServerFn(moveImagesToProject);
 
@@ -292,6 +295,7 @@ function ImagenIA() {
       }
       const dataUrl = `data:${res.mime_type};base64,${res.image_base64}`;
       setImageData(dataUrl);
+      setLastImageId(res.id || null);
       setLastPrompt(res.prompt);
       setGeneratedResLabel(res.generated_resolution);
       setFinalResLabel(res.final_resolution);
@@ -365,7 +369,8 @@ function ImagenIA() {
       return;
     }
     try {
-      const r = await saveFlowFn({
+      // Mantenemos Flow Center sincronizado y creamos el video_draft principal.
+      await saveFlowFn({
         data: {
           title: lastPrompt.slice(0, 60) || "Video sin título",
           prompt: lastPrompt,
@@ -373,12 +378,20 @@ function ImagenIA() {
           status: "draft",
         },
       });
-      if (!r.ok) {
-        toast.error("No se pudo preparar el video.", { description: r.message });
+      const d = await createDraftFn({
+        data: {
+          title: lastPrompt.slice(0, 60) || "Video sin título",
+          prompt: lastPrompt,
+          sourceImageId: lastImageId ?? undefined,
+          characterId: selectedCharacter?.id ?? undefined,
+        },
+      });
+      if (!d.ok) {
+        toast.error("No se pudo preparar el video.", { description: d.message });
         return;
       }
       toast.success("Borrador de video creado. Generación próximamente.");
-      navigate({ to: "/crear/video", search: { fromImage: "1", flowId: r.job.id } });
+      navigate({ to: "/crear/video", search: { draftId: d.draft.id, fromImage: "1", flowId: "" } });
     } catch (e) {
       console.error(e);
       toast.error("Error al enviar a Video.");
