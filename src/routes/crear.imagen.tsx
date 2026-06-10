@@ -779,6 +779,18 @@ function ImagenIA() {
                     </Button>
                     <Button
                       size="sm"
+                      variant="outline"
+                      className="h-7 gap-1"
+                      disabled={selectedCount === 0}
+                      onClick={() => {
+                        setMoveTarget({ ids: Array.from(selectedIds) });
+                        setMoveProjectId("");
+                      }}
+                    >
+                      <FolderInput className="h-3.5 w-3.5" /> Mover a proyecto
+                    </Button>
+                    <Button
+                      size="sm"
                       variant="destructive"
                       className="h-7 gap-1"
                       disabled={selectedCount === 0}
@@ -971,6 +983,19 @@ function ImagenIA() {
                             </Button>
                             <Button
                               size="icon"
+                              variant="secondary"
+                              className="h-7 w-7"
+                              title="Mover a proyecto"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMoveTarget({ ids: [it.id] });
+                                setMoveProjectId("");
+                              }}
+                            >
+                              <FolderInput className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
                               variant="destructive"
                               className="h-7 w-7"
                               title="Eliminar"
@@ -1080,6 +1105,40 @@ function ImagenIA() {
       onClose={() => setLightboxOpen(false)}
       onIndexChange={setLightboxIndex}
     />
+    <Dialog open={moveTarget !== null} onOpenChange={(o) => { if (!o) { setMoveTarget(null); setMoveProjectId(""); } }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            Mover {moveTarget?.ids.length ?? 0} imagen{(moveTarget?.ids.length ?? 0) === 1 ? "" : "es"} a un proyecto
+          </DialogTitle>
+          <DialogDescription>
+            Las imágenes se enlazan al proyecto seleccionado. No se duplican.
+          </DialogDescription>
+        </DialogHeader>
+        <Select value={moveProjectId} onValueChange={setMoveProjectId}>
+          <SelectTrigger>
+            <SelectValue placeholder={projectsList.isLoading ? "Cargando proyectos…" : "Selecciona un proyecto"} />
+          </SelectTrigger>
+          <SelectContent>
+            {(projectsList.data ?? []).filter((p) => !p.is_archived).map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.title}
+                {p.character_name ? ` · ${p.character_name}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => { setMoveTarget(null); setMoveProjectId(""); }}>
+            Cancelar
+          </Button>
+          <Button onClick={handleMove} disabled={moving || !moveProjectId}>
+            {moving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <FolderInput className="mr-1.5 h-3.5 w-3.5" />}
+            Mover
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
