@@ -22,7 +22,6 @@ import {
   Play,
   Pause,
   CheckCircle2,
-  Flame,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
