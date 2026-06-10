@@ -408,11 +408,7 @@ function ProjectCard({
           <Stat icon={<Wand2 className="h-3 w-3" />} value={p.prompt_id ? 1 : 0} title="Prompts" />
           <Stat icon={<Video className="h-3 w-3" />} value={p.flow_count} title="Flow jobs" />
           <Stat icon={<Send className="h-3 w-3" />} value={p.publication_count} title="Publicaciones" />
-          {p.is_archived && (
-            <Badge variant="secondary" className="ml-auto text-[10px] uppercase">
-              Archivado
-            </Badge>
-          )}
+          <StatusBadge status={deriveLifecycleStatus(p)} className="ml-auto" />
         </div>
         <p className="text-[10px] text-muted-foreground">
           Actualizado {new Date(p.updated_at).toLocaleDateString()}
