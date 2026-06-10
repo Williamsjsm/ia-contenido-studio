@@ -19,6 +19,8 @@ export type CreationProject = {
   character_id: string | null;
   cover_image_id: string | null;
   status: string;
+  is_archived: boolean;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -131,6 +133,10 @@ export const attachAssetToProject = createServerFn({ method: "POST" })
 
 export type CreationProjectListItem = CreationProject & {
   asset_count: number;
+  image_count: number;
+  flow_count: number;
+  publication_count: number;
+  character_name: string | null;
   cover_image_base64: string | null;
 };
 
@@ -141,7 +147,7 @@ export const listCreationProjects = createServerFn({ method: "GET" })
     const owner = ownerId();
     const { data: projects, error } = await supabaseAdmin
       .from("creation_projects")
-      .select("id, title, prompt_id, character_id, cover_image_id, status, created_at, updated_at")
+      .select("id, title, prompt_id, character_id, cover_image_id, status, is_archived, archived_at, created_at, updated_at")
       .eq("user_id", owner)
       .order("updated_at", { ascending: false })
       .limit(100);
@@ -149,7 +155,7 @@ export const listCreationProjects = createServerFn({ method: "GET" })
       console.error("listCreationProjects failed:", error);
       return [];
     }
-    const rows = (projects ?? []) as CreationProject[];
+    const rows = (projects ?? []) as unknown as CreationProject[];
     if (rows.length === 0) return [];
     const coverIds = rows.map((r) => r.cover_image_id).filter((id): id is string => !!id);
     let covers: Record<string, string> = {};
@@ -162,18 +168,320 @@ export const listCreationProjects = createServerFn({ method: "GET" })
     }
     const { data: counts } = await supabaseAdmin
       .from("creation_project_assets")
-      .select("project_id")
+      .select("project_id, kind")
       .in(
         "project_id",
         rows.map((r) => r.id),
       );
-    const countMap: Record<string, number> = {};
+    const totalMap: Record<string, number> = {};
+    const imageMap: Record<string, number> = {};
+    const flowMap: Record<string, number> = {};
+    const pubMap: Record<string, number> = {};
     for (const c of counts ?? []) {
-      countMap[c.project_id] = (countMap[c.project_id] ?? 0) + 1;
+      totalMap[c.project_id] = (totalMap[c.project_id] ?? 0) + 1;
+      if (c.kind === "image") imageMap[c.project_id] = (imageMap[c.project_id] ?? 0) + 1;
+      else if (c.kind === "flow_job") flowMap[c.project_id] = (flowMap[c.project_id] ?? 0) + 1;
+      else if (c.kind === "publication") pubMap[c.project_id] = (pubMap[c.project_id] ?? 0) + 1;
+    }
+    // Resolver nombres de personajes
+    const charIds = Array.from(new Set(rows.map((r) => r.character_id).filter((x): x is string => !!x)));
+    let charNames: Record<string, string> = {};
+    if (charIds.length > 0) {
+      const { data: chars } = await supabaseAdmin
+        .from("virtual_characters")
+        .select("id, name")
+        .in("id", charIds);
+      charNames = Object.fromEntries((chars ?? []).map((c) => [c.id, c.name]));
     }
     return rows.map((r) => ({
       ...r,
-      asset_count: countMap[r.id] ?? 0,
+      asset_count: totalMap[r.id] ?? 0,
+      image_count: imageMap[r.id] ?? 0,
+      flow_count: flowMap[r.id] ?? 0,
+      publication_count: pubMap[r.id] ?? 0,
+      character_name: r.character_id ? (charNames[r.character_id] ?? null) : null,
       cover_image_base64: r.cover_image_id ? (covers[r.cover_image_id] ?? null) : null,
     }));
+  });
+
+// ------------------------ CRUD adicional ------------------------
+
+const ProjectIdSchema = z.object({ id: z.string().uuid() });
+
+export const renameProject = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), title: z.string().trim().min(1).max(200) }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const { error } = await supabaseAdmin
+      .from("creation_projects")
+      .update({ title: data.title })
+      .eq("id", data.id)
+      .eq("user_id", owner);
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const };
+  });
+
+export const archiveProject = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), archived: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const patch = data.archived
+      ? { is_archived: true, archived_at: new Date().toISOString() }
+      : { is_archived: false, archived_at: null };
+    const { error } = await supabaseAdmin
+      .from("creation_projects")
+      .update(patch)
+      .eq("id", data.id)
+      .eq("user_id", owner);
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const };
+  });
+
+export const deleteProject = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => ProjectIdSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    // creation_project_assets cae en cascada; flow_jobs.project_id es SET NULL.
+    const { error } = await supabaseAdmin
+      .from("creation_projects")
+      .delete()
+      .eq("id", data.id)
+      .eq("user_id", owner);
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const };
+  });
+
+/**
+ * Duplica el proyecto: copia metadatos (título, personaje, prompt) y vuelve a
+ * enlazar los mismos assets al nuevo proyecto. NO duplica filas de
+ * image_generations / flow_jobs / publication_projects.
+ */
+export const duplicateProject = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => ProjectIdSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const { data: src, error: srcErr } = await supabaseAdmin
+      .from("creation_projects")
+      .select("title, prompt_id, character_id, cover_image_id, status")
+      .eq("id", data.id)
+      .eq("user_id", owner)
+      .maybeSingle();
+    if (srcErr || !src) return { ok: false as const, message: srcErr?.message ?? "Proyecto no encontrado." };
+    const { data: created, error: insErr } = await supabaseAdmin
+      .from("creation_projects")
+      .insert({
+        user_id: owner,
+        title: `${src.title} (copia)`,
+        prompt_id: src.prompt_id,
+        character_id: src.character_id,
+        cover_image_id: src.cover_image_id,
+        status: src.status,
+      })
+      .select("id")
+      .single();
+    if (insErr || !created) return { ok: false as const, message: insErr?.message ?? "No se pudo duplicar." };
+    // Re-enlazar mismos assets
+    const { data: assets } = await supabaseAdmin
+      .from("creation_project_assets")
+      .select("kind, ref_id")
+      .eq("project_id", data.id);
+    if (assets && assets.length > 0) {
+      const rows = assets.map((a) => ({ project_id: created.id, kind: a.kind, ref_id: a.ref_id }));
+      await supabaseAdmin
+        .from("creation_project_assets")
+        .upsert(rows, { onConflict: "project_id,kind,ref_id" });
+    }
+    return { ok: true as const, id: created.id };
+  });
+
+export const setProjectCover = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) =>
+    z.object({ projectId: z.string().uuid(), imageId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    // Asegurar que la imagen está enlazada al proyecto.
+    await supabaseAdmin
+      .from("creation_project_assets")
+      .upsert(
+        { project_id: data.projectId, kind: "image", ref_id: data.imageId },
+        { onConflict: "project_id,kind,ref_id" },
+      );
+    const { error } = await supabaseAdmin
+      .from("creation_projects")
+      .update({ cover_image_id: data.imageId })
+      .eq("id", data.projectId)
+      .eq("user_id", owner);
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const };
+  });
+
+export type ProjectImageAsset = {
+  id: string;
+  prompt: string;
+  provider: string;
+  image_base64: string | null;
+  created_at: string;
+  character_name: string | null;
+  is_favorite: boolean;
+};
+
+export type ProjectDetail = {
+  project: CreationProject & {
+    character_name: string | null;
+    prompt_text: string | null;
+    cover_image_base64: string | null;
+  };
+  images: ProjectImageAsset[];
+  flow_jobs: { id: string; title: string | null; status: string; created_at: string }[];
+  publications: { id: string; title: string | null; status: string | null; created_at: string }[];
+};
+
+export const getProjectDetail = createServerFn({ method: "GET" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => ProjectIdSchema.parse(input))
+  .handler(async ({ data }): Promise<ProjectDetail | null> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const { data: proj } = await supabaseAdmin
+      .from("creation_projects")
+      .select("id, title, prompt_id, character_id, cover_image_id, status, is_archived, archived_at, created_at, updated_at")
+      .eq("id", data.id)
+      .eq("user_id", owner)
+      .maybeSingle();
+    if (!proj) return null;
+    const project = proj as unknown as CreationProject;
+
+    // Personaje
+    let characterName: string | null = null;
+    if (project.character_id) {
+      const { data: ch } = await supabaseAdmin
+        .from("virtual_characters")
+        .select("name")
+        .eq("id", project.character_id)
+        .maybeSingle();
+      characterName = ch?.name ?? null;
+    }
+    // Prompt origen
+    let promptText: string | null = null;
+    if (project.prompt_id) {
+      const { data: pr } = await supabaseAdmin
+        .from("prompts")
+        .select("content")
+        .eq("id", project.prompt_id)
+        .maybeSingle();
+      promptText = (pr as { content?: string } | null)?.content ?? null;
+    }
+    // Portada
+    let coverB64: string | null = null;
+    if (project.cover_image_id) {
+      const { data: cov } = await supabaseAdmin
+        .from("image_generations")
+        .select("image_base64")
+        .eq("id", project.cover_image_id)
+        .maybeSingle();
+      coverB64 = cov?.image_base64 ?? null;
+    }
+
+    // Assets agrupados por tipo
+    const { data: assets } = await supabaseAdmin
+      .from("creation_project_assets")
+      .select("kind, ref_id, created_at")
+      .eq("project_id", project.id)
+      .order("created_at", { ascending: false });
+    const imageIds = (assets ?? []).filter((a) => a.kind === "image").map((a) => a.ref_id);
+    const flowIds = (assets ?? []).filter((a) => a.kind === "flow_job").map((a) => a.ref_id);
+    const pubIds = (assets ?? []).filter((a) => a.kind === "publication").map((a) => a.ref_id);
+
+    let images: ProjectImageAsset[] = [];
+    if (imageIds.length > 0) {
+      const { data: imgs } = await supabaseAdmin
+        .from("image_generations")
+        .select("id, prompt, provider, image_base64, created_at, character_name, is_favorite")
+        .in("id", imageIds)
+        .order("created_at", { ascending: false });
+      images = (imgs ?? []) as unknown as ProjectImageAsset[];
+    }
+    let flow_jobs: ProjectDetail["flow_jobs"] = [];
+    if (flowIds.length > 0) {
+      const { data: fj } = await supabaseAdmin
+        .from("flow_jobs")
+        .select("id, title, status, created_at")
+        .in("id", flowIds);
+      flow_jobs = (fj ?? []) as ProjectDetail["flow_jobs"];
+    }
+    let publications: ProjectDetail["publications"] = [];
+    if (pubIds.length > 0) {
+      const { data: pub } = await supabaseAdmin
+        .from("publication_projects")
+        .select("id, title, status, created_at")
+        .in("id", pubIds);
+      publications = (pub ?? []) as ProjectDetail["publications"];
+    }
+
+    return {
+      project: {
+        ...project,
+        character_name: characterName,
+        prompt_text: promptText,
+        cover_image_base64: coverB64,
+      },
+      images,
+      flow_jobs,
+      publications,
+    };
+  });
+
+/**
+ * Mueve un conjunto de imágenes a un proyecto (re-enlaza assets).
+ * No duplica filas de image_generations.
+ */
+export const moveImagesToProject = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        projectId: z.string().uuid(),
+        imageIds: z.array(z.string().uuid()).min(1).max(200),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    // Verificar ownership del proyecto.
+    const { data: proj } = await supabaseAdmin
+      .from("creation_projects")
+      .select("id, cover_image_id")
+      .eq("id", data.projectId)
+      .eq("user_id", owner)
+      .maybeSingle();
+    if (!proj) return { ok: false as const, message: "Proyecto no encontrado." };
+    const rows = data.imageIds.map((id) => ({ project_id: data.projectId, kind: "image", ref_id: id }));
+    const { error } = await supabaseAdmin
+      .from("creation_project_assets")
+      .upsert(rows, { onConflict: "project_id,kind,ref_id" });
+    if (error) return { ok: false as const, message: error.message };
+    if (!proj.cover_image_id) {
+      await supabaseAdmin
+        .from("creation_projects")
+        .update({ cover_image_id: data.imageIds[0], status: "image_ready" })
+        .eq("id", data.projectId)
+        .eq("user_id", owner);
+    }
+    return { ok: true as const, count: data.imageIds.length };
   });

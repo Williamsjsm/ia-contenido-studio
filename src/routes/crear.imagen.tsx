@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info, Users, ImagePlus, UserPlus, Trash2, Eye, CheckSquare, Square, Filter, Wand2, Star, Video } from "lucide-react";
+import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info, Users, ImagePlus, UserPlus, Trash2, Eye, CheckSquare, Square, Filter, Wand2, Star, Video, FolderInput } from "lucide-react";
 import {
   generateImage,
   listImageGenerations,
@@ -25,6 +25,7 @@ import {
 } from "@/lib/image-generation.functions";
 import { saveFlowJob } from "@/lib/flow-jobs.functions";
 import { listVirtualCharacters, type VirtualCharacter } from "@/lib/visual-library.functions";
+import { listCreationProjects, moveImagesToProject } from "@/lib/creation-projects.functions";
 import { ImportCharacterDialog } from "@/components/import-character-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -38,6 +39,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { ImageLightbox, type LightboxItem } from "@/components/image-lightbox";
 
@@ -170,6 +179,37 @@ function ImagenIA() {
   const promoteFn = useServerFn(promoteGenerationToReference);
   const favoriteFn = useServerFn(toggleImageFavorite);
   const saveFlowFn = useServerFn(saveFlowJob);
+  const listProjectsFn = useServerFn(listCreationProjects);
+  const moveToProjectFn = useServerFn(moveImagesToProject);
+
+  const [moveTarget, setMoveTarget] = useState<{ ids: string[] } | null>(null);
+  const [moveProjectId, setMoveProjectId] = useState<string>("");
+  const [moving, setMoving] = useState(false);
+  const projectsList = useQuery({
+    queryKey: ["creation-projects"],
+    queryFn: () => listProjectsFn(),
+    enabled: moveTarget !== null,
+  });
+
+  async function handleMove() {
+    if (!moveTarget || !moveProjectId) return;
+    setMoving(true);
+    try {
+      const r = await moveToProjectFn({
+        data: { projectId: moveProjectId, imageIds: moveTarget.ids },
+      });
+      if (!r.ok) toast.error(r.message);
+      else {
+        toast.success(`Movidas ${r.count} imagen${r.count === 1 ? "" : "es"} al proyecto.`);
+        setMoveTarget(null);
+        setMoveProjectId("");
+        setSelectedIds(new Set());
+        qc.invalidateQueries({ queryKey: ["creation-projects"] });
+      }
+    } finally {
+      setMoving(false);
+    }
+  }
 
   const charactersQuery = useQuery({
     queryKey: ["library", "characters"],
@@ -739,6 +779,18 @@ function ImagenIA() {
                     </Button>
                     <Button
                       size="sm"
+                      variant="outline"
+                      className="h-7 gap-1"
+                      disabled={selectedCount === 0}
+                      onClick={() => {
+                        setMoveTarget({ ids: Array.from(selectedIds) });
+                        setMoveProjectId("");
+                      }}
+                    >
+                      <FolderInput className="h-3.5 w-3.5" /> Mover a proyecto
+                    </Button>
+                    <Button
+                      size="sm"
                       variant="destructive"
                       className="h-7 gap-1"
                       disabled={selectedCount === 0}
@@ -931,6 +983,19 @@ function ImagenIA() {
                             </Button>
                             <Button
                               size="icon"
+                              variant="secondary"
+                              className="h-7 w-7"
+                              title="Mover a proyecto"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMoveTarget({ ids: [it.id] });
+                                setMoveProjectId("");
+                              }}
+                            >
+                              <FolderInput className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
                               variant="destructive"
                               className="h-7 w-7"
                               title="Eliminar"
@@ -1040,6 +1105,40 @@ function ImagenIA() {
       onClose={() => setLightboxOpen(false)}
       onIndexChange={setLightboxIndex}
     />
+    <Dialog open={moveTarget !== null} onOpenChange={(o) => { if (!o) { setMoveTarget(null); setMoveProjectId(""); } }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            Mover {moveTarget?.ids.length ?? 0} imagen{(moveTarget?.ids.length ?? 0) === 1 ? "" : "es"} a un proyecto
+          </DialogTitle>
+          <DialogDescription>
+            Las imágenes se enlazan al proyecto seleccionado. No se duplican.
+          </DialogDescription>
+        </DialogHeader>
+        <Select value={moveProjectId} onValueChange={setMoveProjectId}>
+          <SelectTrigger>
+            <SelectValue placeholder={projectsList.isLoading ? "Cargando proyectos…" : "Selecciona un proyecto"} />
+          </SelectTrigger>
+          <SelectContent>
+            {(projectsList.data ?? []).filter((p) => !p.is_archived).map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.title}
+                {p.character_name ? ` · ${p.character_name}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => { setMoveTarget(null); setMoveProjectId(""); }}>
+            Cancelar
+          </Button>
+          <Button onClick={handleMove} disabled={moving || !moveProjectId}>
+            {moving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <FolderInput className="mr-1.5 h-3.5 w-3.5" />}
+            Mover
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }

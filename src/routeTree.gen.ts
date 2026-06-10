@@ -15,7 +15,9 @@ import { Route as IntegracionesRouteImport } from './routes/integraciones'
 import { Route as ConfiguracionRouteImport } from './routes/configuracion'
 import { Route as AccesoRouteImport } from './routes/acceso'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProyectosIndexRouteImport } from './routes/proyectos.index'
 import { Route as CrearIndexRouteImport } from './routes/crear.index'
+import { Route as ProyectosIdRouteImport } from './routes/proyectos.$id'
 import { Route as InvestigarTendenciasRouteImport } from './routes/investigar.tendencias'
 import { Route as InvestigarInspiracionRouteImport } from './routes/investigar.inspiracion'
 import { Route as InvestigarAprendizajeRouteImport } from './routes/investigar.aprendizaje'
@@ -61,9 +63,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProyectosIndexRoute = ProyectosIndexRouteImport.update({
+  id: '/proyectos/',
+  path: '/proyectos/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CrearIndexRoute = CrearIndexRouteImport.update({
   id: '/crear/',
   path: '/crear/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProyectosIdRoute = ProyectosIdRouteImport.update({
+  id: '/proyectos/$id',
+  path: '/proyectos/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InvestigarTendenciasRoute = InvestigarTendenciasRouteImport.update({
@@ -158,7 +170,9 @@ export interface FileRoutesByFullPath {
   '/investigar/aprendizaje': typeof InvestigarAprendizajeRoute
   '/investigar/inspiracion': typeof InvestigarInspiracionRoute
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
+  '/proyectos/$id': typeof ProyectosIdRoute
   '/crear/': typeof CrearIndexRoute
+  '/proyectos/': typeof ProyectosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -181,7 +195,9 @@ export interface FileRoutesByTo {
   '/investigar/aprendizaje': typeof InvestigarAprendizajeRoute
   '/investigar/inspiracion': typeof InvestigarInspiracionRoute
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
+  '/proyectos/$id': typeof ProyectosIdRoute
   '/crear': typeof CrearIndexRoute
+  '/proyectos': typeof ProyectosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -205,7 +221,9 @@ export interface FileRoutesById {
   '/investigar/aprendizaje': typeof InvestigarAprendizajeRoute
   '/investigar/inspiracion': typeof InvestigarInspiracionRoute
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
+  '/proyectos/$id': typeof ProyectosIdRoute
   '/crear/': typeof CrearIndexRoute
+  '/proyectos/': typeof ProyectosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -230,7 +248,9 @@ export interface FileRouteTypes {
     | '/investigar/aprendizaje'
     | '/investigar/inspiracion'
     | '/investigar/tendencias'
+    | '/proyectos/$id'
     | '/crear/'
+    | '/proyectos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -253,7 +273,9 @@ export interface FileRouteTypes {
     | '/investigar/aprendizaje'
     | '/investigar/inspiracion'
     | '/investigar/tendencias'
+    | '/proyectos/$id'
     | '/crear'
+    | '/proyectos'
   id:
     | '__root__'
     | '/'
@@ -276,7 +298,9 @@ export interface FileRouteTypes {
     | '/investigar/aprendizaje'
     | '/investigar/inspiracion'
     | '/investigar/tendencias'
+    | '/proyectos/$id'
     | '/crear/'
+    | '/proyectos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -300,7 +324,9 @@ export interface RootRouteChildren {
   InvestigarAprendizajeRoute: typeof InvestigarAprendizajeRoute
   InvestigarInspiracionRoute: typeof InvestigarInspiracionRoute
   InvestigarTendenciasRoute: typeof InvestigarTendenciasRoute
+  ProyectosIdRoute: typeof ProyectosIdRoute
   CrearIndexRoute: typeof CrearIndexRoute
+  ProyectosIndexRoute: typeof ProyectosIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -347,11 +373,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/proyectos/': {
+      id: '/proyectos/'
+      path: '/proyectos'
+      fullPath: '/proyectos/'
+      preLoaderRoute: typeof ProyectosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/crear/': {
       id: '/crear/'
       path: '/crear'
       fullPath: '/crear/'
       preLoaderRoute: typeof CrearIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/proyectos/$id': {
+      id: '/proyectos/$id'
+      path: '/proyectos/$id'
+      fullPath: '/proyectos/$id'
+      preLoaderRoute: typeof ProyectosIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/investigar/tendencias': {
@@ -476,7 +516,9 @@ const rootRouteChildren: RootRouteChildren = {
   InvestigarAprendizajeRoute: InvestigarAprendizajeRoute,
   InvestigarInspiracionRoute: InvestigarInspiracionRoute,
   InvestigarTendenciasRoute: InvestigarTendenciasRoute,
+  ProyectosIdRoute: ProyectosIdRoute,
   CrearIndexRoute: CrearIndexRoute,
+  ProyectosIndexRoute: ProyectosIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
