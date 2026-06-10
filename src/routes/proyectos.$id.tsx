@@ -366,7 +366,10 @@ function ProyectoDetalle() {
             </TabsContent>
 
             <TabsContent value="timeline" className="mt-4">
-              <TimelinePanel events={timeline.data ?? []} loading={timeline.isLoading} />
+              <TimelinePanel
+                events={Array.isArray(timeline.data) ? timeline.data : []}
+                loading={timeline.isLoading}
+              />
             </TabsContent>
 
             <TabsContent value="imagenes" className="mt-4">
