@@ -485,3 +485,211 @@ export const moveImagesToProject = createServerFn({ method: "POST" })
     }
     return { ok: true as const, count: data.imageIds.length };
   });
+
+// ------------------------ v1.2.1 Intelligence ------------------------
+
+/**
+ * Estado de ciclo de vida del proyecto, ortogonal a `is_archived`.
+ * Mapea cualquier estado legacy (draft/image_ready/video_queued/published) a "active".
+ */
+export type LifecycleStatus = "active" | "paused" | "completed" | "archived";
+
+export function deriveLifecycleStatus(p: { status: string; is_archived: boolean }): LifecycleStatus {
+  if (p.is_archived) return "archived";
+  if (p.status === "paused") return "paused";
+  if (p.status === "completed") return "completed";
+  return "active";
+}
+
+export const setProjectStatus = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        status: z.enum(["active", "paused", "completed"]),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    // "active" guarda "draft" como valor canónico para no pisar estados legacy.
+    const dbValue = data.status === "active" ? "draft" : data.status;
+    const { error } = await supabaseAdmin
+      .from("creation_projects")
+      .update({ status: dbValue, is_archived: false, archived_at: null })
+      .eq("id", data.id)
+      .eq("user_id", owner);
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const };
+  });
+
+export type TimelineEvent = {
+  id: string;
+  kind: "project" | "prompt" | "character" | "image" | "flow" | "publication";
+  title: string;
+  at: string;
+  href?: string;
+};
+
+export const getProjectTimeline = createServerFn({ method: "GET" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data }): Promise<TimelineEvent[]> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const { data: proj } = await supabaseAdmin
+      .from("creation_projects")
+      .select("id, title, prompt_id, character_id, created_at")
+      .eq("id", data.id)
+      .eq("user_id", owner)
+      .maybeSingle();
+    if (!proj) return [];
+
+    const events: TimelineEvent[] = [
+      { id: `p-${proj.id}`, kind: "project", title: `Proyecto creado: ${proj.title}`, at: proj.created_at },
+    ];
+
+    if (proj.prompt_id) {
+      const { data: pr } = await supabaseAdmin
+        .from("prompts")
+        .select("id, title, created_at")
+        .eq("id", proj.prompt_id)
+        .maybeSingle();
+      if (pr) events.push({ id: `pr-${pr.id}`, kind: "prompt", title: `Prompt creado: ${pr.title}`, at: pr.created_at });
+    }
+    if (proj.character_id) {
+      const { data: ch } = await supabaseAdmin
+        .from("virtual_characters")
+        .select("id, name, created_at")
+        .eq("id", proj.character_id)
+        .maybeSingle();
+      if (ch) events.push({ id: `c-${ch.id}`, kind: "character", title: `Personaje utilizado: ${ch.name}`, at: ch.created_at });
+    }
+
+    const { data: assets } = await supabaseAdmin
+      .from("creation_project_assets")
+      .select("kind, ref_id, created_at")
+      .eq("project_id", proj.id);
+
+    const imageIds = (assets ?? []).filter((a) => a.kind === "image").map((a) => a.ref_id);
+    const flowIds = (assets ?? []).filter((a) => a.kind === "flow_job").map((a) => a.ref_id);
+    const pubIds = (assets ?? []).filter((a) => a.kind === "publication").map((a) => a.ref_id);
+    const assetMap = new Map<string, string>();
+    for (const a of assets ?? []) assetMap.set(`${a.kind}-${a.ref_id}`, a.created_at as string);
+
+    if (imageIds.length) {
+      const { data: imgs } = await supabaseAdmin
+        .from("image_generations")
+        .select("id, prompt, created_at")
+        .in("id", imageIds);
+      for (const im of imgs ?? []) {
+        events.push({
+          id: `i-${im.id}`,
+          kind: "image",
+          title: `Imagen generada: ${String(im.prompt).slice(0, 80)}`,
+          at: (assetMap.get(`image-${im.id}`) as string) ?? (im.created_at as string),
+        });
+      }
+    }
+    if (flowIds.length) {
+      const { data: fjs } = await supabaseAdmin
+        .from("flow_jobs")
+        .select("id, title, created_at")
+        .in("id", flowIds);
+      for (const f of fjs ?? []) {
+        events.push({
+          id: `f-${f.id}`,
+          kind: "flow",
+          title: `Flow job creado: ${f.title ?? "Sin título"}`,
+          at: (assetMap.get(`flow_job-${f.id}`) as string) ?? (f.created_at as string),
+        });
+      }
+    }
+    if (pubIds.length) {
+      const { data: pubs } = await supabaseAdmin
+        .from("publication_projects")
+        .select("id, title, created_at")
+        .in("id", pubIds);
+      for (const p of pubs ?? []) {
+        events.push({
+          id: `pub-${p.id}`,
+          kind: "publication",
+          title: `Publicación: ${p.title ?? "Sin título"}`,
+          at: (assetMap.get(`publication-${p.id}`) as string) ?? (p.created_at as string),
+        });
+      }
+    }
+
+    return events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  });
+
+export type ActiveProjectItem = {
+  id: string;
+  title: string;
+  status: string;
+  is_archived: boolean;
+  updated_at: string;
+  cover_image_base64: string | null;
+  progress: number;
+  image_count: number;
+  flow_count: number;
+  publication_count: number;
+};
+
+export const listActiveProjects = createServerFn({ method: "GET" })
+  .middleware([requireAccess])
+  .handler(async (): Promise<ActiveProjectItem[]> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const { data: rows } = await supabaseAdmin
+      .from("creation_projects")
+      .select("id, title, status, is_archived, updated_at, cover_image_id")
+      .eq("user_id", owner)
+      .eq("is_archived", false)
+      .neq("status", "completed")
+      .order("updated_at", { ascending: false })
+      .limit(6);
+    const list = rows ?? [];
+    if (list.length === 0) return [];
+    const coverIds = list.map((r) => r.cover_image_id).filter((x): x is string => !!x);
+    let covers: Record<string, string> = {};
+    if (coverIds.length) {
+      const { data: imgs } = await supabaseAdmin
+        .from("image_generations")
+        .select("id, image_base64")
+        .in("id", coverIds);
+      covers = Object.fromEntries((imgs ?? []).map((i) => [i.id, i.image_base64 ?? ""]));
+    }
+    const { data: counts } = await supabaseAdmin
+      .from("creation_project_assets")
+      .select("project_id, kind")
+      .in("project_id", list.map((r) => r.id));
+    const ic: Record<string, number> = {};
+    const fc: Record<string, number> = {};
+    const pc: Record<string, number> = {};
+    for (const c of counts ?? []) {
+      if (c.kind === "image") ic[c.project_id] = (ic[c.project_id] ?? 0) + 1;
+      else if (c.kind === "flow_job") fc[c.project_id] = (fc[c.project_id] ?? 0) + 1;
+      else if (c.kind === "publication") pc[c.project_id] = (pc[c.project_id] ?? 0) + 1;
+    }
+    return list.map((r) => {
+      const hasImage = (ic[r.id] ?? 0) > 0;
+      const hasFlow = (fc[r.id] ?? 0) > 0;
+      const hasPub = (pc[r.id] ?? 0) > 0;
+      const progress = Math.round(((Number(hasImage) + Number(hasFlow) + Number(hasPub)) / 3) * 100);
+      return {
+        id: r.id,
+        title: r.title,
+        status: r.status,
+        is_archived: r.is_archived,
+        updated_at: r.updated_at,
+        cover_image_base64: r.cover_image_id ? (covers[r.cover_image_id] ?? null) : null,
+        progress,
+        image_count: ic[r.id] ?? 0,
+        flow_count: fc[r.id] ?? 0,
+        publication_count: pc[r.id] ?? 0,
+      };
+    });
+  });
