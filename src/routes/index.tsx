@@ -35,6 +35,7 @@ import {
 } from "@/lib/viral-trends.functions";
 import { listImageGenerations } from "@/lib/image-generation.functions";
 import { listVirtualCharacters } from "@/lib/visual-library.functions";
+import { listActiveProjects } from "@/lib/creation-projects.functions";
 import { fmtDate } from "@/lib/library-data";
 import { cn } from "@/lib/utils";
 
@@ -472,11 +473,9 @@ function AlertsSection({ alerts }: { alerts: Alert[] }) {
 
 // ----- Projects (placeholder for future structure) -----
 function ProjectsSection() {
-  const projects = [
-    { name: "Frutas IA — Pitahaya", progress: 70, last: "hace 2 h" },
-    { name: "Restauraciones vintage", progress: 45, last: "hace 1 d" },
-    { name: "Curiosidades del cerebro", progress: 20, last: "hace 3 d" },
-  ];
+  const fn = useServerFn(listActiveProjects);
+  const q = useQuery({ queryKey: ["dashboard", "active-projects"], queryFn: () => fn() });
+  const projects = q.data ?? [];
   return (
     <SectionCard
       title="Proyectos activos"
@@ -484,24 +483,62 @@ function ProjectsSection() {
       icon={<Layers className="h-4 w-4 text-indigo-500" />}
       action={
         <Button asChild size="sm" variant="ghost" className="h-8 gap-1.5 text-[12px]">
-          <Link to="/biblioteca/proyectos">Abrir <ArrowRight className="h-3.5 w-3.5" /></Link>
+          <Link to="/proyectos">Ver todos <ArrowRight className="h-3.5 w-3.5" /></Link>
         </Button>
       }
     >
-      <div className="grid gap-3 sm:grid-cols-3">
-        {projects.map((p) => (
-          <div key={p.name} className="surface-card p-4">
-            <div className="flex items-center justify-between">
-              <p className="truncate text-[13px] font-medium">{p.name}</p>
-              <span className="text-[11px] text-muted-foreground">{p.progress}%</span>
-            </div>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-[image:var(--gradient-primary)]" style={{ width: `${p.progress}%` }} />
-            </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">{p.last}</p>
-          </div>
-        ))}
-      </div>
+      {q.isLoading ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-28 animate-pulse rounded-xl bg-muted/50" />
+          ))}
+        </div>
+      ) : projects.length === 0 ? (
+        <EmptyHint text="Aún no tienes proyectos activos." />
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {projects.slice(0, 6).map((p) => (
+            <Link
+              key={p.id}
+              to="/proyectos/$id"
+              params={{ id: p.id }}
+              className="surface-card hover-lift overflow-hidden"
+            >
+              <div className="flex items-stretch">
+                <div className="h-20 w-20 shrink-0 bg-muted/40">
+                  {p.cover_image_base64 ? (
+                    <img
+                      src={`data:image/png;base64,${p.cover_image_base64}`}
+                      alt={p.title}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
+                      <Layers className="h-5 w-5" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-[13px] font-medium">{p.title}</p>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">{p.progress}%</span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-[image:var(--gradient-primary)]"
+                      style={{ width: `${p.progress}%` }}
+                    />
+                  </div>
+                  <p className="mt-1.5 text-[10.5px] text-muted-foreground">
+                    Actualizado {timeAgo(p.updated_at)}
+                  </p>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </SectionCard>
   );
 }
