@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as PublicarRouteImport } from './routes/publicar'
 import { Route as PublicacionRouteImport } from './routes/publicacion'
 import { Route as IntegracionesRouteImport } from './routes/integraciones'
+import { Route as FavoritosRouteImport } from './routes/favoritos'
 import { Route as ConfiguracionRouteImport } from './routes/configuracion'
 import { Route as AccesoRouteImport } from './routes/acceso'
 import { Route as IndexRouteImport } from './routes/index'
@@ -46,6 +47,11 @@ const PublicacionRoute = PublicacionRouteImport.update({
 const IntegracionesRoute = IntegracionesRouteImport.update({
   id: '/integraciones',
   path: '/integraciones',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FavoritosRoute = FavoritosRouteImport.update({
+  id: '/favoritos',
+  path: '/favoritos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfiguracionRoute = ConfiguracionRouteImport.update({
@@ -153,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/acceso': typeof AccesoRoute
   '/configuracion': typeof ConfiguracionRoute
+  '/favoritos': typeof FavoritosRoute
   '/integraciones': typeof IntegracionesRoute
   '/publicacion': typeof PublicacionRoute
   '/publicar': typeof PublicarRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/acceso': typeof AccesoRoute
   '/configuracion': typeof ConfiguracionRoute
+  '/favoritos': typeof FavoritosRoute
   '/integraciones': typeof IntegracionesRoute
   '/publicacion': typeof PublicacionRoute
   '/publicar': typeof PublicarRoute
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/acceso': typeof AccesoRoute
   '/configuracion': typeof ConfiguracionRoute
+  '/favoritos': typeof FavoritosRoute
   '/integraciones': typeof IntegracionesRoute
   '/publicacion': typeof PublicacionRoute
   '/publicar': typeof PublicarRoute
@@ -231,6 +240,7 @@ export interface FileRouteTypes {
     | '/'
     | '/acceso'
     | '/configuracion'
+    | '/favoritos'
     | '/integraciones'
     | '/publicacion'
     | '/publicar'
@@ -256,6 +266,7 @@ export interface FileRouteTypes {
     | '/'
     | '/acceso'
     | '/configuracion'
+    | '/favoritos'
     | '/integraciones'
     | '/publicacion'
     | '/publicar'
@@ -281,6 +292,7 @@ export interface FileRouteTypes {
     | '/'
     | '/acceso'
     | '/configuracion'
+    | '/favoritos'
     | '/integraciones'
     | '/publicacion'
     | '/publicar'
@@ -307,6 +319,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccesoRoute: typeof AccesoRoute
   ConfiguracionRoute: typeof ConfiguracionRoute
+  FavoritosRoute: typeof FavoritosRoute
   IntegracionesRoute: typeof IntegracionesRoute
   PublicacionRoute: typeof PublicacionRoute
   PublicarRoute: typeof PublicarRoute
@@ -350,6 +363,13 @@ declare module '@tanstack/react-router' {
       path: '/integraciones'
       fullPath: '/integraciones'
       preLoaderRoute: typeof IntegracionesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/favoritos': {
+      id: '/favoritos'
+      path: '/favoritos'
+      fullPath: '/favoritos'
+      preLoaderRoute: typeof FavoritosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/configuracion': {
@@ -499,6 +519,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccesoRoute: AccesoRoute,
   ConfiguracionRoute: ConfiguracionRoute,
+  FavoritosRoute: FavoritosRoute,
   IntegracionesRoute: IntegracionesRoute,
   PublicacionRoute: PublicacionRoute,
   PublicarRoute: PublicarRoute,

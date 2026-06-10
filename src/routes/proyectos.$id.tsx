@@ -18,6 +18,10 @@ import {
   Copy as CopyIcon,
   ImagePlus,
   ExternalLink,
+  Clock,
+  Play,
+  Pause,
+  CheckCircle2,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,7 +54,12 @@ import {
   deleteProject,
   setProjectCover,
   duplicateProject,
+  setProjectStatus,
+  getProjectTimeline,
+  deriveLifecycleStatus,
+  type TimelineEvent,
 } from "@/lib/creation-projects.functions";
+import { StatusBadge } from "@/components/project-status-badge";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/proyectos/$id")({
@@ -58,7 +67,7 @@ export const Route = createFileRoute("/proyectos/$id")({
   component: ProyectoDetalle,
 });
 
-type Tab = "resumen" | "imagenes" | "prompts" | "flow" | "publicaciones";
+type Tab = "resumen" | "timeline" | "imagenes" | "prompts" | "flow" | "publicaciones";
 
 function ProyectoDetalle() {
   const { id } = Route.useParams();
@@ -70,6 +79,8 @@ function ProyectoDetalle() {
   const deleteFn = useServerFn(deleteProject);
   const coverFn = useServerFn(setProjectCover);
   const duplicateFn = useServerFn(duplicateProject);
+  const statusFn = useServerFn(setProjectStatus);
+  const timelineFn = useServerFn(getProjectTimeline);
 
   const [tab, setTab] = useState<Tab>("resumen");
   const [renameOpen, setRenameOpen] = useState(false);
@@ -81,9 +92,14 @@ function ProyectoDetalle() {
     queryKey: ["creation-project", id],
     queryFn: () => getFn({ data: { id } }),
   });
+  const timeline = useQuery({
+    queryKey: ["creation-project-timeline", id],
+    queryFn: () => timelineFn({ data: { id } }),
+  });
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: ["creation-project", id] });
+    qc.invalidateQueries({ queryKey: ["creation-project-timeline", id] });
     qc.invalidateQueries({ queryKey: ["creation-projects"] });
   }
 
@@ -172,6 +188,22 @@ function ProyectoDetalle() {
     }
   }
 
+  async function handleSetStatus(status: "active" | "paused" | "completed") {
+    const r = await statusFn({ data: { id: project.id, status } });
+    if (!r.ok) toast.error(r.message);
+    else {
+      toast.success(
+        status === "active" ? "Proyecto reactivado." : status === "paused" ? "Proyecto pausado." : "Proyecto completado.",
+      );
+      invalidate();
+    }
+  }
+
+  const lifecycle = deriveLifecycleStatus(project);
+  const charactersUsed = new Set(
+    images.map((i) => i.character_name).filter((n): n is string => !!n),
+  ).size;
+
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 p-6 lg:p-10">
       <div className="flex items-center justify-between gap-2">
@@ -181,6 +213,21 @@ function ProyectoDetalle() {
           </Link>
         </Button>
         <div className="flex flex-wrap items-center gap-2">
+          {lifecycle !== "completed" && (
+            <Button size="sm" variant="outline" onClick={() => handleSetStatus("completed")}>
+              <CheckCircle2 className="mr-2 h-3.5 w-3.5" /> Completar
+            </Button>
+          )}
+          {lifecycle === "active" && (
+            <Button size="sm" variant="outline" onClick={() => handleSetStatus("paused")}>
+              <Pause className="mr-2 h-3.5 w-3.5" /> Pausar
+            </Button>
+          )}
+          {(lifecycle === "paused" || lifecycle === "completed") && (
+            <Button size="sm" variant="outline" onClick={() => handleSetStatus("active")}>
+              <Play className="mr-2 h-3.5 w-3.5" /> Reactivar
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -221,10 +268,10 @@ function ProyectoDetalle() {
         subtitle={[
           project.character_name ? `Personaje: ${project.character_name}` : null,
           `Actualizado ${new Date(project.updated_at).toLocaleString()}`,
-          project.is_archived ? "Archivado" : null,
         ]
           .filter(Boolean)
           .join(" · ")}
+        actions={<StatusBadge status={lifecycle} />}
       />
 
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
@@ -245,11 +292,15 @@ function ProyectoDetalle() {
           <CardContent className="space-y-2 p-4 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Estado</span>
-              <Badge variant="secondary">{project.status}</Badge>
+              <StatusBadge status={lifecycle} />
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Imágenes</span>
               <span>{images.length}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Prompts</span>
+              <span>{project.prompt_id ? 1 : 0}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Flow jobs</span>
@@ -258,6 +309,10 @@ function ProyectoDetalle() {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Publicaciones</span>
               <span>{publications.length}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Personajes utilizados</span>
+              <span>{charactersUsed}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Creado</span>
@@ -270,6 +325,11 @@ function ProyectoDetalle() {
           <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
             <TabsList>
               <TabsTrigger value="resumen">Resumen</TabsTrigger>
+              <TabsTrigger value="timeline">
+                <Clock className="mr-1.5 h-3.5 w-3.5" />
+                Timeline
+                <span className="ml-1 text-muted-foreground">({(timeline.data ?? []).length})</span>
+              </TabsTrigger>
               <TabsTrigger value="imagenes">
                 Imágenes <span className="ml-1 text-muted-foreground">({images.length})</span>
               </TabsTrigger>
@@ -303,6 +363,10 @@ function ProyectoDetalle() {
                 <Mini label="Flow jobs" value={flow_jobs.length} icon={<Video className="h-4 w-4" />} />
                 <Mini label="Publicaciones" value={publications.length} icon={<Send className="h-4 w-4" />} />
               </div>
+            </TabsContent>
+
+            <TabsContent value="timeline" className="mt-4">
+              <TimelinePanel events={timeline.data ?? []} loading={timeline.isLoading} />
             </TabsContent>
 
             <TabsContent value="imagenes" className="mt-4">
@@ -519,6 +583,60 @@ function EmptyTab({ label }: { label: string }) {
   return (
     <Card className="border-dashed border-border/60 bg-card/40">
       <CardContent className="p-8 text-center text-sm text-muted-foreground">{label}</CardContent>
+    </Card>
+  );
+}
+
+const TIMELINE_ICON: Record<TimelineEvent["kind"], React.ReactNode> = {
+  project: <Star className="h-3.5 w-3.5" />,
+  prompt: <Wand2 className="h-3.5 w-3.5" />,
+  character: <Users className="h-3.5 w-3.5" />,
+  image: <ImageIcon className="h-3.5 w-3.5" />,
+  flow: <Video className="h-3.5 w-3.5" />,
+  publication: <Send className="h-3.5 w-3.5" />,
+};
+
+const TIMELINE_COLOR: Record<TimelineEvent["kind"], string> = {
+  project: "text-amber-500",
+  prompt: "text-violet-500",
+  character: "text-fuchsia-500",
+  image: "text-cyan-500",
+  flow: "text-indigo-500",
+  publication: "text-emerald-500",
+};
+
+function TimelinePanel({ events, loading }: { events: TimelineEvent[]; loading: boolean }) {
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">Cargando timeline…</p>;
+  }
+  if (events.length === 0) {
+    return <EmptyTab label="Sin actividad registrada todavía." />;
+  }
+  return (
+    <Card className="border-border/60 bg-card">
+      <CardContent className="p-5">
+        <ol className="relative space-y-4 before:absolute before:left-[15px] before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-border/60">
+          {events.map((e) => {
+            const d = new Date(e.at);
+            return (
+              <li key={e.id} className="relative pl-10">
+                <span
+                  className={cn(
+                    "absolute left-0 top-0 flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-background",
+                    TIMELINE_COLOR[e.kind],
+                  )}
+                >
+                  {TIMELINE_ICON[e.kind]}
+                </span>
+                <p className="text-[13px] leading-snug">{e.title}</p>
+                <p className="mt-0.5 text-[10.5px] text-muted-foreground">
+                  {d.toLocaleDateString()} · {d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </li>
+            );
+          })}
+        </ol>
+      </CardContent>
     </Card>
   );
 }

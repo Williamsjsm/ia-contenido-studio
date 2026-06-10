@@ -48,6 +48,7 @@ export const primaryRoutes: NavItem[] = [
   { title: "Video IA", url: "/crear/video", icon: Video, group: "Crear" },
   { title: "Flow Center", url: "/crear/flow", icon: Workflow, group: "Crear" },
   { title: "Proyectos", url: "/proyectos", icon: FolderKanban, group: "Crear" },
+  { title: "Favoritos", url: "/favoritos", icon: Heart, group: "Crear" },
 
   { title: "Tendencias", url: "/investigar/tendencias", icon: TrendingUp, group: "Investigar" },
   { title: "Inspiración IA", url: "/investigar/inspiracion", icon: Lightbulb, group: "Investigar" },

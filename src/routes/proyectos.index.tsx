@@ -22,7 +22,6 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -42,6 +41,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { StatusBadge } from "@/components/project-status-badge";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +56,7 @@ import {
   archiveProject,
   duplicateProject,
   deleteProject,
+  deriveLifecycleStatus,
   type CreationProjectListItem,
 } from "@/lib/creation-projects.functions";
 
@@ -64,7 +65,15 @@ export const Route = createFileRoute("/proyectos/")({
   component: ProyectosIndex,
 });
 
-type Filter = "active" | "archived" | "all";
+type Filter =
+  | "active"
+  | "paused"
+  | "completed"
+  | "archived"
+  | "with_publications"
+  | "with_flow"
+  | "with_character"
+  | "all";
 
 function ProyectosIndex() {
   const qc = useQueryClient();
@@ -91,17 +100,29 @@ function ProyectosIndex() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return all.filter((p) => {
-      if (filter === "active" && p.is_archived) return false;
-      if (filter === "archived" && !p.is_archived) return false;
-      if (q && !p.title.toLowerCase().includes(q)) return false;
-      return true;
+      const ls = deriveLifecycleStatus(p);
+      if (filter === "active" && ls !== "active") return false;
+      if (filter === "paused" && ls !== "paused") return false;
+      if (filter === "completed" && ls !== "completed") return false;
+      if (filter === "archived" && ls !== "archived") return false;
+      if (filter === "with_publications" && p.publication_count === 0) return false;
+      if (filter === "with_flow" && p.flow_count === 0) return false;
+      if (filter === "with_character" && !p.character_name) return false;
+      if (!q) return true;
+      const haystack = [
+        p.title,
+        p.character_name ?? "",
+      ]
+        .join(" \u0000 ")
+        .toLowerCase();
+      return haystack.includes(q);
     });
   }, [all, filter, search]);
 
   const kpis = useMemo(
     () => ({
       total: all.length,
-      active: all.filter((p) => !p.is_archived).length,
+      active: all.filter((p) => deriveLifecycleStatus(p) === "active").length,
       archived: all.filter((p) => p.is_archived).length,
       lastActivity: all[0]?.updated_at ?? null,
     }),
@@ -193,22 +214,21 @@ function ProyectosIndex() {
 
       <div className="flex flex-wrap items-center gap-2">
         <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
-          <TabsList className="h-8">
-            <TabsTrigger value="active" className="h-6 px-3 text-[11px]">
-              Activos
-            </TabsTrigger>
-            <TabsTrigger value="archived" className="h-6 px-3 text-[11px]">
-              Archivados
-            </TabsTrigger>
-            <TabsTrigger value="all" className="h-6 px-3 text-[11px]">
-              Todos
-            </TabsTrigger>
+          <TabsList className="h-8 flex-wrap">
+            <TabsTrigger value="active" className="h-6 px-3 text-[11px]">Activos</TabsTrigger>
+            <TabsTrigger value="paused" className="h-6 px-3 text-[11px]">Pausados</TabsTrigger>
+            <TabsTrigger value="completed" className="h-6 px-3 text-[11px]">Completados</TabsTrigger>
+            <TabsTrigger value="archived" className="h-6 px-3 text-[11px]">Archivados</TabsTrigger>
+            <TabsTrigger value="with_publications" className="h-6 px-3 text-[11px]">Con publicaciones</TabsTrigger>
+            <TabsTrigger value="with_flow" className="h-6 px-3 text-[11px]">Con flow</TabsTrigger>
+            <TabsTrigger value="with_character" className="h-6 px-3 text-[11px]">Con personaje</TabsTrigger>
+            <TabsTrigger value="all" className="h-6 px-3 text-[11px]">Todos</TabsTrigger>
           </TabsList>
         </Tabs>
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar proyecto…"
+          placeholder="Buscar por nombre o personaje…"
           className="h-8 max-w-xs text-sm"
         />
       </div>
@@ -387,11 +407,7 @@ function ProjectCard({
           <Stat icon={<Wand2 className="h-3 w-3" />} value={p.prompt_id ? 1 : 0} title="Prompts" />
           <Stat icon={<Video className="h-3 w-3" />} value={p.flow_count} title="Flow jobs" />
           <Stat icon={<Send className="h-3 w-3" />} value={p.publication_count} title="Publicaciones" />
-          {p.is_archived && (
-            <Badge variant="secondary" className="ml-auto text-[10px] uppercase">
-              Archivado
-            </Badge>
-          )}
+          <StatusBadge status={deriveLifecycleStatus(p)} className="ml-auto" />
         </div>
         <p className="text-[10px] text-muted-foreground">
           Actualizado {new Date(p.updated_at).toLocaleDateString()}
