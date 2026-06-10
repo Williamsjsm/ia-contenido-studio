@@ -96,7 +96,9 @@ function ProyectosIndex() {
     queryFn: () => listFn(),
   });
 
-  const all = projects.data ?? [];
+  const all: CreationProjectListItem[] = Array.isArray(projects.data)
+    ? projects.data
+    : [];
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return all.filter((p) => {
