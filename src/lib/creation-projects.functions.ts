@@ -238,7 +238,7 @@ export const archiveProject = createServerFn({ method: "POST" })
       : { is_archived: false, archived_at: null };
     const { error } = await supabaseAdmin
       .from("creation_projects")
-      .update(patch as unknown as Record<string, unknown>)
+      .update(patch)
       .eq("id", data.id)
       .eq("user_id", owner);
     if (error) return { ok: false as const, message: error.message };
