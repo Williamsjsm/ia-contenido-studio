@@ -878,6 +878,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          is_favorite: boolean
           master_prompt: string
           name: string
           reference_image_path: string | null
@@ -890,6 +891,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_favorite?: boolean
           master_prompt?: string
           name: string
           reference_image_path?: string | null
@@ -902,6 +904,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_favorite?: boolean
           master_prompt?: string
           name?: string
           reference_image_path?: string | null
