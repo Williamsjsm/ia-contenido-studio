@@ -366,6 +366,10 @@ function ProyectoDetalle() {
               </div>
             </TabsContent>
 
+            <TabsContent value="timeline" className="mt-4">
+              <TimelinePanel events={timeline.data ?? []} loading={timeline.isLoading} />
+            </TabsContent>
+
             <TabsContent value="imagenes" className="mt-4">
               {images.length === 0 ? (
                 <EmptyTab label="Aún no hay imágenes en este proyecto." />
