@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info, Users, ImagePlus, UserPlus, Trash2, Eye, CheckSquare, Square, Filter, Wand2, Star, Video } from "lucide-react";
+import { ImageIcon, Sparkles, Loader2, Download, Copy, RotateCcw, Send, AlertCircle, Info, Users, ImagePlus, UserPlus, Trash2, Eye, CheckSquare, Square, Filter, Wand2, Star, Video, FolderInput } from "lucide-react";
 import {
   generateImage,
   listImageGenerations,
@@ -25,6 +25,7 @@ import {
 } from "@/lib/image-generation.functions";
 import { saveFlowJob } from "@/lib/flow-jobs.functions";
 import { listVirtualCharacters, type VirtualCharacter } from "@/lib/visual-library.functions";
+import { listCreationProjects, moveImagesToProject } from "@/lib/creation-projects.functions";
 import { ImportCharacterDialog } from "@/components/import-character-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -38,6 +39,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Select as USelect, SelectContent as USelectContent, SelectItem as USelectItem, SelectTrigger as USelectTrigger, SelectValue as USelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { ImageLightbox, type LightboxItem } from "@/components/image-lightbox";
 
