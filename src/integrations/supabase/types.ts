@@ -1026,6 +1026,66 @@ export type Database = {
         }
         Relationships: []
       }
+      winning_video_prompts: {
+        Row: {
+          created_at: string
+          draft_id: string | null
+          id: string
+          notes: string | null
+          project_id: string | null
+          prompt: string
+          provider: string | null
+          score: number
+          subject_type: string | null
+          updated_at: string
+          user_id: string
+          variant: string
+        }
+        Insert: {
+          created_at?: string
+          draft_id?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+          prompt: string
+          provider?: string | null
+          score?: number
+          subject_type?: string | null
+          updated_at?: string
+          user_id: string
+          variant: string
+        }
+        Update: {
+          created_at?: string
+          draft_id?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+          prompt?: string
+          provider?: string | null
+          score?: number
+          subject_type?: string | null
+          updated_at?: string
+          user_id?: string
+          variant?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winning_video_prompts_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "video_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winning_video_prompts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "creation_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
