@@ -30,6 +30,8 @@ import { Route as BibliotecaPersonajesRouteImport } from './routes/biblioteca.pe
 import { Route as BibliotecaImagenesRouteImport } from './routes/biblioteca.imagenes'
 import { Route as BibliotecaFavoritosRouteImport } from './routes/biblioteca.favoritos'
 import { Route as BibliotecaDescargasRouteImport } from './routes/biblioteca.descargas'
+import { Route as ProyectosIndexRouteImport } from './routes/proyectos.index'
+import { Route as ProyectosIdRouteImport } from './routes/proyectos.$id'
 
 const PublicarRoute = PublicarRouteImport.update({
   id: '/publicar',
@@ -136,6 +138,16 @@ const BibliotecaDescargasRoute = BibliotecaDescargasRouteImport.update({
   path: '/biblioteca/descargas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProyectosIndexRoute = ProyectosIndexRouteImport.update({
+  id: '/proyectos/',
+  path: '/proyectos/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProyectosIdRoute = ProyectosIdRouteImport.update({
+  id: '/proyectos/$id',
+  path: '/proyectos/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -159,6 +171,8 @@ export interface FileRoutesByFullPath {
   '/investigar/inspiracion': typeof InvestigarInspiracionRoute
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
   '/crear/': typeof CrearIndexRoute
+  '/proyectos/$id': typeof ProyectosIdRoute
+  '/proyectos/': typeof ProyectosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -182,6 +196,8 @@ export interface FileRoutesByTo {
   '/investigar/inspiracion': typeof InvestigarInspiracionRoute
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
   '/crear': typeof CrearIndexRoute
+  '/proyectos/$id': typeof ProyectosIdRoute
+  '/proyectos': typeof ProyectosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -206,6 +222,8 @@ export interface FileRoutesById {
   '/investigar/inspiracion': typeof InvestigarInspiracionRoute
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
   '/crear/': typeof CrearIndexRoute
+  '/proyectos/$id': typeof ProyectosIdRoute
+  '/proyectos/': typeof ProyectosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -231,6 +249,8 @@ export interface FileRouteTypes {
     | '/investigar/inspiracion'
     | '/investigar/tendencias'
     | '/crear/'
+    | '/proyectos/$id'
+    | '/proyectos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -254,6 +274,8 @@ export interface FileRouteTypes {
     | '/investigar/inspiracion'
     | '/investigar/tendencias'
     | '/crear'
+    | '/proyectos/$id'
+    | '/proyectos'
   id:
     | '__root__'
     | '/'
@@ -277,6 +299,8 @@ export interface FileRouteTypes {
     | '/investigar/inspiracion'
     | '/investigar/tendencias'
     | '/crear/'
+    | '/proyectos/$id'
+    | '/proyectos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -301,6 +325,8 @@ export interface RootRouteChildren {
   InvestigarInspiracionRoute: typeof InvestigarInspiracionRoute
   InvestigarTendenciasRoute: typeof InvestigarTendenciasRoute
   CrearIndexRoute: typeof CrearIndexRoute
+  ProyectosIdRoute: typeof ProyectosIdRoute
+  ProyectosIndexRoute: typeof ProyectosIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -452,6 +478,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BibliotecaDescargasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/proyectos/': {
+      id: '/proyectos/'
+      path: '/proyectos'
+      fullPath: '/proyectos/'
+      preLoaderRoute: typeof ProyectosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/proyectos/$id': {
+      id: '/proyectos/$id'
+      path: '/proyectos/$id'
+      fullPath: '/proyectos/$id'
+      preLoaderRoute: typeof ProyectosIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -477,6 +517,8 @@ const rootRouteChildren: RootRouteChildren = {
   InvestigarInspiracionRoute: InvestigarInspiracionRoute,
   InvestigarTendenciasRoute: InvestigarTendenciasRoute,
   CrearIndexRoute: CrearIndexRoute,
+  ProyectosIdRoute: ProyectosIdRoute,
+  ProyectosIndexRoute: ProyectosIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
