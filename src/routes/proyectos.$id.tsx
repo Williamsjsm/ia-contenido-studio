@@ -22,6 +22,7 @@ import {
   Play,
   Pause,
   CheckCircle2,
+  Film,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -60,6 +61,11 @@ import {
   type TimelineEvent,
 } from "@/lib/creation-projects.functions";
 import { StatusBadge } from "@/components/project-status-badge";
+import {
+  listVideoDraftsByProject,
+  createVideoDraft,
+  type VideoDraft,
+} from "@/lib/video-drafts.functions";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/proyectos/$id")({
@@ -67,7 +73,7 @@ export const Route = createFileRoute("/proyectos/$id")({
   component: ProyectoDetalle,
 });
 
-type Tab = "resumen" | "timeline" | "imagenes" | "prompts" | "flow" | "publicaciones";
+type Tab = "resumen" | "timeline" | "imagenes" | "prompts" | "videos" | "flow" | "publicaciones";
 
 function ProyectoDetalle() {
   const { id } = Route.useParams();
@@ -81,6 +87,8 @@ function ProyectoDetalle() {
   const duplicateFn = useServerFn(duplicateProject);
   const statusFn = useServerFn(setProjectStatus);
   const timelineFn = useServerFn(getProjectTimeline);
+  const listDraftsFn = useServerFn(listVideoDraftsByProject);
+  const createDraftFn = useServerFn(createVideoDraft);
 
   const [tab, setTab] = useState<Tab>("resumen");
   const [renameOpen, setRenameOpen] = useState(false);
@@ -96,11 +104,17 @@ function ProyectoDetalle() {
     queryKey: ["creation-project-timeline", id],
     queryFn: () => timelineFn({ data: { id } }),
   });
+  const videoDrafts = useQuery({
+    queryKey: ["video-drafts-project", id],
+    queryFn: () => listDraftsFn({ data: { projectId: id } }),
+  });
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: ["creation-project", id] });
     qc.invalidateQueries({ queryKey: ["creation-project-timeline", id] });
     qc.invalidateQueries({ queryKey: ["creation-projects"] });
+    qc.invalidateQueries({ queryKey: ["video-drafts-project", id] });
+    qc.invalidateQueries({ queryKey: ["video-drafts"] });
   }
 
   if (detail.isLoading) {
@@ -186,6 +200,23 @@ function ProyectoDetalle() {
       toast.success("Portada actualizada.");
       invalidate();
     }
+  }
+
+  async function handleSendImageToVideo(imageId: string) {
+    const r = await createDraftFn({
+      data: {
+        projectId: project.id,
+        sourceImageId: imageId,
+        characterId: project.character_id ?? undefined,
+      },
+    });
+    if (!r.ok) {
+      toast.error(r.message);
+      return;
+    }
+    toast.success("Borrador de video creado.");
+    invalidate();
+    navigate({ to: "/crear/video", search: { draftId: r.draft.id, fromImage: "", flowId: "" } });
   }
 
   async function handleSetStatus(status: "active" | "paused" | "completed") {
@@ -334,6 +365,9 @@ function ProyectoDetalle() {
                 Imágenes <span className="ml-1 text-muted-foreground">({images.length})</span>
               </TabsTrigger>
               <TabsTrigger value="prompts">Prompts</TabsTrigger>
+              <TabsTrigger value="videos">
+                Videos <span className="ml-1 text-muted-foreground">({(videoDrafts.data ?? []).length})</span>
+              </TabsTrigger>
               <TabsTrigger value="flow">
                 Flow <span className="ml-1 text-muted-foreground">({flow_jobs.length})</span>
               </TabsTrigger>
@@ -422,6 +456,14 @@ function ProyectoDetalle() {
                               Portada
                             </Button>
                           )}
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="h-7 gap-1"
+                            onClick={() => handleSendImageToVideo(img.id)}
+                          >
+                            <Film className="h-3.5 w-3.5" /> Video
+                          </Button>
                           <Button asChild size="icon" variant="secondary" className="h-7 w-7">
                             <Link to="/crear/imagen">
                               <ExternalLink className="h-3.5 w-3.5" />
@@ -445,6 +487,13 @@ function ProyectoDetalle() {
               ) : (
                 <EmptyTab label="Este proyecto no tiene prompt origen registrado." />
               )}
+            </TabsContent>
+
+            <TabsContent value="videos" className="mt-4">
+              <VideosTab
+                drafts={Array.isArray(videoDrafts.data) ? videoDrafts.data : []}
+                loading={videoDrafts.isLoading}
+              />
             </TabsContent>
 
             <TabsContent value="flow" className="mt-4">
