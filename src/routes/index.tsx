@@ -475,7 +475,7 @@ function AlertsSection({ alerts }: { alerts: Alert[] }) {
 function ProjectsSection() {
   const fn = useServerFn(listActiveProjects);
   const q = useQuery({ queryKey: ["dashboard", "active-projects"], queryFn: () => fn() });
-  const projects = q.data ?? [];
+  const projects = Array.isArray(q.data) ? q.data : [];
   return (
     <SectionCard
       title="Proyectos activos"
