@@ -214,6 +214,21 @@ function ProyectoDetalle() {
           </Link>
         </Button>
         <div className="flex flex-wrap items-center gap-2">
+          {lifecycle !== "completed" && (
+            <Button size="sm" variant="outline" onClick={() => handleSetStatus("completed")}>
+              <CheckCircle2 className="mr-2 h-3.5 w-3.5" /> Completar
+            </Button>
+          )}
+          {lifecycle === "active" && (
+            <Button size="sm" variant="outline" onClick={() => handleSetStatus("paused")}>
+              <Pause className="mr-2 h-3.5 w-3.5" /> Pausar
+            </Button>
+          )}
+          {(lifecycle === "paused" || lifecycle === "completed") && (
+            <Button size="sm" variant="outline" onClick={() => handleSetStatus("active")}>
+              <Play className="mr-2 h-3.5 w-3.5" /> Reactivar
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -254,10 +269,10 @@ function ProyectoDetalle() {
         subtitle={[
           project.character_name ? `Personaje: ${project.character_name}` : null,
           `Actualizado ${new Date(project.updated_at).toLocaleString()}`,
-          project.is_archived ? "Archivado" : null,
         ]
           .filter(Boolean)
           .join(" · ")}
+        actions={<StatusBadge status={lifecycle} />}
       />
 
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
@@ -278,11 +293,15 @@ function ProyectoDetalle() {
           <CardContent className="space-y-2 p-4 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Estado</span>
-              <Badge variant="secondary">{project.status}</Badge>
+              <StatusBadge status={lifecycle} />
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Imágenes</span>
               <span>{images.length}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Prompts</span>
+              <span>{project.prompt_id ? 1 : 0}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Flow jobs</span>
@@ -291,6 +310,10 @@ function ProyectoDetalle() {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Publicaciones</span>
               <span>{publications.length}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Personajes utilizados</span>
+              <span>{charactersUsed}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Creado</span>
@@ -303,6 +326,11 @@ function ProyectoDetalle() {
           <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
             <TabsList>
               <TabsTrigger value="resumen">Resumen</TabsTrigger>
+              <TabsTrigger value="timeline">
+                <Clock className="mr-1.5 h-3.5 w-3.5" />
+                Timeline
+                <span className="ml-1 text-muted-foreground">({(timeline.data ?? []).length})</span>
+              </TabsTrigger>
               <TabsTrigger value="imagenes">
                 Imágenes <span className="ml-1 text-muted-foreground">({images.length})</span>
               </TabsTrigger>
