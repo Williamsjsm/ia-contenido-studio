@@ -500,3 +500,74 @@ function ContextChip({
   if (href) return <Link to={href} className="block hover:opacity-80">{body}</Link>;
   return body;
 }
+
+function DraftTabs({ draft }: { draft: import("@/lib/video-drafts.functions").VideoDraftDetail }) {
+  const flowPack = buildProviderPack("flow", draft);
+  return (
+    <Card className="border-border/60 bg-card">
+      <CardContent className="p-4">
+        <Tabs defaultValue="export">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="image">Imagen origen</TabsTrigger>
+            <TabsTrigger value="initial">Prompt Inicial</TabsTrigger>
+            <TabsTrigger value="continuation">Continuación</TabsTrigger>
+            <TabsTrigger value="extension">Extensión</TabsTrigger>
+            <TabsTrigger value="export">Export Pack</TabsTrigger>
+          </TabsList>
+          <TabsContent value="image" className="mt-4">
+            {draft.source_image_base64 ? (
+              <img
+                src={`data:image/png;base64,${draft.source_image_base64}`}
+                alt="Imagen origen"
+                className="max-h-96 w-full rounded-md border border-border/40 object-contain bg-black/20"
+              />
+            ) : (
+              <p className="text-xs text-muted-foreground">Este borrador no tiene imagen origen.</p>
+            )}
+            {draft.source_image_prompt && (
+              <p className="mt-3 text-[11px] text-muted-foreground">{draft.source_image_prompt}</p>
+            )}
+          </TabsContent>
+          <TabsContent value="initial" className="mt-4">
+            <PromptBlock text={flowPack.prompts.initial} />
+          </TabsContent>
+          <TabsContent value="continuation" className="mt-4">
+            <PromptBlock text={flowPack.prompts.continuation} />
+          </TabsContent>
+          <TabsContent value="extension" className="mt-4">
+            <PromptBlock text={flowPack.prompts.extension} />
+          </TabsContent>
+          <TabsContent value="export" className="mt-4">
+            <VideoExportPack draft={draft} />
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PromptBlock({ text }: { text: string }) {
+  return (
+    <div className="rounded-md border border-border/40 bg-muted/20 p-3">
+      <div className="mb-2 flex justify-end">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(text);
+              toast.success("Copiado.");
+            } catch {
+              toast.error("No se pudo copiar.");
+            }
+          }}
+        >
+          <CopyIcon className="mr-1.5 h-3 w-3" /> Copiar
+        </Button>
+      </div>
+      <pre className="max-h-80 overflow-auto whitespace-pre-wrap text-[11px] leading-snug text-muted-foreground">
+        {text}
+      </pre>
+    </div>
+  );
+}
