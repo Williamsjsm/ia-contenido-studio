@@ -189,6 +189,22 @@ function ProyectoDetalle() {
     }
   }
 
+  async function handleSetStatus(status: "active" | "paused" | "completed") {
+    const r = await statusFn({ data: { id: project.id, status } });
+    if (!r.ok) toast.error(r.message);
+    else {
+      toast.success(
+        status === "active" ? "Proyecto reactivado." : status === "paused" ? "Proyecto pausado." : "Proyecto completado.",
+      );
+      invalidate();
+    }
+  }
+
+  const lifecycle = deriveLifecycleStatus(project);
+  const charactersUsed = new Set(
+    images.map((i) => i.character_name).filter((n): n is string => !!n),
+  ).size;
+
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 p-6 lg:p-10">
       <div className="flex items-center justify-between gap-2">
