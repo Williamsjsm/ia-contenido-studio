@@ -93,9 +93,14 @@ function ProyectoDetalle() {
     queryKey: ["creation-project", id],
     queryFn: () => getFn({ data: { id } }),
   });
+  const timeline = useQuery({
+    queryKey: ["creation-project-timeline", id],
+    queryFn: () => timelineFn({ data: { id } }),
+  });
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: ["creation-project", id] });
+    qc.invalidateQueries({ queryKey: ["creation-project-timeline", id] });
     qc.invalidateQueries({ queryKey: ["creation-projects"] });
   }
 
