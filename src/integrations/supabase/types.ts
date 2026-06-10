@@ -720,6 +720,81 @@ export type Database = {
         }
         Relationships: []
       }
+      video_drafts: {
+        Row: {
+          aspect_ratio: string | null
+          camera_motion: string | null
+          character_id: string | null
+          created_at: string
+          duration: string | null
+          id: string
+          parent_draft_id: string | null
+          preset: string | null
+          project_id: string | null
+          prompt: string
+          provider: string | null
+          source_image_id: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          aspect_ratio?: string | null
+          camera_motion?: string | null
+          character_id?: string | null
+          created_at?: string
+          duration?: string | null
+          id?: string
+          parent_draft_id?: string | null
+          preset?: string | null
+          project_id?: string | null
+          prompt?: string
+          provider?: string | null
+          source_image_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          aspect_ratio?: string | null
+          camera_motion?: string | null
+          character_id?: string | null
+          created_at?: string
+          duration?: string | null
+          id?: string
+          parent_draft_id?: string | null
+          preset?: string | null
+          project_id?: string | null
+          prompt?: string
+          provider?: string | null
+          source_image_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_drafts_parent_draft_id_fkey"
+            columns: ["parent_draft_id"]
+            isOneToOne: false
+            referencedRelation: "video_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_drafts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "creation_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       videos: {
         Row: {
           aspect_ratio: string | null
