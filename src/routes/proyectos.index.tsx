@@ -42,6 +42,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { StatusBadge } from "@/components/project-status-badge";
 import {
   Dialog,
   DialogContent,
