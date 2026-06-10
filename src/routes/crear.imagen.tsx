@@ -47,7 +47,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Select as USelect, SelectContent as USelectContent, SelectItem as USelectItem, SelectTrigger as USelectTrigger, SelectValue as USelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { ImageLightbox, type LightboxItem } from "@/components/image-lightbox";
 
@@ -180,6 +179,37 @@ function ImagenIA() {
   const promoteFn = useServerFn(promoteGenerationToReference);
   const favoriteFn = useServerFn(toggleImageFavorite);
   const saveFlowFn = useServerFn(saveFlowJob);
+  const listProjectsFn = useServerFn(listCreationProjects);
+  const moveToProjectFn = useServerFn(moveImagesToProject);
+
+  const [moveTarget, setMoveTarget] = useState<{ ids: string[] } | null>(null);
+  const [moveProjectId, setMoveProjectId] = useState<string>("");
+  const [moving, setMoving] = useState(false);
+  const projectsList = useQuery({
+    queryKey: ["creation-projects"],
+    queryFn: () => listProjectsFn(),
+    enabled: moveTarget !== null,
+  });
+
+  async function handleMove() {
+    if (!moveTarget || !moveProjectId) return;
+    setMoving(true);
+    try {
+      const r = await moveToProjectFn({
+        data: { projectId: moveProjectId, imageIds: moveTarget.ids },
+      });
+      if (!r.ok) toast.error(r.message);
+      else {
+        toast.success(`Movidas ${r.count} imagen${r.count === 1 ? "" : "es"} al proyecto.`);
+        setMoveTarget(null);
+        setMoveProjectId("");
+        setSelectedIds(new Set());
+        qc.invalidateQueries({ queryKey: ["creation-projects"] });
+      }
+    } finally {
+      setMoving(false);
+    }
+  }
 
   const charactersQuery = useQuery({
     queryKey: ["library", "characters"],
