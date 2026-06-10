@@ -639,6 +639,41 @@ function EmptyTab({ label }: { label: string }) {
   );
 }
 
+function VideosTab({ drafts, loading }: { drafts: VideoDraft[]; loading: boolean }) {
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">Cargando videos…</p>;
+  }
+  if (drafts.length === 0) {
+    return <EmptyTab label="Aún no hay borradores de video. Envía una imagen a Video desde el tab Imágenes." />;
+  }
+  return (
+    <Card className="border-border/60 bg-card">
+      <CardContent className="divide-y divide-border/50 p-0">
+        {drafts.map((d) => (
+          <Link
+            key={d.id}
+            to="/crear/video"
+            search={{ draftId: d.id, fromImage: "", flowId: "" }}
+            className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/30"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="line-clamp-1 font-medium">
+                {d.title} <span className="text-muted-foreground">· v{d.version}</span>
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {new Date(d.created_at).toLocaleString()}
+                {d.preset ? ` · ${d.preset}` : ""}
+                {d.aspect_ratio ? ` · ${d.aspect_ratio}` : ""}
+              </p>
+            </div>
+            <Badge variant="secondary">{d.status}</Badge>
+          </Link>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 const TIMELINE_ICON: Record<TimelineEvent["kind"], React.ReactNode> = {
   project: <Star className="h-3.5 w-3.5" />,
   prompt: <Wand2 className="h-3.5 w-3.5" />,
