@@ -56,9 +56,10 @@ import {
   archiveProject,
   duplicateProject,
   deleteProject,
+  deriveLifecycleStatus,
+  type LifecycleStatus,
   type CreationProjectListItem,
 } from "@/lib/creation-projects.functions";
-import { deriveLifecycleStatus, type LifecycleStatus } from "@/lib/creation-projects.functions";
 
 export const Route = createFileRoute("/proyectos/")({
   head: () => ({ meta: [{ title: "Proyectos — AI Content Studio" }] }),
