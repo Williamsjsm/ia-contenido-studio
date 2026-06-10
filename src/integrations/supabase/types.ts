@@ -116,10 +116,12 @@ export type Database = {
       }
       creation_projects: {
         Row: {
+          archived_at: string | null
           character_id: string | null
           cover_image_id: string | null
           created_at: string
           id: string
+          is_archived: boolean
           prompt_id: string | null
           status: string
           title: string
@@ -127,10 +129,12 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          archived_at?: string | null
           character_id?: string | null
           cover_image_id?: string | null
           created_at?: string
           id?: string
+          is_archived?: boolean
           prompt_id?: string | null
           status?: string
           title?: string
@@ -138,10 +142,12 @@ export type Database = {
           user_id: string
         }
         Update: {
+          archived_at?: string | null
           character_id?: string | null
           cover_image_id?: string | null
           created_at?: string
           id?: string
+          is_archived?: boolean
           prompt_id?: string | null
           status?: string
           title?: string
