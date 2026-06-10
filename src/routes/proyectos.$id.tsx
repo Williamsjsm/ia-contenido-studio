@@ -587,3 +587,57 @@ function EmptyTab({ label }: { label: string }) {
     </Card>
   );
 }
+
+const TIMELINE_ICON: Record<TimelineEvent["kind"], React.ReactNode> = {
+  project: <Star className="h-3.5 w-3.5" />,
+  prompt: <Wand2 className="h-3.5 w-3.5" />,
+  character: <Users className="h-3.5 w-3.5" />,
+  image: <ImageIcon className="h-3.5 w-3.5" />,
+  flow: <Video className="h-3.5 w-3.5" />,
+  publication: <Send className="h-3.5 w-3.5" />,
+};
+
+const TIMELINE_COLOR: Record<TimelineEvent["kind"], string> = {
+  project: "text-amber-500",
+  prompt: "text-violet-500",
+  character: "text-fuchsia-500",
+  image: "text-cyan-500",
+  flow: "text-indigo-500",
+  publication: "text-emerald-500",
+};
+
+function TimelinePanel({ events, loading }: { events: TimelineEvent[]; loading: boolean }) {
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">Cargando timeline…</p>;
+  }
+  if (events.length === 0) {
+    return <EmptyTab label="Sin actividad registrada todavía." />;
+  }
+  return (
+    <Card className="border-border/60 bg-card">
+      <CardContent className="p-5">
+        <ol className="relative space-y-4 before:absolute before:left-[15px] before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-border/60">
+          {events.map((e) => {
+            const d = new Date(e.at);
+            return (
+              <li key={e.id} className="relative pl-10">
+                <span
+                  className={cn(
+                    "absolute left-0 top-0 flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-background",
+                    TIMELINE_COLOR[e.kind],
+                  )}
+                >
+                  {TIMELINE_ICON[e.kind]}
+                </span>
+                <p className="text-[13px] leading-snug">{e.title}</p>
+                <p className="mt-0.5 text-[10.5px] text-muted-foreground">
+                  {d.toLocaleDateString()} · {d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </li>
+            );
+          })}
+        </ol>
+      </CardContent>
+    </Card>
+  );
+}
