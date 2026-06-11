@@ -40,6 +40,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VideoExportPack } from "@/components/video-export-pack";
 import { buildProviderPack } from "@/lib/video-export-pack";
 import { VideoIntelligencePanel } from "@/components/video-intelligence-panel";
+import {
+  VideoProductionPanel,
+  ProductionQueueTab,
+} from "@/components/video-production-panel";
 
 const searchSchema = z.object({
   draftId: fallback(z.string(), "").default(""),
@@ -48,7 +52,7 @@ const searchSchema = z.object({
 });
 
 export const Route = createFileRoute("/crear/video")({
-  head: () => ({ meta: [{ title: "Video Hub — AI Content Studio" }] }),
+  head: () => ({ meta: [{ title: "Video Production Center — AI Content Studio" }] }),
   validateSearch: zodValidator(searchSchema),
   component: VideoHub,
 });
@@ -213,8 +217,8 @@ function VideoHub() {
   return (
     <div className="mx-auto w-full max-w-[1800px] space-y-6 p-6 lg:p-10">
       <PageHeader
-        title="Video Hub"
-        subtitle="Centro operativo de video: imagen → personaje → proyecto → versiones."
+        title="Video Production Center"
+        subtitle="Centro de producción de video: imagen → personaje → proyecto → producción."
         actions={
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={handleNew}>
@@ -280,37 +284,10 @@ function VideoHub() {
             <div className="space-y-4">
               <Card className="border-border/60 bg-card">
                 <CardContent className="space-y-4 p-4">
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <ContextChip
-                      icon={<ImageIcon className="h-3.5 w-3.5" />}
-                      label="Imagen origen"
-                      value={detail.data.source_image_id ? "Sí" : "—"}
-                    />
-                    <ContextChip
-                      icon={<Users className="h-3.5 w-3.5" />}
-                      label="Personaje"
-                      value={detail.data.character_name ?? "—"}
-                    />
-                    <ContextChip
-                      icon={<FolderKanban className="h-3.5 w-3.5" />}
-                      label="Proyecto"
-                      value={detail.data.project_title ?? "—"}
-                      href={
-                        detail.data.project_id
-                          ? `/proyectos/${detail.data.project_id}`
-                          : undefined
-                      }
-                    />
-                  </div>
-                  {detail.data.source_image_base64 && (
-                    <div className="overflow-hidden rounded-md border border-border/40">
-                      <img
-                        src={`data:image/png;base64,${detail.data.source_image_base64}`}
-                        alt="Imagen origen"
-                        className="max-h-72 w-full object-contain bg-black/20"
-                      />
-                    </div>
-                  )}
+                  <ReferencePanel
+                    detail={detail.data}
+                    presetLabel={PRESETS.find((p) => p.id === preset)?.label}
+                  />
                   <div className="space-y-1.5">
                     <Label className="text-xs uppercase tracking-wider text-muted-foreground">Título</Label>
                     <Input value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -401,6 +378,8 @@ function VideoHub() {
                   </div>
                 </CardContent>
               </Card>
+
+              <VideoProductionPanel draft={detail.data} />
 
               <Card className="border-border/60 bg-card">
                 <CardHeader className="pb-3">
