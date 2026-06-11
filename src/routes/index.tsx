@@ -654,3 +654,51 @@ function EmptyHint({ text, cta }: { text: string; cta?: { to: string; label: str
     </div>
   );
 }
+function VideoProductionSection({
+  production,
+}: {
+  production: {
+    drafts: number;
+    prepared: number;
+    queued: number;
+    generating: number;
+    completed: number;
+    failed: number;
+    total: number;
+  };
+}) {
+  const cells = [
+    { icon: <Clock className="h-4 w-4" />, label: "Drafts", value: production.drafts, tone: "text-muted-foreground" },
+    { icon: <Loader2 className="h-4 w-4" />, label: "En cola", value: production.queued + production.generating, tone: "text-amber-500" },
+    { icon: <CheckCircle2 className="h-4 w-4" />, label: "Completados", value: production.completed, tone: "text-emerald-500" },
+    { icon: <XCircle className="h-4 w-4" />, label: "Fallidos", value: production.failed, tone: "text-rose-500" },
+  ];
+  return (
+    <section className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Film className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-semibold tracking-tight">Producción de Video</h2>
+        </div>
+        <Link
+          to="/crear/video"
+          search={{ draftId: "", fromImage: "", flowId: "" }}
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+        >
+          Abrir Production Center <ArrowRight className="h-3 w-3" />
+        </Link>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-4">
+        {cells.map((c) => (
+          <div key={c.label} className="rounded-lg border border-border/40 bg-muted/20 px-3 py-3">
+            <div className={cn("flex items-center gap-2", c.tone)}>
+              {c.icon}
+              <p className="text-[10px] uppercase tracking-wider">{c.label}</p>
+            </div>
+            <p className="mt-1 text-2xl font-semibold">{c.value}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
