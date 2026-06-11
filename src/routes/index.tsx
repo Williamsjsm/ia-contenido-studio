@@ -20,6 +20,11 @@ import {
   Play,
   PlusCircle,
   Layers,
+  Clock,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Film,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
