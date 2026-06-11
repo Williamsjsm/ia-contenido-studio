@@ -36,6 +36,7 @@ import {
 import { listImageGenerations } from "@/lib/image-generation.functions";
 import { listVirtualCharacters } from "@/lib/visual-library.functions";
 import { listActiveProjects } from "@/lib/creation-projects.functions";
+import { getProductionStats } from "@/lib/generated-videos.functions";
 import { fmtDate } from "@/lib/library-data";
 import { cn } from "@/lib/utils";
 
@@ -84,6 +85,7 @@ function useDashboardData() {
   const fetchImages = useServerFn(listImageGenerations);
   const fetchChars = useServerFn(listVirtualCharacters);
   const fetchPubsList = useServerFn(listPublicationProjects);
+  const fetchProd = useServerFn(getProductionStats);
 
   const opts = { retry: false, staleTime: 30_000, refetchOnWindowFocus: false };
 
@@ -101,6 +103,11 @@ function useDashboardData() {
     pubsList: useQuery({
       queryKey: ["dashboard", "pubsList"],
       queryFn: () => fetchPubsList(),
+      ...opts,
+    }),
+    production: useQuery({
+      queryKey: ["dashboard", "production"],
+      queryFn: () => fetchProd(),
       ...opts,
     }),
   };
