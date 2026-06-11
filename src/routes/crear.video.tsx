@@ -40,6 +40,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VideoExportPack } from "@/components/video-export-pack";
 import { buildProviderPack } from "@/lib/video-export-pack";
 import { VideoIntelligencePanel } from "@/components/video-intelligence-panel";
+import {
+  VideoProductionPanel,
+  ProductionQueueTab,
+} from "@/components/video-production-panel";
 
 const searchSchema = z.object({
   draftId: fallback(z.string(), "").default(""),
@@ -48,7 +52,7 @@ const searchSchema = z.object({
 });
 
 export const Route = createFileRoute("/crear/video")({
-  head: () => ({ meta: [{ title: "Video Hub — AI Content Studio" }] }),
+  head: () => ({ meta: [{ title: "Video Production Center — AI Content Studio" }] }),
   validateSearch: zodValidator(searchSchema),
   component: VideoHub,
 });
@@ -213,8 +217,8 @@ function VideoHub() {
   return (
     <div className="mx-auto w-full max-w-[1800px] space-y-6 p-6 lg:p-10">
       <PageHeader
-        title="Video Hub"
-        subtitle="Centro operativo de video: imagen → personaje → proyecto → versiones."
+        title="Video Production Center"
+        subtitle="Centro de producción de video: imagen → personaje → proyecto → producción."
         actions={
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={handleNew}>
@@ -280,37 +284,10 @@ function VideoHub() {
             <div className="space-y-4">
               <Card className="border-border/60 bg-card">
                 <CardContent className="space-y-4 p-4">
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <ContextChip
-                      icon={<ImageIcon className="h-3.5 w-3.5" />}
-                      label="Imagen origen"
-                      value={detail.data.source_image_id ? "Sí" : "—"}
-                    />
-                    <ContextChip
-                      icon={<Users className="h-3.5 w-3.5" />}
-                      label="Personaje"
-                      value={detail.data.character_name ?? "—"}
-                    />
-                    <ContextChip
-                      icon={<FolderKanban className="h-3.5 w-3.5" />}
-                      label="Proyecto"
-                      value={detail.data.project_title ?? "—"}
-                      href={
-                        detail.data.project_id
-                          ? `/proyectos/${detail.data.project_id}`
-                          : undefined
-                      }
-                    />
-                  </div>
-                  {detail.data.source_image_base64 && (
-                    <div className="overflow-hidden rounded-md border border-border/40">
-                      <img
-                        src={`data:image/png;base64,${detail.data.source_image_base64}`}
-                        alt="Imagen origen"
-                        className="max-h-72 w-full object-contain bg-black/20"
-                      />
-                    </div>
-                  )}
+                  <ReferencePanel
+                    detail={detail.data}
+                    presetLabel={PRESETS.find((p) => p.id === preset)?.label}
+                  />
                   <div className="space-y-1.5">
                     <Label className="text-xs uppercase tracking-wider text-muted-foreground">Título</Label>
                     <Input value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -401,6 +378,8 @@ function VideoHub() {
                   </div>
                 </CardContent>
               </Card>
+
+              <VideoProductionPanel draft={detail.data} />
 
               <Card className="border-border/60 bg-card">
                 <CardHeader className="pb-3">
@@ -516,12 +495,13 @@ function DraftTabs({ draft }: { draft: import("@/lib/video-drafts.functions").Vi
     <Card className="border-border/60 bg-card">
       <CardContent className="p-4">
         <Tabs defaultValue="export">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="image">Imagen origen</TabsTrigger>
             <TabsTrigger value="initial">Prompt Inicial</TabsTrigger>
             <TabsTrigger value="continuation">Continuación</TabsTrigger>
             <TabsTrigger value="extension">Extensión</TabsTrigger>
             <TabsTrigger value="export">Export Pack</TabsTrigger>
+            <TabsTrigger value="production">Producción</TabsTrigger>
           </TabsList>
           <TabsContent value="image" className="mt-4">
             {draft.source_image_base64 ? (
@@ -548,6 +528,9 @@ function DraftTabs({ draft }: { draft: import("@/lib/video-drafts.functions").Vi
           </TabsContent>
           <TabsContent value="export" className="mt-4">
             <VideoExportPack draft={draft} />
+          </TabsContent>
+          <TabsContent value="production" className="mt-4">
+            <ProductionQueueTab />
           </TabsContent>
         </Tabs>
       </CardContent>
@@ -577,6 +560,63 @@ function PromptBlock({ text }: { text: string }) {
       <pre className="max-h-80 overflow-auto whitespace-pre-wrap text-[11px] leading-snug text-muted-foreground">
         {text}
       </pre>
+    </div>
+  );
+}
+
+function ReferencePanel({
+  detail,
+  presetLabel,
+}: {
+  detail: import("@/lib/video-drafts.functions").VideoDraftDetail;
+  presetLabel?: string;
+}) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-border/50 bg-gradient-to-br from-muted/30 to-background">
+      <div className="grid gap-4 p-4 md:grid-cols-[260px_1fr] md:p-5">
+        <div className="relative overflow-hidden rounded-md border border-border/40 bg-black/20">
+          {detail.source_image_base64 ? (
+            <img
+              src={`data:image/png;base64,${detail.source_image_base64}`}
+              alt="Imagen origen"
+              className="h-48 w-full object-cover md:h-56"
+            />
+          ) : (
+            <div className="flex h-48 w-full items-center justify-center md:h-56">
+              <ImageIcon className="h-10 w-10 text-muted-foreground/30" />
+            </div>
+          )}
+          <Badge
+            variant="secondary"
+            className="absolute left-2 top-2 text-[10px] uppercase tracking-wider"
+          >
+            Imagen origen
+          </Badge>
+        </div>
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          <ContextChip
+            icon={<Users className="h-3.5 w-3.5" />}
+            label="Personaje"
+            value={detail.character_name ?? "—"}
+          />
+          <ContextChip
+            icon={<FolderKanban className="h-3.5 w-3.5" />}
+            label="Proyecto"
+            value={detail.project_title ?? "—"}
+            href={detail.project_id ? `/proyectos/${detail.project_id}` : undefined}
+          />
+          <ContextChip
+            icon={<Sparkles className="h-3.5 w-3.5" />}
+            label="Preset activo"
+            value={presetLabel ?? detail.preset ?? "—"}
+          />
+          <ContextChip
+            icon={<Video className="h-3.5 w-3.5" />}
+            label="Versión"
+            value={`v${detail.version} · ${detail.status}`}
+          />
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,0 +1,212 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireAccess } from "./access-control.functions";
+
+/**
+ * Modo single-owner temporal — coherente con resto del proyecto.
+ * TODO(auth): requireSupabaseAuth + RLS auth.uid() cuando se active auth real.
+ */
+const FALLBACK_OWNER_ID = "00000000-0000-0000-0000-000000000001";
+function ownerId(): string {
+  return process.env.OWNER_USER_ID?.trim() || FALLBACK_OWNER_ID;
+}
+
+export const GENERATED_VIDEO_STATUSES = [
+  "draft",
+  "prepared",
+  "queued",
+  "generating",
+  "completed",
+  "failed",
+] as const;
+export type GeneratedVideoStatus = (typeof GENERATED_VIDEO_STATUSES)[number];
+
+export type GeneratedVideo = {
+  id: string;
+  user_id: string;
+  project_id: string | null;
+  draft_id: string | null;
+  character_id: string | null;
+  title: string;
+  provider: string | null;
+  status: GeneratedVideoStatus;
+  thumbnail_url: string | null;
+  video_url: string | null;
+  duration: string | null;
+  is_simulated: boolean;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+const SELECT_COLS =
+  "id, user_id, project_id, draft_id, character_id, title, provider, status, thumbnail_url, video_url, duration, is_simulated, error_message, created_at, updated_at";
+
+// ------------------- Queries -------------------
+
+export const listGeneratedVideos = createServerFn({ method: "GET" })
+  .middleware([requireAccess])
+  .handler(async (): Promise<GeneratedVideo[]> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("generated_videos")
+      .select(SELECT_COLS)
+      .eq("user_id", ownerId())
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) {
+      console.error("listGeneratedVideos failed:", error);
+      return [];
+    }
+    return (data ?? []) as unknown as GeneratedVideo[];
+  });
+
+export type ProductionStats = {
+  drafts: number;
+  prepared: number;
+  queued: number;
+  generating: number;
+  completed: number;
+  failed: number;
+  total: number;
+};
+
+export const getProductionStats = createServerFn({ method: "GET" })
+  .middleware([requireAccess])
+  .handler(async (): Promise<ProductionStats> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+
+    const [drafts, videos] = await Promise.all([
+      supabaseAdmin
+        .from("video_drafts")
+        .select("status")
+        .eq("user_id", owner)
+        .limit(2000),
+      supabaseAdmin
+        .from("generated_videos")
+        .select("status")
+        .eq("user_id", owner)
+        .limit(2000),
+    ]);
+
+    const stats: ProductionStats = {
+      drafts: 0,
+      prepared: 0,
+      queued: 0,
+      generating: 0,
+      completed: 0,
+      failed: 0,
+      total: 0,
+    };
+
+    for (const row of (drafts.data ?? []) as { status: string }[]) {
+      if (row.status === "draft") stats.drafts += 1;
+      else if (row.status === "prepared") stats.prepared += 1;
+      else if (row.status === "queued") stats.queued += 1;
+      else if (row.status === "generating") stats.generating += 1;
+      else if (row.status === "failed") stats.failed += 1;
+    }
+    for (const row of (videos.data ?? []) as { status: string }[]) {
+      stats.total += 1;
+      if (row.status === "completed") stats.completed += 1;
+      else if (row.status === "failed") stats.failed += 1;
+      else if (row.status === "queued") stats.queued += 1;
+      else if (row.status === "generating") stats.generating += 1;
+      else if (row.status === "prepared") stats.prepared += 1;
+    }
+    return stats;
+  });
+
+// ------------------- Simulación -------------------
+
+const StepSchema = z.object({
+  draftId: z.string().uuid(),
+  status: z.enum(["prepared", "queued", "generating", "completed", "failed"]),
+});
+
+/**
+ * Avanza el estado de un borrador. Usado por el simulador para
+ * recorrer prepared → queued → generating paso a paso.
+ */
+export const setDraftProductionStatus = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => StepSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const { error } = await supabaseAdmin
+      .from("video_drafts")
+      .update({ status: data.status })
+      .eq("id", data.draftId)
+      .eq("user_id", owner);
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const };
+  });
+
+const SimulateSchema = z.object({ draftId: z.string().uuid() });
+
+/**
+ * Marca el borrador como `completed` y crea la fila final en
+ * `generated_videos` reutilizando la imagen origen como miniatura.
+ * NO llama a ningún proveedor real.
+ */
+export const completeSimulatedGeneration = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => SimulateSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+
+    const { data: draft, error: draftErr } = await supabaseAdmin
+      .from("video_drafts")
+      .select(
+        "id, user_id, project_id, character_id, source_image_id, title, prompt, provider, duration",
+      )
+      .eq("id", data.draftId)
+      .eq("user_id", owner)
+      .maybeSingle();
+    if (draftErr || !draft) {
+      return { ok: false as const, message: draftErr?.message ?? "Borrador no encontrado." };
+    }
+
+    // Miniatura: data: URL desde imagen origen (si existe).
+    let thumbnail: string | null = null;
+    if (draft.source_image_id) {
+      const { data: img } = await supabaseAdmin
+        .from("image_generations")
+        .select("image_base64")
+        .eq("id", draft.source_image_id)
+        .maybeSingle();
+      if (img?.image_base64) thumbnail = `data:image/png;base64,${img.image_base64}`;
+    }
+
+    const { data: inserted, error } = await supabaseAdmin
+      .from("generated_videos")
+      .insert({
+        user_id: owner,
+        project_id: draft.project_id,
+        draft_id: draft.id,
+        character_id: draft.character_id,
+        title: draft.title || "Video simulado",
+        provider: draft.provider,
+        status: "completed",
+        thumbnail_url: thumbnail,
+        video_url: null,
+        duration: draft.duration,
+        is_simulated: true,
+      })
+      .select(SELECT_COLS)
+      .single();
+    if (error || !inserted) {
+      return { ok: false as const, message: error?.message ?? "No se pudo crear el video." };
+    }
+
+    await supabaseAdmin
+      .from("video_drafts")
+      .update({ status: "completed" })
+      .eq("id", draft.id)
+      .eq("user_id", owner);
+
+    return { ok: true as const, video: inserted as unknown as GeneratedVideo };
+  });

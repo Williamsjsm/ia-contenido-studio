@@ -248,6 +248,82 @@ export type Database = {
           },
         ]
       }
+      generated_videos: {
+        Row: {
+          character_id: string | null
+          created_at: string
+          draft_id: string | null
+          duration: string | null
+          error_message: string | null
+          id: string
+          is_simulated: boolean
+          project_id: string | null
+          provider: string | null
+          status: string
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          user_id: string
+          video_url: string | null
+        }
+        Insert: {
+          character_id?: string | null
+          created_at?: string
+          draft_id?: string | null
+          duration?: string | null
+          error_message?: string | null
+          id?: string
+          is_simulated?: boolean
+          project_id?: string | null
+          provider?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          user_id: string
+          video_url?: string | null
+        }
+        Update: {
+          character_id?: string | null
+          created_at?: string
+          draft_id?: string | null
+          duration?: string | null
+          error_message?: string | null
+          id?: string
+          is_simulated?: boolean
+          project_id?: string | null
+          provider?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_videos_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_videos_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "video_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_videos_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "creation_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       image_generations: {
         Row: {
           character_id: string | null

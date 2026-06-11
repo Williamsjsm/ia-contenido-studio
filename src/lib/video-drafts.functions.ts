@@ -13,6 +13,7 @@ function ownerId(): string {
 
 export const VIDEO_STATUSES = [
   "draft",
+  "prepared",
   "queued",
   "generating",
   "completed",
