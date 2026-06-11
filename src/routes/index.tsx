@@ -116,6 +116,15 @@ function Index() {
   const images = q.images.data?.items ?? [];
   const characters = q.chars.data ?? [];
   const pubsList = q.pubsList.data ?? [];
+  const production = q.production.data ?? {
+    drafts: 0,
+    prepared: 0,
+    queued: 0,
+    generating: 0,
+    completed: 0,
+    failed: 0,
+    total: 0,
+  };
 
   const subtext = useMemo(() => {
     return `${radar.detected} tendencias · ${images.length} imágenes · ${characters.length} personajes · ${pubs.total} publicaciones`;
@@ -192,6 +201,7 @@ function Index() {
           <TrendsOfDay trends={trends.slice(0, 4)} loading={q.trends.isLoading} />
           <CharactersSection characters={characters.slice(0, 4)} loading={q.chars.isLoading} />
           <RecentImagesSection images={images.slice(0, 8)} loading={q.images.isLoading} />
+          <VideoProductionSection production={production} />
           <div className="grid gap-6 lg:grid-cols-2">
             <PublicationsSection pubs={pubsList.slice(0, 5)} loading={q.pubsList.isLoading} />
             <AlertsSection alerts={alerts} />
