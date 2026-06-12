@@ -268,6 +268,8 @@ export type Database = {
           user_id: string
           version: number
           video_score: number | null
+          video_score_breakdown: Json | null
+          video_score_reason: string | null
           video_url: string | null
         }
         Insert: {
@@ -289,6 +291,8 @@ export type Database = {
           user_id: string
           version?: number
           video_score?: number | null
+          video_score_breakdown?: Json | null
+          video_score_reason?: string | null
           video_url?: string | null
         }
         Update: {
@@ -310,6 +314,8 @@ export type Database = {
           user_id?: string
           version?: number
           video_score?: number | null
+          video_score_breakdown?: Json | null
+          video_score_reason?: string | null
           video_url?: string | null
         }
         Relationships: [
