@@ -26,6 +26,7 @@ import {
   duplicateVideo,
   createVideoVersion,
   deleteVideo,
+  scoreVideo,
   type GeneratedVideoWithMeta,
   type GeneratedVideoStatus,
 } from "@/lib/generated-videos.functions";
@@ -80,6 +81,7 @@ function VideoViewer() {
   const dupFn = useServerFn(duplicateVideo);
   const verFn = useServerFn(createVideoVersion);
   const delFn = useServerFn(deleteVideo);
+  const scoreFn = useServerFn(scoreVideo);
 
   const { data: video, isLoading } = useQuery({
     queryKey: ["video", id],
@@ -131,6 +133,14 @@ function VideoViewer() {
         toast.success("Video eliminado");
         navigate({ to: "/videos" });
       }
+    },
+  });
+  const scoreMut = useMutation({
+    mutationFn: () => scoreFn({ data: { id } }),
+    onSuccess: (r) => {
+      if (!r?.ok) toast.error(r?.message ?? "Error");
+      else toast.success(`Score: ${r.score}/100`);
+      invalidate();
     },
   });
 
@@ -260,10 +270,51 @@ function VideoViewer() {
               <InfoRow label="Estado" value={STATUS_LABEL[video.status]} />
               <InfoRow label="Versión" value={String(video.version)} />
               <InfoRow label="Simulado" value={video.is_simulated ? "Sí" : "No"} />
-              <InfoRow
-                label="Score IA"
-                value={video.video_score !== null ? `${video.video_score}/100` : "Sin evaluar"}
-              />
+              <div className="rounded-md border border-border/40 p-2.5">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Score IA
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[11px]"
+                    onClick={() => scoreMut.mutate()}
+                    disabled={scoreMut.isPending}
+                  >
+                    <Sparkles className="mr-1 h-3 w-3" />
+                    {scoreMut.isPending
+                      ? "Calculando…"
+                      : video.video_score !== null
+                      ? "Recalcular"
+                      : "Calcular"}
+                  </Button>
+                </div>
+                {video.video_score !== null ? (
+                  <>
+                    <div className="mb-2 flex items-baseline gap-1">
+                      <span className="text-2xl font-semibold">{video.video_score}</span>
+                      <span className="text-[11px] text-muted-foreground">/100</span>
+                    </div>
+                    {video.video_score_breakdown && (
+                      <div className="space-y-1">
+                        <ScoreBar label="Calidad" value={video.video_score_breakdown.calidad} />
+                        <ScoreBar label="Continuidad" value={video.video_score_breakdown.continuidad} />
+                        <ScoreBar label="Consistencia" value={video.video_score_breakdown.consistencia} />
+                        <ScoreBar label="Viralidad" value={video.video_score_breakdown.viralidad} />
+                        <ScoreBar label="Compatibilidad" value={video.video_score_breakdown.compatibilidad} />
+                      </div>
+                    )}
+                    {video.video_score_reason && (
+                      <p className="mt-2 text-[11px] italic text-muted-foreground">
+                        {video.video_score_reason}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-[12px] text-muted-foreground">Sin evaluar todavía.</p>
+                )}
+              </div>
               <InfoRow label="Creado" value={new Date(video.created_at).toLocaleString("es")} />
               {video.error_message && (
                 <div className="rounded-md border border-rose-500/30 bg-rose-500/5 p-2 text-[12px] text-rose-600 dark:text-rose-300">
