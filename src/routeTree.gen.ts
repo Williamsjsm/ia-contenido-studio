@@ -19,6 +19,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as VideosIndexRouteImport } from './routes/videos.index'
 import { Route as ProyectosIndexRouteImport } from './routes/proyectos.index'
 import { Route as CrearIndexRouteImport } from './routes/crear.index'
+import { Route as VideosCompareRouteImport } from './routes/videos.compare'
 import { Route as VideosIdRouteImport } from './routes/videos.$id'
 import { Route as ProyectosIdRouteImport } from './routes/proyectos.$id'
 import { Route as InvestigarTendenciasRouteImport } from './routes/investigar.tendencias'
@@ -84,6 +85,11 @@ const ProyectosIndexRoute = ProyectosIndexRouteImport.update({
 const CrearIndexRoute = CrearIndexRouteImport.update({
   id: '/crear/',
   path: '/crear/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VideosCompareRoute = VideosCompareRouteImport.update({
+  id: '/videos/compare',
+  path: '/videos/compare',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VideosIdRoute = VideosIdRouteImport.update({
@@ -191,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
   '/proyectos/$id': typeof ProyectosIdRoute
   '/videos/$id': typeof VideosIdRoute
+  '/videos/compare': typeof VideosCompareRoute
   '/crear/': typeof CrearIndexRoute
   '/proyectos/': typeof ProyectosIndexRoute
   '/videos/': typeof VideosIndexRoute
@@ -219,6 +226,7 @@ export interface FileRoutesByTo {
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
   '/proyectos/$id': typeof ProyectosIdRoute
   '/videos/$id': typeof VideosIdRoute
+  '/videos/compare': typeof VideosCompareRoute
   '/crear': typeof CrearIndexRoute
   '/proyectos': typeof ProyectosIndexRoute
   '/videos': typeof VideosIndexRoute
@@ -248,6 +256,7 @@ export interface FileRoutesById {
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
   '/proyectos/$id': typeof ProyectosIdRoute
   '/videos/$id': typeof VideosIdRoute
+  '/videos/compare': typeof VideosCompareRoute
   '/crear/': typeof CrearIndexRoute
   '/proyectos/': typeof ProyectosIndexRoute
   '/videos/': typeof VideosIndexRoute
@@ -278,6 +287,7 @@ export interface FileRouteTypes {
     | '/investigar/tendencias'
     | '/proyectos/$id'
     | '/videos/$id'
+    | '/videos/compare'
     | '/crear/'
     | '/proyectos/'
     | '/videos/'
@@ -306,6 +316,7 @@ export interface FileRouteTypes {
     | '/investigar/tendencias'
     | '/proyectos/$id'
     | '/videos/$id'
+    | '/videos/compare'
     | '/crear'
     | '/proyectos'
     | '/videos'
@@ -334,6 +345,7 @@ export interface FileRouteTypes {
     | '/investigar/tendencias'
     | '/proyectos/$id'
     | '/videos/$id'
+    | '/videos/compare'
     | '/crear/'
     | '/proyectos/'
     | '/videos/'
@@ -363,6 +375,7 @@ export interface RootRouteChildren {
   InvestigarTendenciasRoute: typeof InvestigarTendenciasRoute
   ProyectosIdRoute: typeof ProyectosIdRoute
   VideosIdRoute: typeof VideosIdRoute
+  VideosCompareRoute: typeof VideosCompareRoute
   CrearIndexRoute: typeof CrearIndexRoute
   ProyectosIndexRoute: typeof ProyectosIndexRoute
   VideosIndexRoute: typeof VideosIndexRoute
@@ -438,6 +451,13 @@ declare module '@tanstack/react-router' {
       path: '/crear'
       fullPath: '/crear/'
       preLoaderRoute: typeof CrearIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/videos/compare': {
+      id: '/videos/compare'
+      path: '/videos/compare'
+      fullPath: '/videos/compare'
+      preLoaderRoute: typeof VideosCompareRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/videos/$id': {
@@ -579,6 +599,7 @@ const rootRouteChildren: RootRouteChildren = {
   InvestigarTendenciasRoute: InvestigarTendenciasRoute,
   ProyectosIdRoute: ProyectosIdRoute,
   VideosIdRoute: VideosIdRoute,
+  VideosCompareRoute: VideosCompareRoute,
   CrearIndexRoute: CrearIndexRoute,
   ProyectosIndexRoute: ProyectosIndexRoute,
   VideosIndexRoute: VideosIndexRoute,

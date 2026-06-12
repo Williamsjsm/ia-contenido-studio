@@ -57,9 +57,9 @@ function VideosCompare() {
 
   const idList = useMemo(
     () =>
-      ids
+      (ids ?? "")
         .split(",")
-        .map((s) => s.trim())
+        .map((s: string) => s.trim())
         .filter(Boolean)
         .slice(0, 3),
     [ids],
@@ -105,7 +105,7 @@ function VideosCompare() {
   });
 
   const removeFromCompare = (id: string) => {
-    const next = idList.filter((x) => x !== id).join(",");
+    const next = idList.filter((x: string) => x !== id).join(",");
     navigate({ to: "/videos/compare", search: { ids: next } });
   };
 
