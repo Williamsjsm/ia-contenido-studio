@@ -219,3 +219,218 @@ export const completeSimulatedGeneration = createServerFn({ method: "POST" })
 
     return { ok: true as const, video: inserted as unknown as GeneratedVideo };
   });
+
+// ------------------- Galería + acciones -------------------
+
+const SELECT_WITH_META =
+  SELECT_COLS +
+  ", creation_projects:project_id(title), virtual_characters:character_id(name)";
+
+function flattenMeta(row: Record<string, unknown>): GeneratedVideoWithMeta {
+  const proj = row.creation_projects as { title: string | null } | null | undefined;
+  const char = row.virtual_characters as { name: string | null } | null | undefined;
+  const { creation_projects: _p, virtual_characters: _c, ...rest } = row as Record<string, unknown>;
+  void _p;
+  void _c;
+  return {
+    ...(rest as unknown as GeneratedVideo),
+    project_title: proj?.title ?? null,
+    character_name: char?.name ?? null,
+  };
+}
+
+export const listVideosWithMeta = createServerFn({ method: "GET" })
+  .middleware([requireAccess])
+  .handler(async (): Promise<GeneratedVideoWithMeta[]> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("generated_videos")
+      .select(SELECT_WITH_META)
+      .eq("user_id", ownerId())
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) {
+      console.error("listVideosWithMeta failed:", error);
+      return [];
+    }
+    return ((data ?? []) as unknown as Record<string, unknown>[]).map(flattenMeta);
+  });
+
+export const listRecentVideos = createServerFn({ method: "GET" })
+  .middleware([requireAccess])
+  .handler(async (): Promise<GeneratedVideoWithMeta[]> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("generated_videos")
+      .select(SELECT_WITH_META)
+      .eq("user_id", ownerId())
+      .order("created_at", { ascending: false })
+      .limit(6);
+    if (error) return [];
+    return ((data ?? []) as unknown as Record<string, unknown>[]).map(flattenMeta);
+  });
+
+const IdSchema = z.object({ id: z.string().uuid() });
+
+export const getVideoById = createServerFn({ method: "GET" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => IdSchema.parse(input))
+  .handler(async ({ data }): Promise<GeneratedVideoWithMeta | null> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row, error } = await supabaseAdmin
+      .from("generated_videos")
+      .select(SELECT_WITH_META)
+      .eq("id", data.id)
+      .eq("user_id", ownerId())
+      .maybeSingle();
+    if (error || !row) return null;
+    return flattenMeta(row as unknown as Record<string, unknown>);
+  });
+
+/**
+ * Lista todas las versiones que comparten la misma raíz (parent o el propio video).
+ */
+export const listVideoVersions = createServerFn({ method: "GET" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => IdSchema.parse(input))
+  .handler(async ({ data }): Promise<GeneratedVideoWithMeta[]> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const { data: self } = await supabaseAdmin
+      .from("generated_videos")
+      .select("id, parent_video_id")
+      .eq("id", data.id)
+      .eq("user_id", owner)
+      .maybeSingle();
+    if (!self) return [];
+    const rootId = (self.parent_video_id as string | null) ?? self.id;
+    const { data: rows, error } = await supabaseAdmin
+      .from("generated_videos")
+      .select(SELECT_WITH_META)
+      .eq("user_id", owner)
+      .or(`id.eq.${rootId},parent_video_id.eq.${rootId}`)
+      .order("version", { ascending: true });
+    if (error || !rows) return [];
+    return (rows as unknown as Record<string, unknown>[]).map(flattenMeta);
+  });
+
+export const toggleVideoFavorite = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), value: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("generated_videos")
+      .update({ is_favorite: data.value })
+      .eq("id", data.id)
+      .eq("user_id", ownerId());
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const };
+  });
+
+export const deleteVideo = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => IdSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("generated_videos")
+      .delete()
+      .eq("id", data.id)
+      .eq("user_id", ownerId());
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const };
+  });
+
+async function loadVideoRow(id: string, owner: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("generated_videos")
+    .select(SELECT_COLS)
+    .eq("id", id)
+    .eq("user_id", owner)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as unknown as GeneratedVideo;
+}
+
+/**
+ * Duplica un video como nueva fila independiente (no versión).
+ */
+export const duplicateVideo = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => IdSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const src = await loadVideoRow(data.id, owner);
+    if (!src) return { ok: false as const, message: "Video no encontrado." };
+    const { data: inserted, error } = await supabaseAdmin
+      .from("generated_videos")
+      .insert({
+        user_id: owner,
+        project_id: src.project_id,
+        draft_id: src.draft_id,
+        character_id: src.character_id,
+        title: `${src.title} (copia)`,
+        provider: src.provider,
+        status: src.status,
+        thumbnail_url: src.thumbnail_url,
+        video_url: src.video_url,
+        duration: src.duration,
+        is_simulated: src.is_simulated,
+      })
+      .select(SELECT_COLS)
+      .single();
+    if (error || !inserted) return { ok: false as const, message: error?.message ?? "Error al duplicar." };
+    return { ok: true as const, video: inserted as unknown as GeneratedVideo };
+  });
+
+/**
+ * Crea una nueva versión del video. La raíz se identifica por parent_video_id
+ * (o el propio id si es el original). El número de versión es el máximo + 1.
+ */
+export const createVideoVersion = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => IdSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const src = await loadVideoRow(data.id, owner);
+    if (!src) return { ok: false as const, message: "Video no encontrado." };
+
+    const rootId = src.parent_video_id ?? src.id;
+    const { data: siblings } = await supabaseAdmin
+      .from("generated_videos")
+      .select("version")
+      .eq("user_id", owner)
+      .or(`id.eq.${rootId},parent_video_id.eq.${rootId}`);
+    const maxVersion = (siblings ?? []).reduce(
+      (m, r) => Math.max(m, (r as { version: number }).version ?? 1),
+      1,
+    );
+
+    const { data: inserted, error } = await supabaseAdmin
+      .from("generated_videos")
+      .insert({
+        user_id: owner,
+        project_id: src.project_id,
+        draft_id: src.draft_id,
+        character_id: src.character_id,
+        title: src.title,
+        provider: src.provider,
+        status: "draft",
+        thumbnail_url: src.thumbnail_url,
+        video_url: null,
+        duration: src.duration,
+        is_simulated: src.is_simulated,
+        parent_video_id: rootId,
+        version: maxVersion + 1,
+      })
+      .select(SELECT_COLS)
+      .single();
+    if (error || !inserted) return { ok: false as const, message: error?.message ?? "Error al versionar." };
+    return { ok: true as const, video: inserted as unknown as GeneratedVideo };
+  });
