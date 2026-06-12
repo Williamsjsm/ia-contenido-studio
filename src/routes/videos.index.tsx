@@ -13,6 +13,8 @@ import {
   Search,
   Film,
   Star,
+  GitCompare,
+  X,
 } from "lucide-react";
 import {
   listVideosWithMeta,
@@ -84,6 +86,19 @@ function VideosGallery() {
   const [providerFilter, setProviderFilter] = useState<string>("__all");
   const [projectFilter, setProjectFilter] = useState<string>("__all");
   const [search, setSearch] = useState("");
+  const [compareMode, setCompareMode] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+
+  const toggleSelected = (id: string) => {
+    setSelected((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 3) {
+        toast.info("Máximo 3 videos para comparar");
+        return prev;
+      }
+      return [...prev, id];
+    });
+  };
 
   const providers = useMemo(
     () =>
@@ -167,6 +182,45 @@ function VideosGallery() {
             {videos.length} videos · {videos.filter((v) => v.is_favorite).length} favoritos
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          {compareMode && (
+            <>
+              <span className="text-[12px] text-muted-foreground">
+                {selected.length}/3 seleccionados
+              </span>
+              <Button
+                size="sm"
+                disabled={selected.length < 2}
+                onClick={() =>
+                  navigate({
+                    to: "/videos/compare",
+                    search: { ids: selected.join(",") },
+                  })
+                }
+              >
+                Comparar ({selected.length})
+              </Button>
+            </>
+          )}
+          <Button
+            size="sm"
+            variant={compareMode ? "default" : "outline"}
+            onClick={() => {
+              setCompareMode((m) => !m);
+              setSelected([]);
+            }}
+          >
+            {compareMode ? (
+              <>
+                <X className="mr-1.5 h-3.5 w-3.5" /> Cancelar
+              </>
+            ) : (
+              <>
+                <GitCompare className="mr-1.5 h-3.5 w-3.5" /> Comparar
+              </>
+            )}
+          </Button>
+        </div>
       </header>
 
       {/* Filtros */}
@@ -249,7 +303,13 @@ function VideosGallery() {
             <VideoCard
               key={v.id}
               v={v}
-              onOpen={() => navigate({ to: "/videos/$id", params: { id: v.id } })}
+              compareMode={compareMode}
+              selected={selected.includes(v.id)}
+              onOpen={() =>
+                compareMode
+                  ? toggleSelected(v.id)
+                  : navigate({ to: "/videos/$id", params: { id: v.id } })
+              }
               onFavorite={() => favMut.mutate(v)}
               onDuplicate={() => dupMut.mutate(v.id)}
               onVersion={() => verMut.mutate(v.id)}
