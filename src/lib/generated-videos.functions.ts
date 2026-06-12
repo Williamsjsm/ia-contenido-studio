@@ -39,12 +39,22 @@ export type GeneratedVideo = {
   parent_video_id: string | null;
   version: number;
   video_score: number | null;
+  video_score_breakdown: VideoScoreBreakdown | null;
+  video_score_reason: string | null;
   created_at: string;
   updated_at: string;
 };
 
 const SELECT_COLS =
-  "id, user_id, project_id, draft_id, character_id, title, provider, status, thumbnail_url, video_url, duration, is_simulated, error_message, is_favorite, parent_video_id, version, video_score, created_at, updated_at";
+  "id, user_id, project_id, draft_id, character_id, title, provider, status, thumbnail_url, video_url, duration, is_simulated, error_message, is_favorite, parent_video_id, version, video_score, video_score_breakdown, video_score_reason, created_at, updated_at";
+
+export type VideoScoreBreakdown = {
+  calidad: number;
+  continuidad: number;
+  consistencia: number;
+  viralidad: number;
+  compatibilidad: number;
+};
 
 export type GeneratedVideoWithMeta = GeneratedVideo & {
   project_title: string | null;
