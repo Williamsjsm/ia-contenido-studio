@@ -35,12 +35,21 @@ export type GeneratedVideo = {
   duration: string | null;
   is_simulated: boolean;
   error_message: string | null;
+  is_favorite: boolean;
+  parent_video_id: string | null;
+  version: number;
+  video_score: number | null;
   created_at: string;
   updated_at: string;
 };
 
 const SELECT_COLS =
-  "id, user_id, project_id, draft_id, character_id, title, provider, status, thumbnail_url, video_url, duration, is_simulated, error_message, created_at, updated_at";
+  "id, user_id, project_id, draft_id, character_id, title, provider, status, thumbnail_url, video_url, duration, is_simulated, error_message, is_favorite, parent_video_id, version, video_score, created_at, updated_at";
+
+export type GeneratedVideoWithMeta = GeneratedVideo & {
+  project_title: string | null;
+  character_name: string | null;
+};
 
 // ------------------- Queries -------------------
 
