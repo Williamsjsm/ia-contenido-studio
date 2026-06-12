@@ -354,6 +354,21 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ScoreBar({ label, value }: { label: string; value: number }) {
+  const v = Math.max(0, Math.min(100, Math.round(value)));
+  return (
+    <div>
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+        <span>{label}</span>
+        <span>{v}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+        <div className="h-full bg-primary" style={{ width: `${v}%` }} />
+      </div>
+    </div>
+  );
+}
+
 function PromptPanel({ draftId }: { draftId: string | null }) {
   if (!draftId) {
     return <p className="text-[12px] text-muted-foreground">Sin borrador asociado.</p>;
