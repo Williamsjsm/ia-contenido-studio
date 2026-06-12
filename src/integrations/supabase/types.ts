@@ -256,7 +256,9 @@ export type Database = {
           duration: string | null
           error_message: string | null
           id: string
+          is_favorite: boolean
           is_simulated: boolean
+          parent_video_id: string | null
           project_id: string | null
           provider: string | null
           status: string
@@ -264,6 +266,8 @@ export type Database = {
           title: string
           updated_at: string
           user_id: string
+          version: number
+          video_score: number | null
           video_url: string | null
         }
         Insert: {
@@ -273,7 +277,9 @@ export type Database = {
           duration?: string | null
           error_message?: string | null
           id?: string
+          is_favorite?: boolean
           is_simulated?: boolean
+          parent_video_id?: string | null
           project_id?: string | null
           provider?: string | null
           status?: string
@@ -281,6 +287,8 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id: string
+          version?: number
+          video_score?: number | null
           video_url?: string | null
         }
         Update: {
@@ -290,7 +298,9 @@ export type Database = {
           duration?: string | null
           error_message?: string | null
           id?: string
+          is_favorite?: boolean
           is_simulated?: boolean
+          parent_video_id?: string | null
           project_id?: string | null
           provider?: string | null
           status?: string
@@ -298,6 +308,8 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+          version?: number
+          video_score?: number | null
           video_url?: string | null
         }
         Relationships: [
@@ -313,6 +325,13 @@ export type Database = {
             columns: ["draft_id"]
             isOneToOne: false
             referencedRelation: "video_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_videos_parent_video_id_fkey"
+            columns: ["parent_video_id"]
+            isOneToOne: false
+            referencedRelation: "generated_videos"
             referencedColumns: ["id"]
           },
           {
