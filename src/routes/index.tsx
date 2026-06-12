@@ -42,6 +42,7 @@ import { listImageGenerations } from "@/lib/image-generation.functions";
 import { listVirtualCharacters } from "@/lib/visual-library.functions";
 import { listActiveProjects } from "@/lib/creation-projects.functions";
 import { getProductionStats } from "@/lib/generated-videos.functions";
+import { listRecentVideos, type GeneratedVideoWithMeta } from "@/lib/generated-videos.functions";
 import { fmtDate } from "@/lib/library-data";
 import { cn } from "@/lib/utils";
 
@@ -91,6 +92,7 @@ function useDashboardData() {
   const fetchChars = useServerFn(listVirtualCharacters);
   const fetchPubsList = useServerFn(listPublicationProjects);
   const fetchProd = useServerFn(getProductionStats);
+  const fetchRecentVideos = useServerFn(listRecentVideos);
 
   const opts = { retry: false, staleTime: 30_000, refetchOnWindowFocus: false };
 
@@ -115,6 +117,11 @@ function useDashboardData() {
       queryFn: () => fetchProd(),
       ...opts,
     }),
+    recentVideos: useQuery({
+      queryKey: ["dashboard", "recentVideos"],
+      queryFn: () => fetchRecentVideos(),
+      ...opts,
+    }),
   };
 }
 
@@ -137,6 +144,7 @@ function Index() {
     failed: 0,
     total: 0,
   };
+  const recentVideos = q.recentVideos.data ?? [];
 
   const subtext = useMemo(() => {
     return `${radar.detected} tendencias · ${images.length} imágenes · ${characters.length} personajes · ${pubs.total} publicaciones`;
@@ -214,6 +222,7 @@ function Index() {
           <CharactersSection characters={characters.slice(0, 4)} loading={q.chars.isLoading} />
           <RecentImagesSection images={images.slice(0, 8)} loading={q.images.isLoading} />
           <VideoProductionSection production={production} />
+          <RecentVideosSection videos={recentVideos} />
           <div className="grid gap-6 lg:grid-cols-2">
             <PublicationsSection pubs={pubsList.slice(0, 5)} loading={q.pubsList.isLoading} />
             <AlertsSection alerts={alerts} />
