@@ -69,6 +69,10 @@ const STATUS_TONE: Record<GeneratedVideoStatus, string> = {
 function VideosGallery() {
   const qc = useQueryClient();
   const fetchVideos = useServerFn(listVideosWithMeta);
+  const favFn = useServerFn(toggleVideoFavorite);
+  const dupFn = useServerFn(duplicateVideo);
+  const verFn = useServerFn(createVideoVersion);
+  const delFn = useServerFn(deleteVideo);
   const navigate = useNavigate();
 
   const { data: videos = [], isLoading } = useQuery({
@@ -120,11 +124,11 @@ function VideosGallery() {
 
   const favMut = useMutation({
     mutationFn: (v: GeneratedVideoWithMeta) =>
-      useServerFn(toggleVideoFavorite)({ data: { id: v.id, value: !v.is_favorite } }),
+      favFn({ data: { id: v.id, value: !v.is_favorite } }),
     onSuccess: () => invalidate(),
   });
   const dupMut = useMutation({
-    mutationFn: (id: string) => useServerFn(duplicateVideo)({ data: { id } }),
+    mutationFn: (id: string) => dupFn({ data: { id } }),
     onSuccess: (r) => {
       if (!r?.ok) toast.error(r?.message ?? "Error");
       else toast.success("Video duplicado");
@@ -132,7 +136,7 @@ function VideosGallery() {
     },
   });
   const verMut = useMutation({
-    mutationFn: (id: string) => useServerFn(createVideoVersion)({ data: { id } }),
+    mutationFn: (id: string) => verFn({ data: { id } }),
     onSuccess: (r) => {
       if (!r?.ok) toast.error(r?.message ?? "Error");
       else toast.success(`Versión ${r.video.version} creada`);
@@ -140,7 +144,7 @@ function VideosGallery() {
     },
   });
   const delMut = useMutation({
-    mutationFn: (id: string) => useServerFn(deleteVideo)({ data: { id } }),
+    mutationFn: (id: string) => delFn({ data: { id } }),
     onSuccess: (r) => {
       if (!r?.ok) toast.error(r?.message ?? "Error");
       else toast.success("Video eliminado");

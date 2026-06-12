@@ -16,6 +16,7 @@ import { Route as FavoritosRouteImport } from './routes/favoritos'
 import { Route as ConfiguracionRouteImport } from './routes/configuracion'
 import { Route as AccesoRouteImport } from './routes/acceso'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as VideosIndexRouteImport } from './routes/videos.index'
 import { Route as ProyectosIndexRouteImport } from './routes/proyectos.index'
 import { Route as CrearIndexRouteImport } from './routes/crear.index'
 import { Route as ProyectosIdRouteImport } from './routes/proyectos.$id'
@@ -67,6 +68,11 @@ const AccesoRoute = AccesoRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VideosIndexRoute = VideosIndexRouteImport.update({
+  id: '/videos/',
+  path: '/videos/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProyectosIndexRoute = ProyectosIndexRouteImport.update({
@@ -180,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/proyectos/$id': typeof ProyectosIdRoute
   '/crear/': typeof CrearIndexRoute
   '/proyectos/': typeof ProyectosIndexRoute
+  '/videos/': typeof VideosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -206,6 +213,7 @@ export interface FileRoutesByTo {
   '/proyectos/$id': typeof ProyectosIdRoute
   '/crear': typeof CrearIndexRoute
   '/proyectos': typeof ProyectosIndexRoute
+  '/videos': typeof VideosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -233,6 +241,7 @@ export interface FileRoutesById {
   '/proyectos/$id': typeof ProyectosIdRoute
   '/crear/': typeof CrearIndexRoute
   '/proyectos/': typeof ProyectosIndexRoute
+  '/videos/': typeof VideosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -261,6 +270,7 @@ export interface FileRouteTypes {
     | '/proyectos/$id'
     | '/crear/'
     | '/proyectos/'
+    | '/videos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -287,6 +297,7 @@ export interface FileRouteTypes {
     | '/proyectos/$id'
     | '/crear'
     | '/proyectos'
+    | '/videos'
   id:
     | '__root__'
     | '/'
@@ -313,6 +324,7 @@ export interface FileRouteTypes {
     | '/proyectos/$id'
     | '/crear/'
     | '/proyectos/'
+    | '/videos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -340,6 +352,7 @@ export interface RootRouteChildren {
   ProyectosIdRoute: typeof ProyectosIdRoute
   CrearIndexRoute: typeof CrearIndexRoute
   ProyectosIndexRoute: typeof ProyectosIndexRoute
+  VideosIndexRoute: typeof VideosIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -391,6 +404,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/videos/': {
+      id: '/videos/'
+      path: '/videos'
+      fullPath: '/videos/'
+      preLoaderRoute: typeof VideosIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/proyectos/': {
@@ -540,6 +560,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProyectosIdRoute: ProyectosIdRoute,
   CrearIndexRoute: CrearIndexRoute,
   ProyectosIndexRoute: ProyectosIndexRoute,
+  VideosIndexRoute: VideosIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
