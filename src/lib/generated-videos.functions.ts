@@ -39,12 +39,22 @@ export type GeneratedVideo = {
   parent_video_id: string | null;
   version: number;
   video_score: number | null;
+  video_score_breakdown: VideoScoreBreakdown | null;
+  video_score_reason: string | null;
   created_at: string;
   updated_at: string;
 };
 
 const SELECT_COLS =
-  "id, user_id, project_id, draft_id, character_id, title, provider, status, thumbnail_url, video_url, duration, is_simulated, error_message, is_favorite, parent_video_id, version, video_score, created_at, updated_at";
+  "id, user_id, project_id, draft_id, character_id, title, provider, status, thumbnail_url, video_url, duration, is_simulated, error_message, is_favorite, parent_video_id, version, video_score, video_score_breakdown, video_score_reason, created_at, updated_at";
+
+export type VideoScoreBreakdown = {
+  calidad: number;
+  continuidad: number;
+  consistencia: number;
+  viralidad: number;
+  compatibilidad: number;
+};
 
 export type GeneratedVideoWithMeta = GeneratedVideo & {
   project_title: string | null;
@@ -433,4 +443,143 @@ export const createVideoVersion = createServerFn({ method: "POST" })
       .single();
     if (error || !inserted) return { ok: false as const, message: error?.message ?? "Error al versionar." };
     return { ok: true as const, video: inserted as unknown as GeneratedVideo };
+  });
+
+// ------------------- Score IA -------------------
+
+const SCORE_SYSTEM_PROMPT = `Eres un evaluador experto de video generado por IA.
+Devuelves SIEMPRE un objeto JSON con esta forma EXACTA:
+{
+  "score": number (0-100, entero),
+  "breakdown": {
+    "calidad": number (0-100),
+    "continuidad": number (0-100),
+    "consistencia": number (0-100),
+    "viralidad": number (0-100),
+    "compatibilidad": number (0-100)
+  },
+  "reason": string (máx 240 caracteres, en español)
+}
+Sin texto fuera del JSON. Sin markdown.`;
+
+function heuristicScore(v: GeneratedVideo): {
+  score: number;
+  breakdown: VideoScoreBreakdown;
+  reason: string;
+} {
+  const base = v.status === "completed" ? 70 : v.status === "failed" ? 30 : 55;
+  const provBonus = v.provider ? 5 : 0;
+  const dur = v.duration ? 5 : 0;
+  const thumb = v.thumbnail_url ? 5 : 0;
+  const score = Math.min(100, base + provBonus + dur + thumb);
+  return {
+    score,
+    breakdown: {
+      calidad: score,
+      continuidad: score - 5,
+      consistencia: score - 3,
+      viralidad: score - 8,
+      compatibilidad: score + 2 > 100 ? 100 : score + 2,
+    },
+    reason: "Estimación heurística sin IA (LOVABLE_API_KEY no configurada).",
+  };
+}
+
+export const scoreVideo = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => IdSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const src = await loadVideoRow(data.id, owner);
+    if (!src) return { ok: false as const, message: "Video no encontrado." };
+
+    const ctx = [
+      `Título: ${src.title}`,
+      `Proveedor: ${src.provider ?? "—"}`,
+      `Duración: ${src.duration ?? "—"}`,
+      `Estado: ${src.status}`,
+      `Versión: ${src.version}`,
+      `Simulado: ${src.is_simulated ? "Sí" : "No"}`,
+    ].join("\n");
+
+    const key = process.env.LOVABLE_API_KEY;
+    let result = heuristicScore(src);
+
+    if (key) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 25_000);
+      try {
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          signal: controller.signal,
+          headers: {
+            "Content-Type": "application/json",
+            "Lovable-API-Key": key,
+            "X-Lovable-AIG-SDK": "fetch",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            temperature: 0.4,
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: SCORE_SYSTEM_PROMPT },
+              { role: "user", content: ctx },
+            ],
+          }),
+        });
+        clearTimeout(timeout);
+        if (response.ok) {
+          const payload = (await response.json()) as {
+            choices?: { message?: { content?: string } }[];
+          };
+          const content = payload?.choices?.[0]?.message?.content;
+          if (content) {
+            try {
+              const parsed = JSON.parse(content);
+              const Parsed = z.object({
+                score: z.number().min(0).max(100),
+                breakdown: z.object({
+                  calidad: z.number(),
+                  continuidad: z.number(),
+                  consistencia: z.number(),
+                  viralidad: z.number(),
+                  compatibilidad: z.number(),
+                }),
+                reason: z.string().max(400),
+              });
+              const ok = Parsed.safeParse(parsed);
+              if (ok.success) {
+                result = {
+                  score: Math.round(ok.data.score),
+                  breakdown: ok.data.breakdown,
+                  reason: ok.data.reason,
+                };
+              }
+            } catch {
+              /* keep heuristic */
+            }
+          }
+        } else if (response.status === 429) {
+          return { ok: false as const, message: "Límite de IA alcanzado. Espera unos segundos." };
+        } else if (response.status === 402) {
+          return { ok: false as const, message: "Sin crédito IA disponible." };
+        }
+      } catch (err) {
+        clearTimeout(timeout);
+        console.error("scoreVideo gateway error:", err);
+      }
+    }
+
+    const { error } = await supabaseAdmin
+      .from("generated_videos")
+      .update({
+        video_score: result.score,
+        video_score_breakdown: result.breakdown,
+        video_score_reason: result.reason,
+      })
+      .eq("id", data.id)
+      .eq("user_id", owner);
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const, ...result };
   });
