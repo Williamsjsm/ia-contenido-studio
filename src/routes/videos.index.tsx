@@ -326,6 +326,8 @@ function VideosGallery() {
 
 function VideoCard({
   v,
+  compareMode,
+  selected,
   onOpen,
   onFavorite,
   onDuplicate,
@@ -333,6 +335,8 @@ function VideoCard({
   onDelete,
 }: {
   v: GeneratedVideoWithMeta;
+  compareMode: boolean;
+  selected: boolean;
   onOpen: () => void;
   onFavorite: () => void;
   onDuplicate: () => void;
@@ -340,11 +344,28 @@ function VideoCard({
   onDelete: () => void;
 }) {
   return (
-    <div className="group surface-card hover-lift overflow-hidden p-0">
+    <div
+      className={cn(
+        "group surface-card hover-lift overflow-hidden p-0",
+        compareMode && selected && "ring-2 ring-primary",
+      )}
+    >
       <button
         onClick={onOpen}
         className="relative block aspect-video w-full overflow-hidden bg-muted"
       >
+        {compareMode && (
+          <div
+            className={cn(
+              "absolute top-2 right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 text-[10px] font-bold",
+              selected
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-white/70 bg-black/40 text-white",
+            )}
+          >
+            {selected ? "✓" : ""}
+          </div>
+        )}
         {v.thumbnail_url ? (
           <img
             src={v.thumbnail_url}
