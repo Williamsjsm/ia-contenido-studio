@@ -66,7 +66,7 @@ function VideosCompare() {
   );
 
   const queries = useQueries({
-    queries: idList.map((id) => ({
+    queries: idList.map((id: string) => ({
       queryKey: ["video", id],
       queryFn: () => getFn({ data: { id } }),
     })),
