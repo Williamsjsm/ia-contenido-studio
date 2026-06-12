@@ -16,8 +16,10 @@ import { Route as FavoritosRouteImport } from './routes/favoritos'
 import { Route as ConfiguracionRouteImport } from './routes/configuracion'
 import { Route as AccesoRouteImport } from './routes/acceso'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as VideosIndexRouteImport } from './routes/videos.index'
 import { Route as ProyectosIndexRouteImport } from './routes/proyectos.index'
 import { Route as CrearIndexRouteImport } from './routes/crear.index'
+import { Route as VideosIdRouteImport } from './routes/videos.$id'
 import { Route as ProyectosIdRouteImport } from './routes/proyectos.$id'
 import { Route as InvestigarTendenciasRouteImport } from './routes/investigar.tendencias'
 import { Route as InvestigarInspiracionRouteImport } from './routes/investigar.inspiracion'
@@ -69,6 +71,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VideosIndexRoute = VideosIndexRouteImport.update({
+  id: '/videos/',
+  path: '/videos/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProyectosIndexRoute = ProyectosIndexRouteImport.update({
   id: '/proyectos/',
   path: '/proyectos/',
@@ -77,6 +84,11 @@ const ProyectosIndexRoute = ProyectosIndexRouteImport.update({
 const CrearIndexRoute = CrearIndexRouteImport.update({
   id: '/crear/',
   path: '/crear/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VideosIdRoute = VideosIdRouteImport.update({
+  id: '/videos/$id',
+  path: '/videos/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProyectosIdRoute = ProyectosIdRouteImport.update({
@@ -178,8 +190,10 @@ export interface FileRoutesByFullPath {
   '/investigar/inspiracion': typeof InvestigarInspiracionRoute
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
   '/proyectos/$id': typeof ProyectosIdRoute
+  '/videos/$id': typeof VideosIdRoute
   '/crear/': typeof CrearIndexRoute
   '/proyectos/': typeof ProyectosIndexRoute
+  '/videos/': typeof VideosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -204,8 +218,10 @@ export interface FileRoutesByTo {
   '/investigar/inspiracion': typeof InvestigarInspiracionRoute
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
   '/proyectos/$id': typeof ProyectosIdRoute
+  '/videos/$id': typeof VideosIdRoute
   '/crear': typeof CrearIndexRoute
   '/proyectos': typeof ProyectosIndexRoute
+  '/videos': typeof VideosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -231,8 +247,10 @@ export interface FileRoutesById {
   '/investigar/inspiracion': typeof InvestigarInspiracionRoute
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
   '/proyectos/$id': typeof ProyectosIdRoute
+  '/videos/$id': typeof VideosIdRoute
   '/crear/': typeof CrearIndexRoute
   '/proyectos/': typeof ProyectosIndexRoute
+  '/videos/': typeof VideosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -259,8 +277,10 @@ export interface FileRouteTypes {
     | '/investigar/inspiracion'
     | '/investigar/tendencias'
     | '/proyectos/$id'
+    | '/videos/$id'
     | '/crear/'
     | '/proyectos/'
+    | '/videos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -285,8 +305,10 @@ export interface FileRouteTypes {
     | '/investigar/inspiracion'
     | '/investigar/tendencias'
     | '/proyectos/$id'
+    | '/videos/$id'
     | '/crear'
     | '/proyectos'
+    | '/videos'
   id:
     | '__root__'
     | '/'
@@ -311,8 +333,10 @@ export interface FileRouteTypes {
     | '/investigar/inspiracion'
     | '/investigar/tendencias'
     | '/proyectos/$id'
+    | '/videos/$id'
     | '/crear/'
     | '/proyectos/'
+    | '/videos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -338,8 +362,10 @@ export interface RootRouteChildren {
   InvestigarInspiracionRoute: typeof InvestigarInspiracionRoute
   InvestigarTendenciasRoute: typeof InvestigarTendenciasRoute
   ProyectosIdRoute: typeof ProyectosIdRoute
+  VideosIdRoute: typeof VideosIdRoute
   CrearIndexRoute: typeof CrearIndexRoute
   ProyectosIndexRoute: typeof ProyectosIndexRoute
+  VideosIndexRoute: typeof VideosIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -393,6 +419,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/videos/': {
+      id: '/videos/'
+      path: '/videos'
+      fullPath: '/videos/'
+      preLoaderRoute: typeof VideosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/proyectos/': {
       id: '/proyectos/'
       path: '/proyectos'
@@ -405,6 +438,13 @@ declare module '@tanstack/react-router' {
       path: '/crear'
       fullPath: '/crear/'
       preLoaderRoute: typeof CrearIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/videos/$id': {
+      id: '/videos/$id'
+      path: '/videos/$id'
+      fullPath: '/videos/$id'
+      preLoaderRoute: typeof VideosIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/proyectos/$id': {
@@ -538,19 +578,11 @@ const rootRouteChildren: RootRouteChildren = {
   InvestigarInspiracionRoute: InvestigarInspiracionRoute,
   InvestigarTendenciasRoute: InvestigarTendenciasRoute,
   ProyectosIdRoute: ProyectosIdRoute,
+  VideosIdRoute: VideosIdRoute,
   CrearIndexRoute: CrearIndexRoute,
   ProyectosIndexRoute: ProyectosIndexRoute,
+  VideosIndexRoute: VideosIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

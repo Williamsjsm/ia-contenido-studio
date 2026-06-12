@@ -42,6 +42,7 @@ import { listImageGenerations } from "@/lib/image-generation.functions";
 import { listVirtualCharacters } from "@/lib/visual-library.functions";
 import { listActiveProjects } from "@/lib/creation-projects.functions";
 import { getProductionStats } from "@/lib/generated-videos.functions";
+import { listRecentVideos, type GeneratedVideoWithMeta } from "@/lib/generated-videos.functions";
 import { fmtDate } from "@/lib/library-data";
 import { cn } from "@/lib/utils";
 
@@ -91,6 +92,7 @@ function useDashboardData() {
   const fetchChars = useServerFn(listVirtualCharacters);
   const fetchPubsList = useServerFn(listPublicationProjects);
   const fetchProd = useServerFn(getProductionStats);
+  const fetchRecentVideos = useServerFn(listRecentVideos);
 
   const opts = { retry: false, staleTime: 30_000, refetchOnWindowFocus: false };
 
@@ -115,6 +117,11 @@ function useDashboardData() {
       queryFn: () => fetchProd(),
       ...opts,
     }),
+    recentVideos: useQuery({
+      queryKey: ["dashboard", "recentVideos"],
+      queryFn: () => fetchRecentVideos(),
+      ...opts,
+    }),
   };
 }
 
@@ -137,6 +144,7 @@ function Index() {
     failed: 0,
     total: 0,
   };
+  const recentVideos = q.recentVideos.data ?? [];
 
   const subtext = useMemo(() => {
     return `${radar.detected} tendencias · ${images.length} imágenes · ${characters.length} personajes · ${pubs.total} publicaciones`;
@@ -214,6 +222,7 @@ function Index() {
           <CharactersSection characters={characters.slice(0, 4)} loading={q.chars.isLoading} />
           <RecentImagesSection images={images.slice(0, 8)} loading={q.images.isLoading} />
           <VideoProductionSection production={production} />
+          <RecentVideosSection videos={recentVideos} />
           <div className="grid gap-6 lg:grid-cols-2">
             <PublicationsSection pubs={pubsList.slice(0, 5)} loading={q.pubsList.isLoading} />
             <AlertsSection alerts={alerts} />
@@ -704,6 +713,56 @@ function VideoProductionSection({
           </div>
         ))}
       </div>
+    </section>
+  );
+}
+
+function RecentVideosSection({ videos }: { videos: GeneratedVideoWithMeta[] }) {
+  return (
+    <section className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Film className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-semibold tracking-tight">Videos recientes</h2>
+        </div>
+        <Link to="/videos" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+          Ver galería <ArrowRight className="h-3 w-3" />
+        </Link>
+      </div>
+      {videos.length === 0 ? (
+        <EmptyHint text="Aún no hay videos generados." cta={{ to: "/crear/video", label: "Crear video" }} />
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {videos.slice(0, 6).map((v) => (
+            <Link
+              key={v.id}
+              to="/videos/$id"
+              params={{ id: v.id }}
+              className="group block overflow-hidden rounded-lg border border-border/40 hover-lift"
+            >
+              <div className="relative aspect-video bg-muted">
+                {v.thumbnail_url ? (
+                  <img src={v.thumbnail_url} alt={v.title} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-500/30 to-sky-500/30">
+                    <Play className="h-5 w-5 text-white/70" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                <Badge className="absolute bottom-1.5 left-1.5 border-0 bg-black/60 text-[9px] text-white">
+                  {v.status}
+                </Badge>
+              </div>
+              <div className="p-2">
+                <p className="truncate text-[12px] font-medium">{v.title}</p>
+                <p className="truncate text-[10px] text-muted-foreground">
+                  {v.project_title ?? "Sin proyecto"} · {timeAgo(v.created_at)}
+                </p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
