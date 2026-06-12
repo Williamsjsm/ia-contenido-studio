@@ -19,6 +19,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as VideosIndexRouteImport } from './routes/videos.index'
 import { Route as ProyectosIndexRouteImport } from './routes/proyectos.index'
 import { Route as CrearIndexRouteImport } from './routes/crear.index'
+import { Route as VideosIdRouteImport } from './routes/videos.$id'
 import { Route as ProyectosIdRouteImport } from './routes/proyectos.$id'
 import { Route as InvestigarTendenciasRouteImport } from './routes/investigar.tendencias'
 import { Route as InvestigarInspiracionRouteImport } from './routes/investigar.inspiracion'
@@ -83,6 +84,11 @@ const ProyectosIndexRoute = ProyectosIndexRouteImport.update({
 const CrearIndexRoute = CrearIndexRouteImport.update({
   id: '/crear/',
   path: '/crear/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VideosIdRoute = VideosIdRouteImport.update({
+  id: '/videos/$id',
+  path: '/videos/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProyectosIdRoute = ProyectosIdRouteImport.update({
@@ -184,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/investigar/inspiracion': typeof InvestigarInspiracionRoute
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
   '/proyectos/$id': typeof ProyectosIdRoute
+  '/videos/$id': typeof VideosIdRoute
   '/crear/': typeof CrearIndexRoute
   '/proyectos/': typeof ProyectosIndexRoute
   '/videos/': typeof VideosIndexRoute
@@ -211,6 +218,7 @@ export interface FileRoutesByTo {
   '/investigar/inspiracion': typeof InvestigarInspiracionRoute
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
   '/proyectos/$id': typeof ProyectosIdRoute
+  '/videos/$id': typeof VideosIdRoute
   '/crear': typeof CrearIndexRoute
   '/proyectos': typeof ProyectosIndexRoute
   '/videos': typeof VideosIndexRoute
@@ -239,6 +247,7 @@ export interface FileRoutesById {
   '/investigar/inspiracion': typeof InvestigarInspiracionRoute
   '/investigar/tendencias': typeof InvestigarTendenciasRoute
   '/proyectos/$id': typeof ProyectosIdRoute
+  '/videos/$id': typeof VideosIdRoute
   '/crear/': typeof CrearIndexRoute
   '/proyectos/': typeof ProyectosIndexRoute
   '/videos/': typeof VideosIndexRoute
@@ -268,6 +277,7 @@ export interface FileRouteTypes {
     | '/investigar/inspiracion'
     | '/investigar/tendencias'
     | '/proyectos/$id'
+    | '/videos/$id'
     | '/crear/'
     | '/proyectos/'
     | '/videos/'
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/investigar/inspiracion'
     | '/investigar/tendencias'
     | '/proyectos/$id'
+    | '/videos/$id'
     | '/crear'
     | '/proyectos'
     | '/videos'
@@ -322,6 +333,7 @@ export interface FileRouteTypes {
     | '/investigar/inspiracion'
     | '/investigar/tendencias'
     | '/proyectos/$id'
+    | '/videos/$id'
     | '/crear/'
     | '/proyectos/'
     | '/videos/'
@@ -350,6 +362,7 @@ export interface RootRouteChildren {
   InvestigarInspiracionRoute: typeof InvestigarInspiracionRoute
   InvestigarTendenciasRoute: typeof InvestigarTendenciasRoute
   ProyectosIdRoute: typeof ProyectosIdRoute
+  VideosIdRoute: typeof VideosIdRoute
   CrearIndexRoute: typeof CrearIndexRoute
   ProyectosIndexRoute: typeof ProyectosIndexRoute
   VideosIndexRoute: typeof VideosIndexRoute
@@ -425,6 +438,13 @@ declare module '@tanstack/react-router' {
       path: '/crear'
       fullPath: '/crear/'
       preLoaderRoute: typeof CrearIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/videos/$id': {
+      id: '/videos/$id'
+      path: '/videos/$id'
+      fullPath: '/videos/$id'
+      preLoaderRoute: typeof VideosIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/proyectos/$id': {
@@ -558,6 +578,7 @@ const rootRouteChildren: RootRouteChildren = {
   InvestigarInspiracionRoute: InvestigarInspiracionRoute,
   InvestigarTendenciasRoute: InvestigarTendenciasRoute,
   ProyectosIdRoute: ProyectosIdRoute,
+  VideosIdRoute: VideosIdRoute,
   CrearIndexRoute: CrearIndexRoute,
   ProyectosIndexRoute: ProyectosIndexRoute,
   VideosIndexRoute: VideosIndexRoute,
@@ -565,3 +586,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
