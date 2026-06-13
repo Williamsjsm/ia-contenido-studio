@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { trendsMock, type TrendSummary } from "@/lib/mock-trends";
 
 export interface UseTrendsResult {
@@ -8,11 +9,12 @@ export interface UseTrendsResult {
 }
 
 export function useTrends(): UseTrendsResult {
-  const data = trendsMock;
-  return {
-    data,
-    isLoading: false,
-    error: null,
-    isEmpty: data.length === 0,
-  };
+  const q = useQuery({
+    queryKey: ["mock", "trends"],
+    queryFn: () => trendsMock as TrendSummary[],
+    staleTime: 60_000,
+    placeholderData: (prev) => prev,
+  });
+  const data = q.data ?? [];
+  return { data, isLoading: q.isLoading, error: (q.error as Error | null) ?? null, isEmpty: data.length === 0 };
 }
