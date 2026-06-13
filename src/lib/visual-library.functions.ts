@@ -483,7 +483,7 @@ const AnalyzeSchema = z.object({
 
 const AnalyzeDataSchema = z.object({
   contentType: z.enum(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]),
-  base64: z.string().min(1).max(15_000_000),
+  base64: z.string().min(1).max(25_000_000),
 });
 
 export type AnalyzeCharacterResult =
