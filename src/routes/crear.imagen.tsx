@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -205,6 +205,18 @@ function ImagenIA() {
   const selectedCharacter =
     characters.find((c) => c.id === selectedCharacterId) ?? null;
 
+  // Memoized character injection — recomputes only when the active character toggles or changes.
+  const characterInjection = useMemo(() => {
+    if (!useCharacter || !selectedCharacter) return null;
+    return [
+      selectedCharacter.master_prompt,
+      selectedCharacter.description ? `Descripción: ${selectedCharacter.description}` : "",
+      selectedCharacter.tags?.length ? `Tags: ${selectedCharacter.tags.join(", ")}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }, [useCharacter, selectedCharacter]);
+
   useEffect(() => {
     if (!search.personajeId) return;
     setUseCharacter(true);
@@ -247,15 +259,6 @@ function ImagenIA() {
     setUpscaledImage(null);
     try {
       const character = useCharacter && selectedCharacter ? selectedCharacter : null;
-      const characterInjection = character
-        ? [
-            character.master_prompt,
-            character.description ? `Descripción: ${character.description}` : "",
-            character.tags?.length ? `Tags: ${character.tags.join(", ")}` : "",
-          ]
-            .filter(Boolean)
-            .join("\n")
-        : null;
       const res = await generate({
         data: {
           prompt: trimmed,
