@@ -546,17 +546,33 @@ export function ImportCharacterDialog({
                         }
                         const ct = (file.type || "image/png") as (typeof ALLOWED_MIME)[number];
                         if (!ALLOWED_MIME.includes(ct)) continue;
-                        const base64 = await fileToBase64(file);
-                        const r = await uploadFn({
-                          data: { filename: file.name, contentType: ct, base64, scope: "character" },
+                        const target = await createUploadTargetFn({
+                          data: { filename: file.name, contentType: ct, scope: "character" },
                         });
-                        if (r.ok) {
-                          setSecondaryPaths((arr) =>
-                            arr.length >= 10 ? arr : [...arr, { path: r.path, url: r.url }],
-                          );
-                        } else {
-                          toast.error(`${file.name}: ${r.message}`);
+                        if (!target.ok) {
+                          toast.error(`${file.name}: ${target.message}`);
+                          continue;
                         }
+                        const uploaded = await supabase.storage
+                          .from(target.bucket)
+                          .uploadToSignedUrl(target.path, target.token, file, {
+                            contentType: ct,
+                            cacheControl: "31536000",
+                          });
+                        if (uploaded.error) {
+                          toast.error(`${file.name}: ${uploaded.error.message}`);
+                          continue;
+                        }
+                        let url: string | null = null;
+                        try {
+                          const signed = await signImageFn({ data: { image_path: target.path } });
+                          url = signed.ok ? signed.url : null;
+                        } catch {
+                          url = null;
+                        }
+                        setSecondaryPaths((arr) =>
+                          arr.length >= 10 ? arr : [...arr, { path: target.path, url }],
+                        );
                       }
                     } catch (err) {
                       console.error(err);
