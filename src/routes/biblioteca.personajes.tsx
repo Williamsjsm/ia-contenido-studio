@@ -113,6 +113,7 @@ function PersonajesPage() {
   const deleteFn = useServerFn(deleteVirtualCharacter);
   const duplicateFn = useServerFn(duplicateVirtualCharacter);
   const createUploadTargetFn = useServerFn(createVisualUploadTarget);
+  const uploadFormFn = useServerFn(uploadVisualImageForm);
   const signImageFn = useServerFn(signVisualImage);
 
   const query = useQuery({ queryKey: ["library", "characters"], queryFn: () => list() });
@@ -163,7 +164,22 @@ function PersonajesPage() {
         (result) => !result.ok && isTransientUploadText(result.message),
       );
       if (!target.ok) {
-        toast.error("No se pudo preparar la subida", { description: target.message });
+        const body = new FormData();
+        body.append("file", working);
+        body.append("scope", "character");
+        const fallback = await retryTransient(
+          () => uploadFormFn({ data: body }),
+          (result) => !result.ok && isTransientUploadText(result.message),
+        );
+        if (!fallback.ok) {
+          toast.error("No se pudo subir la imagen", { description: fallback.message });
+          return;
+        }
+        setForm((f) => ({
+          ...f,
+          reference_image_path: fallback.path,
+          reference_image_url: fallback.url ?? f.reference_image_url,
+        }));
         return;
       }
       const uploaded = await retryTransient(
