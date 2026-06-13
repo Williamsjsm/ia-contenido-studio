@@ -12,7 +12,7 @@ const SIGNED_TTL = 60 * 60 * 24 * 7; // 7 días
 const SIGN_CACHE_TTL_MS = 60 * 60 * 24 * 6 * 1000;
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
-async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
   const results = new Array<R>(items.length);
   let nextIndex = 0;
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
