@@ -586,19 +586,29 @@ export function ImportCharacterDialog({
                         }
                         const ct = (file.type || "image/png") as (typeof ALLOWED_MIME)[number];
                         if (!ALLOWED_MIME.includes(ct)) continue;
-                        const target = await createUploadTargetFn({
-                          data: { filename: file.name, contentType: ct, scope: "character" },
-                        });
+                        const target = await retryTransient(
+                          "secondary:prepare",
+                          () => createUploadTargetFn({
+                            data: { filename: file.name, contentType: ct, scope: "character" },
+                          }),
+                          3,
+                          (result) => !result.ok && isTransientUploadText(result.message),
+                        );
                         if (!target.ok) {
                           toast.error(`${file.name}: ${target.message}`);
                           continue;
                         }
-                        const uploaded = await supabase.storage
-                          .from(target.bucket)
-                          .uploadToSignedUrl(target.path, target.token, file, {
-                            contentType: ct,
-                            cacheControl: "31536000",
-                          });
+                        const uploaded = await retryTransient(
+                          "secondary:file",
+                          () => supabase.storage
+                            .from(target.bucket)
+                            .uploadToSignedUrl(target.path, target.token, file, {
+                              contentType: ct,
+                              cacheControl: "31536000",
+                            }),
+                          3,
+                          (result) => Boolean(result.error && isTransientUploadText(result.error.message)),
+                        );
                         if (uploaded.error) {
                           toast.error(`${file.name}: ${uploaded.error.message}`);
                           continue;
