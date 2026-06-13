@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LibraryShell, EmptyState } from "@/components/library-shell";
 import { LibraryToolbar, DEFAULT_FILTERS, matchesFilters, type ViewMode, type LibraryFilters } from "@/components/library-toolbar";
 import { IMAGES, fmtDate, type ImageItem } from "@/lib/library-data";
@@ -16,6 +16,11 @@ function ImagesPage() {
   const [view, setView] = useState<ViewMode>("grid");
   const [filters, setFilters] = useState<LibraryFilters>(DEFAULT_FILTERS);
   const items = useMemo(() => IMAGES.filter((i) => matchesFilters(i, filters)), [filters]);
+  const [visible, setVisible] = useState(20);
+  // Reset pagination when filters change
+  useEffect(() => { setVisible(20); }, [filters]);
+  const shown = items.slice(0, visible);
+  const hasMore = items.length > visible;
 
   return (
     <LibraryShell count={IMAGES.length}>
@@ -23,19 +28,38 @@ function ImagesPage() {
       {items.length === 0 ? (
         <EmptyState label="imágenes" />
       ) : view === "grid" ? (
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {items.map((i) => <ImageCard key={i.id} i={i} />)}
-        </div>
+        <>
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {shown.map((i) => <ImageCard key={i.id} i={i} />)}
+          </div>
+          {hasMore && <LoadMore onClick={() => setVisible((v) => v + 20)} remaining={items.length - visible} />}
+        </>
       ) : view === "list" ? (
-        <div className="space-y-2">
-          {items.map((i) => <ImageRow key={i.id} i={i} />)}
-        </div>
+        <>
+          <div className="space-y-2">
+            {shown.map((i) => <ImageRow key={i.id} i={i} />)}
+          </div>
+          {hasMore && <LoadMore onClick={() => setVisible((v) => v + 20)} remaining={items.length - visible} />}
+        </>
       ) : (
-        <div className="grid gap-2 grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-          {items.map((i) => <ImageThumb key={i.id} i={i} />)}
-        </div>
+        <>
+          <div className="grid gap-2 grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+            {shown.map((i) => <ImageThumb key={i.id} i={i} />)}
+          </div>
+          {hasMore && <LoadMore onClick={() => setVisible((v) => v + 20)} remaining={items.length - visible} />}
+        </>
       )}
     </LibraryShell>
+  );
+}
+
+function LoadMore({ onClick, remaining }: { onClick: () => void; remaining: number }) {
+  return (
+    <div className="mt-6 flex justify-center">
+      <Button variant="outline" size="sm" onClick={onClick}>
+        Cargar más ({remaining} restantes)
+      </Button>
+    </div>
   );
 }
 
