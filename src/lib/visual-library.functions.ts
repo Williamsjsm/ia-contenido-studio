@@ -10,6 +10,18 @@ function ownerId(): string {
 const BUCKET = "visual-references";
 const SIGNED_TTL = 60 * 60 * 24 * 7; // 7 días
 
+async function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timer = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error(`${label}: timeout`)), ms);
+  });
+  try {
+    return await Promise.race([promise, timer]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
 /**
  * Defensa en profundidad: garantiza que cualquier path recibido del cliente
  * pertenece al owner actual. Bloquea IDOR aunque el cliente envíe paths
@@ -26,9 +38,18 @@ function assertOwnedPath(path: string | null | undefined, owner: string): void {
 async function sign(path: string | null | undefined): Promise<string | null> {
   if (!path) return null;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, SIGNED_TTL);
-  if (error || !data?.signedUrl) return null;
-  return data.signedUrl;
+  try {
+    const { data, error } = await withTimeout(
+      supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, SIGNED_TTL),
+      8_000,
+      "createSignedUrl",
+    );
+    if (error || !data?.signedUrl) return null;
+    return data.signedUrl;
+  } catch (error) {
+    console.warn("sign visual image failed:", error);
+    return null;
+  }
 }
 
 // ------------------------ Upload ------------------------
