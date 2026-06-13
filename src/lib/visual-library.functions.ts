@@ -41,6 +41,39 @@ const UploadSchema = z.object({
   scope: z.enum(["reference", "character"]).default("reference"),
 });
 
+const UploadTargetSchema = z.object({
+  filename: z.string().min(1).max(200),
+  contentType: z.enum(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]),
+  scope: z.enum(["reference", "character"]).default("reference"),
+});
+
+export const createVisualUploadTarget = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => UploadTargetSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const ext = (data.filename.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+    const path = `${owner}/${data.scope}/${crypto.randomUUID()}.${ext}`;
+    const { data: signed, error } = await supabaseAdmin.storage
+      .from(BUCKET)
+      .createSignedUploadUrl(path, { upsert: false });
+    if (error || !signed?.token) {
+      console.error("createVisualUploadTarget failed:", error);
+      return { ok: false as const, message: error?.message ?? "No se pudo preparar la subida" };
+    }
+    return { ok: true as const, path, token: signed.token, bucket: BUCKET, contentType: data.contentType };
+  });
+
+export const signVisualImage = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => z.object({ image_path: z.string().min(1).max(500) }).parse(input))
+  .handler(async ({ data }) => {
+    const owner = ownerId();
+    assertOwnedPath(data.image_path, owner);
+    return { ok: true as const, url: await sign(data.image_path) };
+  });
+
 export const uploadVisualImage = createServerFn({ method: "POST" })
   .middleware([requireAccess])
   .inputValidator((input: unknown) => UploadSchema.parse(input))
