@@ -11,6 +11,12 @@ const BUCKET = "visual-references";
 const SIGNED_TTL = 60 * 60 * 24 * 7; // 7 días
 const SIGN_CACHE_TTL_MS = 60 * 60 * 24 * 6 * 1000;
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+let uploadPrepBackoffUntil = 0;
+
+function isStorageBusy(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /too many connections|database|connection|timeout|timed out/i.test(message);
+}
 
 async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
   const results = new Array<R>(items.length);
@@ -96,6 +102,12 @@ export const createVisualUploadTarget = createServerFn({ method: "POST" })
     const owner = ownerId();
     const ext = (data.filename.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
     const path = `${owner}/${data.scope}/${crypto.randomUUID()}.${ext}`;
+    if (uploadPrepBackoffUntil > Date.now()) {
+      return {
+        ok: false as const,
+        message: "El backend está saturado preparando subidas. Usando ruta alternativa.",
+      };
+    }
     const { data: signed, error } = await withTimeout(
       supabaseAdmin.storage.from(BUCKET).createSignedUploadUrl(path, { upsert: false }),
       4_000,
@@ -103,7 +115,8 @@ export const createVisualUploadTarget = createServerFn({ method: "POST" })
     ).catch((error) => ({ data: null, error: error as Error }));
     if (error || !signed?.token) {
       console.error("createVisualUploadTarget failed:", error);
-      if (/too many connections|database|connection|timeout|timed out/i.test(error?.message ?? "")) {
+      if (isStorageBusy(error)) {
+        uploadPrepBackoffUntil = Date.now() + 15_000;
         return {
           ok: false as const,
           message: "El backend está saturado preparando subidas. Espera unos segundos y reintenta; la vista previa no se pierde.",
