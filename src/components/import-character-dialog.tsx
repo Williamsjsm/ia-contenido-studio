@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Upload, Sparkles, ImagePlus, X, Wand2 } from "lucide-react";
+import { Loader2, Upload, Sparkles, ImagePlus, X, Wand2, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,7 @@ import {
   analyzeCharacterFromImage,
   createVirtualCharacter,
 } from "@/lib/visual-library.functions";
+import { maybeCompressImage } from "@/lib/image-compress";
 
 export type ImportAnalyzedPayload = {
   name: string;
@@ -63,6 +64,23 @@ function fileToBase64(file: File): Promise<string> {
 
 const ALLOWED_MIME = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"] as const;
 
+type Stage =
+  | { kind: "idle" }
+  | { kind: "compressing" }
+  | { kind: "uploading" }
+  | { kind: "uploaded" }
+  | { kind: "analyzing" }
+  | { kind: "analyzed" }
+  | { kind: "saving" }
+  | { kind: "error"; at: "compress" | "upload" | "analyze" | "save"; message: string };
+
+function logStage(label: string, extra?: Record<string, unknown>) {
+  if (typeof import.meta !== "undefined" && (import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
+    // eslint-disable-next-line no-console
+    console.debug(`[import-character] ${label}`, extra ?? {});
+  }
+}
+
 export function ImportCharacterDialog({
   open,
   onOpenChange,
@@ -79,11 +97,11 @@ export function ImportCharacterDialog({
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const [uploading, setUploading] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [stage, setStage] = useState<Stage>({ kind: "idle" });
   const [imagePath, setImagePath] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [descText, setDescText] = useState("");
   const [masterPrompt, setMasterPrompt] = useState("");
@@ -93,6 +111,10 @@ export function ImportCharacterDialog({
   const [secondaryPaths, setSecondaryPaths] = useState<{ path: string; url: string | null }[]>([]);
   const [uploadingSecondary, setUploadingSecondary] = useState(false);
   const secondaryRef = useRef<HTMLInputElement | null>(null);
+
+  const uploading = stage.kind === "uploading" || stage.kind === "compressing";
+  const analyzing = stage.kind === "analyzing";
+  const saving = stage.kind === "saving";
 
   // Auto-load a pre-uploaded image when the dialog opens.
   useEffect(() => {
@@ -105,25 +127,34 @@ export function ImportCharacterDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialImage?.path]);
 
+  // Liberar objectURL al desmontar / cambiar.
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function reset() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setImagePath(null);
     setImageUrl(null);
+    setPreviewUrl(null);
+    setPendingFile(null);
     setName("");
     setDescText("");
     setMasterPrompt("");
     setTagsText("");
     setAttributes({});
     setAnalyzed(false);
-    setUploading(false);
-    setAnalyzing(false);
-    setSaving(false);
+    setStage({ kind: "idle" });
     setSecondaryPaths([]);
     setUploadingSecondary(false);
   }
 
   async function handleFile(file: File) {
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Máx. 10 MB");
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("Imagen demasiado grande", { description: "Máx. 15 MB. Reduce el tamaño e intenta de nuevo." });
       return;
     }
     const ct = (file.type || "image/png") as (typeof ALLOWED_MIME)[number];
@@ -131,33 +162,80 @@ export function ImportCharacterDialog({
       toast.error("Formato no soportado", { description: "Usa PNG, JPG, WEBP o GIF." });
       return;
     }
-    setUploading(true);
+    // Preview local inmediato.
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    const objUrl = URL.createObjectURL(file);
+    setPreviewUrl(objUrl);
+    setImageUrl(objUrl);
+    setPendingFile(file);
+    await runUpload(file);
+  }
+
+  async function runUpload(file: File) {
+    const tUpload = performance.now();
+    let working = file;
     try {
-      const base64 = await fileToBase64(file);
+      if (file.size > 3 * 1024 * 1024) {
+        setStage({ kind: "compressing" });
+        logStage("compress:start", { size: file.size, type: file.type });
+        const c = await maybeCompressImage(file);
+        working = c.file;
+        logStage("compress:done", {
+          originalSize: c.originalSize,
+          finalSize: c.finalSize,
+          compressed: c.compressed,
+        });
+        if (c.compressed) {
+          toast.message("Imagen optimizada", {
+            description: `Reducida de ${(c.originalSize / 1024 / 1024).toFixed(1)} MB a ${(c.finalSize / 1024 / 1024).toFixed(1)} MB.`,
+          });
+        }
+      }
+    } catch (e) {
+      logStage("compress:error", { error: String(e) });
+    }
+
+    setStage({ kind: "uploading" });
+    const ct = (working.type || "image/png") as (typeof ALLOWED_MIME)[number];
+    try {
+      const base64 = await fileToBase64(working);
+      logStage("upload:start", { size: working.size, type: ct });
       const r = await uploadFn({
-        data: { filename: file.name, contentType: ct, base64, scope: "character" },
+        data: { filename: working.name, contentType: ct, base64, scope: "character" },
       });
+      logStage("upload:done", { ms: Math.round(performance.now() - tUpload), ok: r.ok });
       if (!r.ok) {
-        toast.error("No se pudo subir", { description: r.message });
+        setStage({ kind: "error", at: "upload", message: r.message });
+        toast.error("No se pudo subir la imagen", { description: r.message });
         return;
       }
       setImagePath(r.path);
-      setImageUrl(r.url);
-      await analyze(r.path);
+      // Conservamos el preview local; cuando llegue la signed URL la usaremos.
+      if (r.url) setImageUrl(r.url);
+      setStage({ kind: "uploaded" });
+      void analyze(r.path);
     } catch (e) {
-      console.error(e);
-      toast.error("Error al subir la imagen.");
-    } finally {
-      setUploading(false);
+      const msg = e instanceof Error ? e.message : "Error de red";
+      logStage("upload:error", { error: msg });
+      setStage({ kind: "error", at: "upload", message: msg });
+      toast.error("Error al subir la imagen", { description: "Pulsa Reintentar." });
     }
   }
 
+  async function retryUpload() {
+    if (!pendingFile) return;
+    await runUpload(pendingFile);
+  }
+
   async function analyze(path: string) {
-    setAnalyzing(true);
+    setStage({ kind: "analyzing" });
+    const t = performance.now();
     try {
       const r = await analyzeFn({ data: { image_path: path } });
+      logStage("analyze:done", { ms: Math.round(performance.now() - t), ok: r.ok });
       if (!r.ok) {
-        toast.error("No se pudo analizar la imagen", { description: r.message });
+        setStage({ kind: "error", at: "analyze", message: r.message });
+        toast.warning("Imagen subida. Análisis pendiente.", { description: r.message });
         return;
       }
       setName(r.name);
@@ -166,12 +244,13 @@ export function ImportCharacterDialog({
       setTagsText(r.tags.join(", "));
       setAttributes(r.attributes ?? {});
       setAnalyzed(true);
+      setStage({ kind: "analyzed" });
       toast.success("Imagen analizada. Revisa y corrige los campos.");
     } catch (e) {
-      console.error(e);
-      toast.error("Error al analizar.");
-    } finally {
-      setAnalyzing(false);
+      const msg = e instanceof Error ? e.message : "Error inesperado";
+      logStage("analyze:error", { error: msg });
+      setStage({ kind: "error", at: "analyze", message: msg });
+      toast.warning("Imagen subida. Análisis pendiente.", { description: "Pulsa Reintentar análisis." });
     }
   }
 
@@ -203,7 +282,8 @@ export function ImportCharacterDialog({
       onOpenChange(false);
       return;
     }
-    setSaving(true);
+    setStage({ kind: "saving" });
+    const t = performance.now();
     try {
       const r = await createFn({
         data: {
@@ -215,17 +295,25 @@ export function ImportCharacterDialog({
           secondary_reference_paths: secondaryPaths.map((s) => s.path),
         },
       });
+      logStage("save:done", { ms: Math.round(performance.now() - t), ok: r.ok });
       if (!r.ok) {
-        toast.error("No se pudo guardar", { description: r.message });
+        setStage({ kind: "error", at: "save", message: r.message });
+        toast.error("Imagen subida, pero no se pudo guardar el registro", {
+          description: `${r.message}. Pulsa Reintentar guardar.`,
+        });
         return;
       }
       toast.success("Personaje creado desde imagen.");
-      qc.invalidateQueries({ queryKey: ["library", "characters"] });
+      // Invalidación quirúrgica: solo la lista de personajes.
+      qc.invalidateQueries({ queryKey: ["library", "characters"], exact: true });
       onSaved?.({ id: r.character.id, name: r.character.name });
       reset();
       onOpenChange(false);
-    } finally {
-      setSaving(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error inesperado";
+      logStage("save:error", { error: msg });
+      setStage({ kind: "error", at: "save", message: msg });
+      toast.error("No se pudo guardar el registro", { description: "Pulsa Reintentar guardar." });
     }
   }
 
