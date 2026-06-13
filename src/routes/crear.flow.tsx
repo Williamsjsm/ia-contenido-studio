@@ -6,13 +6,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Slider } from "@/components/ui/slider";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -30,12 +28,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-
 import {
-
   Play,
   Pause,
-  Plus,
   FastForward,
   GitMerge,
   Wand2,
@@ -47,13 +42,8 @@ import {
   Share2,
   Maximize2,
   Volume2,
-  Clock,
-  Cpu,
-  Aperture,
   Palette,
-  ChevronRight,
   Image as ImageIcon,
-  Zap,
   AlertCircle,
   X,
   Save,
@@ -71,11 +61,6 @@ import {
   duplicateFlowJob,
   type FlowJob,
 } from "@/lib/flow-jobs.functions";
-import {
-  FlowPointsCalculator,
-  calculateFlowPoints,
-  type FlowPointsState,
-} from "@/components/flow-points-calculator";
 
 const flowSearchSchema = z.object({
   from: fallback(z.string(), "").default(""),
@@ -93,7 +78,7 @@ export const Route = createFileRoute("/crear/flow")({
       {
         name: "description",
         content:
-          "Centro cinematográfico para generar, extender y refinar videos con IA.",
+          "Estación de trabajo compacta para generar, extender y refinar videos con IA.",
       },
     ],
   }),
@@ -101,121 +86,48 @@ export const Route = createFileRoute("/crear/flow")({
   component: FlowCenter,
 });
 
-// ───────────────────────────── Mock data ─────────────────────────────
-
-const actions = [
-  { id: "create", label: "Crear Video", icon: Plus, hint: "Nuevo desde prompt" },
-  { id: "extend", label: "Extender 8s", icon: FastForward, hint: "Continúa la escena" },
-  { id: "frame", label: "Continuar desde frame", icon: ImageIcon, hint: "Usar último frame" },
-  { id: "continuity", label: "Mejorar continuidad", icon: GitMerge, hint: "Suavizar transiciones" },
-  { id: "colors", label: "Mejorar colores", icon: Palette, hint: "Color grading IA" },
-];
-
-const PRESETS: Array<{
-  id: string;
-  label: string;
-  duration: string;
-  resolution: string;
-  aspect: string;
-  model: string;
-}> = [
-  { id: "yt-shorts", label: "YouTube Shorts", duration: "15", resolution: "1080", aspect: "9:16", model: "veo3" },
+const PRESETS = [
+  { id: "yt-shorts", label: "Shorts", duration: "15", resolution: "1080", aspect: "9:16", model: "veo3" },
   { id: "tiktok", label: "TikTok", duration: "15", resolution: "1080", aspect: "9:16", model: "runway" },
   { id: "reels", label: "Reels", duration: "15", resolution: "1080", aspect: "9:16", model: "pika" },
-  { id: "facebook", label: "Facebook", duration: "10", resolution: "1080", aspect: "1:1", model: "flow" },
-  { id: "cinematic", label: "Cinemático 16:9", duration: "8", resolution: "4k", aspect: "16:9", model: "veo3" },
-];
+  { id: "cinematic", label: "Cine 16:9", duration: "8", resolution: "4k", aspect: "16:9", model: "veo3" },
+] as const;
 
 const ASPECTS = ["9:16", "1:1", "4:3", "16:9"] as const;
+const TIPOS = ["video", "imagen"] as const;
+const MODOS = ["fotogramas", "ingredientes"] as const;
+const VARIATIONS = [1, 2, 3, 4] as const;
+const DURATIONS = ["4", "6", "8", "10", "15"] as const;
 
-const historyMock = [
-  {
-    id: "v7",
-    title: "Cinematic neon alley · v7",
-    model: "Veo 3",
-    duration: "8s",
-    res: "1080p",
-    status: "ready",
-    time: "hace 2 min",
-    thumb: "linear-gradient(135deg,#1a103d 0%,#5b21b6 50%,#ec4899 100%)",
-  },
-  {
-    id: "v6",
-    title: "Cinematic neon alley · v6",
-    model: "Runway Gen-3",
-    duration: "5s",
-    res: "1080p",
-    status: "ready",
-    time: "hace 14 min",
-    thumb: "linear-gradient(135deg,#0c1f3b 0%,#1d4ed8 60%,#22d3ee 100%)",
-  },
-  {
-    id: "v5",
-    title: "Drone over desert dunes",
-    model: "Pika 2.0",
-    duration: "6s",
-    res: "720p",
-    status: "ready",
-    time: "hace 1 h",
-    thumb: "linear-gradient(135deg,#3b1d0b 0%,#b45309 60%,#fcd34d 100%)",
-  },
-  {
-    id: "v4",
-    title: "Slow-mo splash macro",
-    model: "Veo 3",
-    duration: "4s",
-    res: "1080p",
-    status: "rendering",
-    time: "procesando",
-    thumb: "linear-gradient(135deg,#052e2b 0%,#0d9488 60%,#a7f3d0 100%)",
-  },
-  {
-    id: "v3",
-    title: "Cyberpunk skyline pan",
-    model: "Flow Pro",
-    duration: "10s",
-    res: "4K",
-    status: "ready",
-    time: "ayer",
-    thumb: "linear-gradient(135deg,#1e1b4b 0%,#7c3aed 50%,#f472b6 100%)",
-  },
-];
+const heroThumb = "linear-gradient(135deg,#1a103d 0%,#5b21b6 50%,#ec4899 100%)";
 
 const versions = [
   { id: "v7", label: "v7", note: "Color grading +12, extendido 8s", current: true },
   { id: "v6", label: "v6", note: "Frame inicial cambiado" },
   { id: "v5", label: "v5", note: "Prompt refinado · 'neon rainfall'" },
-  { id: "v4", label: "v4", note: "Render base" },
 ];
-
-// ────────────────────────────── Page ─────────────────────────────────
 
 function FlowCenter() {
   const search = Route.useSearch();
   const qc = useQueryClient();
-  const [active, setActive] = useState("create");
-  const [selected, setSelected] = useState("v7");
-  const [strength, setStrength] = useState([72]);
-  const [promptText, setPromptText] = useState("");
-  const [showAlert, setShowAlert] = useState(false);
-  const [title, setTitle] = useState("");
-  const [model, setModel] = useState("veo3");
-  const [resolution, setResolution] = useState("1080");
-  const [duration, setDuration] = useState("8");
-  const [aspect, setAspect] = useState("16:9");
-  const [activePreset, setActivePreset] = useState<string | null>(null);
-  const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const navigate = useNavigate();
 
-  const [flowPoints, setFlowPoints] = useState<FlowPointsState>({
-    mode: "video",
-    mediaType: "fotogramas",
-    aspect: "9:16",
-    variations: 1,
-    duration: 10,
-    model: "omni-flash",
-  });
-  const flowPointsEstimate = calculateFlowPoints(flowPoints);
+  const [promptText, setPromptText] = useState("");
+  const [negativePrompt, setNegativePrompt] = useState(
+    "blurry, low quality, deformed, watermark",
+  );
+  const [title, setTitle] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
+  const [isGenerateOpen, setIsGenerateOpen] = useState(false);
+
+  const [model, setModel] = useState("veo3");
+  const [tipo, setTipo] = useState<(typeof TIPOS)[number]>("video");
+  const [aspect, setAspect] = useState("16:9");
+  const [modo, setModo] = useState<(typeof MODOS)[number]>("fotogramas");
+  const [duration, setDuration] = useState("8");
+  const [variations, setVariations] = useState<(typeof VARIATIONS)[number]>(1);
+  const [resolution, setResolution] = useState("1080");
+  const [activePreset, setActivePreset] = useState<string | null>(null);
 
   useEffect(() => {
     if (search.from && search.prompt) {
@@ -225,9 +137,6 @@ function FlowCenter() {
     }
   }, [search]);
 
-  const current = historyMock.find((h) => h.id === selected) ?? historyMock[0];
-
-  // ── Flow jobs query ───────────────────────────────────────────
   const fetchJobs = useServerFn(listFlowJobs);
   const jobsQuery = useQuery({
     queryKey: ["flow", "jobs"],
@@ -246,9 +155,7 @@ function FlowCenter() {
       if (res.ok) {
         toast.success("Guardado en Flow");
         invalidate();
-      } else {
-        toast.error(res.message);
-      }
+      } else toast.error(res.message);
     },
   });
 
@@ -259,9 +166,7 @@ function FlowCenter() {
       if (res.ok) {
         toast.success("Eliminado");
         invalidate();
-      } else {
-        toast.error(res.message);
-      }
+      } else toast.error(res.message);
     },
   });
 
@@ -272,9 +177,7 @@ function FlowCenter() {
       if (res.ok) {
         toast.success("Duplicado");
         invalidate();
-      } else {
-        toast.error(res.message);
-      }
+      } else toast.error(res.message);
     },
   });
 
@@ -284,7 +187,7 @@ function FlowCenter() {
     setResolution(p.resolution);
     setAspect(p.aspect);
     setModel(p.model);
-    toast.message(`Preset aplicado: ${p.label}`);
+    toast.message(`Preset: ${p.label}`);
   }
 
   function handleSave() {
@@ -304,11 +207,9 @@ function FlowCenter() {
         aspect_ratio: aspect,
         model,
         status: "draft",
-        flow_points_estimate: flowPointsEstimate,
-        flow_mode: flowPoints.mode,
-        flow_media_type: flowPoints.mediaType,
-        flow_generation_mode: `${flowPoints.model}-${flowPoints.duration}s-x${flowPoints.variations}`,
-        variations: flowPoints.variations,
+        flow_mode: tipo,
+        flow_media_type: modo,
+        variations,
       },
     });
   }
@@ -332,7 +233,6 @@ function FlowCenter() {
     }
   }
 
-  // TODO(video): conectar generación real vía proveedor de video cuando esté disponible.
   function handleGenerate() {
     if (!promptText.trim()) {
       toast.error("Agrega un prompt antes de generar.");
@@ -351,19 +251,18 @@ function FlowCenter() {
       search: {
         prompt: promptText.trim(),
         titulo: title.trim() || promptText.trim().slice(0, 60),
-        plataforma: (search.plataforma || activePreset || ""),
+        plataforma: search.plataforma || activePreset || "",
         categoria: search.categoria || "",
         flow_job_id: "",
       },
     });
   }
 
-
   return (
-    <div className="mx-auto w-full max-w-[1800px] space-y-6 p-4 lg:p-8">
+    <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-3 p-3 lg:p-4">
       <PageHeader
         title="Flow Center"
-        subtitle="Estudio cinematográfico para generar, extender y refinar tus videos con IA."
+        subtitle="Estación de trabajo para generar y refinar videos con IA."
         actions={
           <>
             <Badge
@@ -373,327 +272,190 @@ function FlowCenter() {
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_theme(colors.emerald.400)]" />
               Motor Flow online
             </Badge>
-            <Button size="sm" variant="outline" className="gap-1.5">
-              <Share2 className="h-3.5 w-3.5" /> Compartir
-            </Button>
             <Button
               size="sm"
               className="gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+              onClick={handleGenerate}
             >
-              <Sparkles className="h-3.5 w-3.5" /> Nueva generación
+              <Sparkles className="h-3.5 w-3.5" /> Generar
             </Button>
           </>
         }
       />
 
       {showAlert && (
-        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
-          <AlertCircle className="h-4 w-4 shrink-0" />
+        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
           <span className="flex-1">
-            {search.from === "biblioteca" ? "Prompt cargado desde Biblioteca" : "Prompt cargado desde Crear"}
+            {search.from === "biblioteca"
+              ? "Prompt cargado desde Biblioteca"
+              : "Prompt cargado desde Crear"}
             {search.variante ? ` · Variante: ${search.variante}` : ""}
           </span>
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setShowAlert(false)}>
-            <X className="h-3.5 w-3.5" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 w-5 p-0"
+            onClick={() => setShowAlert(false)}
+          >
+            <X className="h-3 w-3" />
           </Button>
         </div>
       )}
 
-      {/* Action rail */}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-        {actions.map((a) => {
-          const isActive = active === a.id;
-          return (
-            <button
-              key={a.id}
-              onClick={() => setActive(a.id)}
-              className={[
-                "group relative flex items-center gap-3 rounded-xl border p-3 text-left transition-all",
-                isActive
-                  ? "border-primary/50 bg-[image:var(--gradient-primary)]/10 shadow-[0_0_0_1px_hsl(var(--primary)/0.25),0_8px_32px_-12px_hsl(var(--primary)/0.4)]"
-                  : "border-border/60 bg-card/60 hover:border-border hover:bg-card",
-              ].join(" ")}
-            >
-              <div
-                className={[
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition",
-                  isActive
-                    ? "bg-primary/15 text-primary"
-                    : "bg-secondary/15 text-secondary group-hover:bg-secondary/25",
-                ].join(" ")}
-              >
-                <a.icon className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">
-                  {a.label}
-                </p>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {a.hint}
-                </p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 3-column workspace */}
-      {/* Presets */}
-      <Card className="surface-card border-border/60">
-        <CardContent className="flex flex-wrap items-center gap-2 p-3">
-          <span className="mr-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-            Presets
-          </span>
-          {PRESETS.map((p) => {
-            const isOn = activePreset === p.id;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => applyPreset(p)}
-                className={[
-                  "rounded-md border px-2.5 py-1 text-xs font-medium transition",
-                  isOn
-                    ? "border-primary/50 bg-primary/10 text-primary"
-                    : "border-border/60 bg-background/40 text-muted-foreground hover:bg-background/80",
-                ].join(" ")}
-              >
-                {p.label}
-              </button>
-            );
-          })}
-        </CardContent>
-      </Card>
-
-      <FlowPointsCalculator state={flowPoints} onChange={setFlowPoints} />
-
-      <div className="grid gap-5 xl:grid-cols-[300px_1fr_340px]">
-        {/* ───────── Left: Configuration ───────── */}
-        <Card className="surface-card border-border/60">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-              <Cpu className="h-4 w-4 text-primary" />
-              Configuración
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <Field label="Modelo" icon={Sparkles}>
-              <Select value={model} onValueChange={setModel}>
-                <SelectTrigger className="h-9 bg-background/60">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="veo3">Veo 3 · Cinematic</SelectItem>
-                  <SelectItem value="runway">Runway Gen-3</SelectItem>
-                  <SelectItem value="pika">Pika 2.0</SelectItem>
-                  <SelectItem value="flow">Flow Pro</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-
-            <Field label="Resolución" icon={Aperture}>
-              <Select value={resolution} onValueChange={setResolution}>
-                <SelectTrigger className="h-9 bg-background/60">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="720">720p</SelectItem>
-                  <SelectItem value="1080">1080p Full HD</SelectItem>
-                  <SelectItem value="2k">2K</SelectItem>
-                  <SelectItem value="4k">4K Ultra</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-
-            <Field label="Duración" icon={Clock}>
-              <Select value={duration} onValueChange={setDuration}>
-                <SelectTrigger className="h-9 bg-background/60">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="4">4 segundos</SelectItem>
-                  <SelectItem value="5">5 segundos</SelectItem>
-                  <SelectItem value="8">8 segundos</SelectItem>
-                  <SelectItem value="10">10 segundos</SelectItem>
-                  <SelectItem value="15">15 segundos</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-
-            <Field label="Relación de aspecto" icon={Maximize2}>
-              <div className="grid grid-cols-4 gap-1.5">
-                {ASPECTS.map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setAspect(r)}
-                    className={[
-                      "rounded-md border px-2 py-1.5 text-[11px] font-medium transition",
-                      aspect === r
-                        ? "border-primary/50 bg-primary/10 text-primary"
-                        : "border-border/60 bg-background/40 text-muted-foreground hover:bg-background/80",
-                    ].join(" ")}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </Field>
-
-            <Field label="Calidad" icon={Zap}>
-              <Select defaultValue="high">
-                <SelectTrigger className="h-9 bg-background/60">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Borrador · rápido</SelectItem>
-                  <SelectItem value="standard">Estándar</SelectItem>
-                  <SelectItem value="high">Alta fidelidad</SelectItem>
-                  <SelectItem value="ultra">Ultra · lento</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-
-            <Separator className="bg-border/60" />
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Intensidad creativa
-                </Label>
-                <span className="text-xs font-mono tabular-nums text-foreground">
-                  {strength[0]}%
-                </span>
-              </div>
-              <Slider
-                value={strength}
-                onValueChange={setStrength}
-                min={0}
-                max={100}
-                step={1}
-              />
-            </div>
-
-            <Button
-              className="h-10 w-full gap-2 bg-[image:var(--gradient-primary)] text-primary-foreground shadow-[0_8px_24px_-8px_hsl(var(--primary)/0.6)] hover:opacity-90"
-              onClick={handleGenerate}
-            >
-              <Sparkles className="h-4 w-4" /> Generar
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* ───────── Center: Preview ───────── */}
-        <div className="flex flex-col gap-4">
+      {/* Main 70/30 workspace */}
+      <div className="grid gap-3 lg:grid-cols-[7fr_3fr]">
+        {/* ───────── LEFT 70% ───────── */}
+        <div className="flex min-w-0 flex-col gap-3">
+          {/* Video player — compact 16:9, height-capped */}
           <Card className="surface-card overflow-hidden border-border/60">
             <div
-              className="relative aspect-video w-full overflow-hidden"
-              style={{ background: current.thumb }}
+              className="relative mx-auto aspect-video w-full overflow-hidden"
+              style={{ background: heroThumb, maxHeight: "46vh" }}
             >
-              {/* Ambient glow */}
-              <div className="ambient-blob absolute -top-24 -left-24 h-72 w-72 rounded-full bg-primary/30 blur-3xl" />
-              <div className="ambient-blob absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-secondary/30 blur-3xl" />
-
-              {/* Film grain overlay */}
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.55)_100%)]" />
-
-              {/* Top bar */}
-              <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-4 py-3">
-                <Badge className="gap-1.5 border-white/10 bg-black/40 text-[11px] text-white backdrop-blur-md">
+              <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-3 py-2">
+                <Badge className="gap-1.5 border-white/10 bg-black/40 text-[10px] text-white backdrop-blur-md">
                   <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
-                  REC · {current.id.toUpperCase()}
+                  REC · V7
                 </Badge>
-                <Badge className="border-white/10 bg-black/40 text-[11px] text-white backdrop-blur-md">
-                  {current.model} · {current.res} · {current.duration}
+                <Badge className="border-white/10 bg-black/40 text-[10px] text-white backdrop-blur-md">
+                  {model} · {resolution}p · {duration}s
                 </Badge>
               </div>
-
-              {/* Play button */}
               <button className="absolute inset-0 flex items-center justify-center">
-                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md ring-1 ring-white/20 transition hover:scale-105 hover:bg-white/20">
-                  <Play className="h-7 w-7 fill-white" />
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md ring-1 ring-white/20 transition hover:scale-105 hover:bg-white/20">
+                  <Play className="h-6 w-6 fill-white" />
                 </span>
               </button>
-
-              {/* Bottom timeline */}
-              <div className="absolute inset-x-0 bottom-0 space-y-2 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-3 pt-8">
-                <div className="flex items-center gap-3 text-white">
-                  <button className="text-white/90 hover:text-white">
-                    <Pause className="h-4 w-4" />
-                  </button>
-                  <span className="font-mono text-[11px] tabular-nums text-white/70">
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2 pt-6">
+                <div className="flex items-center gap-2 text-white">
+                  <Pause className="h-3.5 w-3.5" />
+                  <span className="font-mono text-[10px] tabular-nums text-white/70">
                     00:03 / 00:08
                   </span>
                   <div className="relative mx-1 h-1 flex-1 overflow-hidden rounded-full bg-white/15">
                     <div className="absolute inset-y-0 left-0 w-[38%] rounded-full bg-white" />
-                    <div className="absolute inset-y-0 left-[38%] w-[12%] rounded-full bg-white/30" />
                   </div>
-                  <Volume2 className="h-4 w-4 text-white/70" />
-                  <Maximize2 className="h-4 w-4 text-white/70" />
+                  <Volume2 className="h-3.5 w-3.5 text-white/70" />
+                  <Maximize2 className="h-3.5 w-3.5 text-white/70" />
                 </div>
               </div>
             </div>
+          </Card>
 
-            <CardContent className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 p-4">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">
-                  {current.title}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {current.time} · {current.model}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" className="gap-1.5">
-                  <FastForward className="h-3.5 w-3.5" /> Extender 8s
-                </Button>
-                <Button size="sm" variant="outline" className="gap-1.5">
-                  <Palette className="h-3.5 w-3.5" /> Color grade
-                </Button>
-                <Button size="sm" className="gap-1.5">
-                  <Download className="h-3.5 w-3.5" /> Exportar
-                </Button>
-              </div>
+          {/* Configuración — single compact row */}
+          <Card className="surface-card border-border/60">
+            <CardContent className="grid gap-2 p-3 md:grid-cols-6">
+              <Field label="Modelo">
+                <Select value={model} onValueChange={setModel}>
+                  <SelectTrigger className="h-8 bg-background/60 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="veo3">Veo 3</SelectItem>
+                    <SelectItem value="runway">Runway Gen-3</SelectItem>
+                    <SelectItem value="pika">Pika 2.0</SelectItem>
+                    <SelectItem value="flow">Flow Pro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Tipo">
+                <PillRow
+                  value={tipo}
+                  options={TIPOS as readonly string[]}
+                  onChange={(v) => setTipo(v as (typeof TIPOS)[number])}
+                />
+              </Field>
+              <Field label="Aspecto">
+                <PillRow
+                  value={aspect}
+                  options={ASPECTS as readonly string[]}
+                  onChange={setAspect}
+                />
+              </Field>
+              <Field label="Modo">
+                <PillRow
+                  value={modo}
+                  options={MODOS as readonly string[]}
+                  onChange={(v) => setModo(v as (typeof MODOS)[number])}
+                />
+              </Field>
+              <Field label="Duración">
+                <Select value={duration} onValueChange={setDuration}>
+                  <SelectTrigger className="h-8 bg-background/60 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DURATIONS.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}s
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Variaciones">
+                <PillRow
+                  value={String(variations)}
+                  options={VARIATIONS.map((v) => `x${v}`)}
+                  onChange={(v) =>
+                    setVariations(
+                      Number(v.replace("x", "")) as (typeof VARIATIONS)[number],
+                    )
+                  }
+                  display={(o) => o}
+                  match={(o) => o === `x${variations}`}
+                />
+              </Field>
             </CardContent>
           </Card>
 
-          {/* Frame strip */}
+          {/* Quick actions */}
           <Card className="surface-card border-border/60">
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                <Film className="h-4 w-4 text-primary" /> Timeline · frames clave
-              </CardTitle>
-              <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs">
-                Continuar desde frame <ChevronRight className="h-3 w-3" />
+            <CardContent className="flex flex-wrap items-center gap-2 p-2.5">
+              <span className="mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                Presets
+              </span>
+              {PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => applyPreset(p)}
+                  className={[
+                    "rounded-md border px-2 py-1 text-[11px] font-medium transition",
+                    activePreset === p.id
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-border/60 bg-background/40 text-muted-foreground hover:bg-background/80",
+                  ].join(" ")}
+                >
+                  {p.label}
+                </button>
+              ))}
+              <div className="mx-2 hidden h-5 w-px bg-border/60 md:block" />
+              <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs">
+                <FastForward className="h-3.5 w-3.5" /> Extender 8s
               </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <button
-                    key={i}
-                    className={[
-                      "relative h-16 w-28 shrink-0 overflow-hidden rounded-md border transition",
-                      i === 3
-                        ? "border-primary shadow-[0_0_0_2px_hsl(var(--primary)/0.4)]"
-                        : "border-border/60 hover:border-border",
-                    ].join(" ")}
-                    style={{ background: current.thumb }}
-                  >
-                    <span className="absolute bottom-0.5 right-1 rounded bg-black/60 px-1 py-0.5 font-mono text-[9px] text-white">
-                      0:0{i}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs">
+                <Palette className="h-3.5 w-3.5" /> Color grade
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs">
+                <ImageIcon className="h-3.5 w-3.5" /> Continuar frame
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs">
+                <GitMerge className="h-3.5 w-3.5" /> Continuidad
+              </Button>
+              <Button size="sm" className="ml-auto h-7 gap-1.5 text-xs">
+                <Download className="h-3.5 w-3.5" /> Exportar
+              </Button>
             </CardContent>
           </Card>
         </div>
 
-        {/* ───────── Right: Prompt / History / Versions ───────── */}
+        {/* ───────── RIGHT 30% ───────── */}
         <Card className="surface-card border-border/60">
           <Tabs defaultValue="prompt" className="w-full">
-            <CardHeader className="pb-3">
+            <div className="p-3 pb-2">
               <TabsList className="grid w-full grid-cols-3 bg-secondary/30">
                 <TabsTrigger value="prompt" className="text-xs">
                   Prompt
@@ -705,42 +467,42 @@ function FlowCenter() {
                   Versiones
                 </TabsTrigger>
               </TabsList>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
-              <TabsContent value="prompt" className="mt-0 space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            </div>
+            <CardContent className="space-y-3 p-3 pt-0">
+              <TabsContent value="prompt" className="mt-0 space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
                     Título
                   </Label>
                   <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="Mi job de Flow"
-                    className="flex h-9 w-full rounded-md border border-border/60 bg-background/60 px-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary"
+                    className="flex h-8 w-full rounded-md border border-border/60 bg-background/60 px-2.5 text-xs outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Prompt utilizado
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Prompt
                   </Label>
                   <Textarea
                     value={promptText}
                     onChange={(e) => setPromptText(e.target.value)}
                     placeholder="Describe tu escena cinematográfica..."
-                    className="min-h-[140px] resize-none bg-background/60 text-sm leading-relaxed"
+                    className="max-h-[140px] min-h-[140px] resize-none bg-background/60 text-xs leading-relaxed"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
                     Negative prompt
                   </Label>
                   <Textarea
-                    defaultValue="blurry, low quality, deformed, watermark"
-                    className="min-h-[60px] resize-none bg-background/60 text-xs"
+                    value={negativePrompt}
+                    onChange={(e) => setNegativePrompt(e.target.value)}
+                    className="max-h-[90px] min-h-[90px] resize-none bg-background/60 text-[11px]"
                   />
                 </div>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1">
                   {["cinematic", "neon", "rain", "anamorphic", "teal/magenta"].map(
                     (t) => (
                       <Badge
@@ -753,19 +515,26 @@ function FlowCenter() {
                     ),
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-1.5">
                   <Button
                     size="sm"
                     variant="outline"
-                    className="gap-1.5"
-                    onClick={() => handleCopy(promptText)}
-                    disabled={!promptText.trim()}
+                    className="h-8 gap-1.5 text-xs"
                   >
-                    <Copy className="h-3.5 w-3.5" /> Copiar prompt
+                    <Wand2 className="h-3.5 w-3.5" /> Mejorar
                   </Button>
                   <Button
                     size="sm"
-                    className="gap-1.5 bg-[image:var(--gradient-primary)] text-primary-foreground hover:opacity-90"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-xs"
+                    onClick={() => handleCopy(promptText)}
+                    disabled={!promptText.trim()}
+                  >
+                    <Copy className="h-3.5 w-3.5" /> Copiar
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-8 gap-1.5 bg-[image:var(--gradient-primary)] text-xs text-primary-foreground hover:opacity-90"
                     onClick={handleSave}
                     disabled={saveMut.isPending}
                   >
@@ -774,123 +543,71 @@ function FlowCenter() {
                     ) : (
                       <Save className="h-3.5 w-3.5" />
                     )}
-                    Guardar en Flow
+                    Guardar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-8 gap-1.5 text-xs"
+                    onClick={handleSendToPublication}
+                    disabled={!promptText.trim()}
+                  >
+                    <Send className="h-3.5 w-3.5" /> Publicar
                   </Button>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full gap-1.5"
-                  onClick={handleSendToPublication}
-                  disabled={!promptText.trim()}
-                >
-                  <Send className="h-3.5 w-3.5" /> Enviar a Publicación
-                </Button>
-                <Button size="sm" variant="ghost" className="w-full gap-1.5 text-muted-foreground">
-                  <Wand2 className="h-3.5 w-3.5" /> Mejorar prompt
-                </Button>
               </TabsContent>
 
               <TabsContent value="history" className="mt-0">
-                <ScrollArea className="h-[440px] pr-2">
+                <ScrollArea className="h-[380px] pr-2">
                   <div className="flex items-center gap-2 pb-2 text-xs text-muted-foreground">
-                    <History className="h-3.5 w-3.5" /> Historial guardado
+                    <History className="h-3.5 w-3.5" /> Historial
                     {jobsQuery.data ? (
-                      <span className="ml-auto text-[10px]">{jobsQuery.data.length}</span>
+                      <span className="ml-auto text-[10px]">
+                        {jobsQuery.data.length}
+                      </span>
                     ) : null}
                   </div>
                   {jobsQuery.isLoading ? (
-                    <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
+                    <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
                       <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Cargando…
                     </div>
                   ) : jobsQuery.error ? (
-                    <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+                    <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive">
                       No se pudo cargar el historial.
                     </div>
                   ) : !jobsQuery.data || jobsQuery.data.length === 0 ? (
-                    <div className="rounded-md border border-border/60 bg-background/40 p-4 text-center text-xs text-muted-foreground">
-                      Aún no has guardado prompts en Flow.
+                    <div className="rounded-md border border-border/60 bg-background/40 p-3 text-center text-[11px] text-muted-foreground">
+                      Sin prompts guardados.
                     </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       {jobsQuery.data.map((j) => (
                         <div
                           key={j.id}
-                          className="space-y-2 rounded-lg border border-border/60 bg-background/40 p-2.5 transition hover:bg-background/70"
+                          className="space-y-1.5 rounded-md border border-border/60 bg-background/40 p-2 transition hover:bg-background/70"
                         >
-                          <div className="flex items-start gap-2">
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium text-foreground">
-                                {j.title}
-                              </p>
-                              <p className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">
-                                {j.prompt}
-                              </p>
-                              <div className="mt-1 flex flex-wrap gap-1">
-                                <Badge
-                                  variant="outline"
-                                  className="h-4 border-border/60 bg-background/60 px-1.5 text-[9px]"
-                                >
-                                  {j.status}
-                                </Badge>
-                                {j.source_variant && (
-                                  <Badge
-                                    variant="outline"
-                                    className="h-4 border-border/60 bg-background/60 px-1.5 text-[9px]"
-                                  >
-                                    {j.source_variant}
-                                  </Badge>
-                                )}
-                                {j.model && (
-                                  <Badge
-                                    variant="outline"
-                                    className="h-4 border-border/60 bg-background/60 px-1.5 text-[9px]"
-                                  >
-                                    {j.model}
-                                  </Badge>
-                                )}
-                                {j.aspect_ratio && (
-                                  <Badge
-                                    variant="outline"
-                                    className="h-4 border-border/60 bg-background/60 px-1.5 text-[9px]"
-                                  >
-                                    {j.aspect_ratio}
-                                  </Badge>
-                                )}
-                                {typeof j.flow_points_estimate === "number" && (
-                                  <Badge
-                                    variant="outline"
-                                    className="h-4 border-primary/40 bg-primary/10 px-1.5 text-[9px] text-primary"
-                                  >
-                                    {j.flow_points_estimate} pts
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+                          <p className="truncate text-[11px] font-medium text-foreground">
+                            {j.title}
+                          </p>
+                          <p className="line-clamp-2 text-[10px] text-muted-foreground">
+                            {j.prompt}
+                          </p>
                           <div className="flex items-center gap-1">
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 flex-1 gap-1 px-2 text-[10px]"
+                              className="h-6 flex-1 gap-1 px-2 text-[10px]"
                               onClick={() => handleReuse(j)}
                             >
-                              <RotateCcw className="h-3 w-3" /> Reutilizar
+                              <RotateCcw className="h-3 w-3" /> Reusar
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 w-7 p-0"
-                              onClick={() => handleCopy(j.prompt)}
-                              title="Copiar prompt"
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 w-7 p-0"
-                              onClick={() => dupMut.mutate({ data: { id: j.id } })}
+                              className="h-6 w-6 p-0"
+                              onClick={() =>
+                                dupMut.mutate({ data: { id: j.id } })
+                              }
                               disabled={dupMut.isPending}
                               title="Duplicar"
                             >
@@ -899,8 +616,10 @@ function FlowCenter() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                              onClick={() => delMut.mutate({ data: { id: j.id } })}
+                              className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                              onClick={() =>
+                                delMut.mutate({ data: { id: j.id } })
+                              }
                               disabled={delMut.isPending}
                               title="Eliminar"
                             >
@@ -914,15 +633,15 @@ function FlowCenter() {
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="versions" className="mt-0 space-y-2">
+              <TabsContent value="versions" className="mt-0 space-y-1.5">
                 <div className="flex items-center gap-2 pb-1 text-xs text-muted-foreground">
-                  <Layers className="h-3.5 w-3.5" /> Iteraciones del proyecto
+                  <Layers className="h-3.5 w-3.5" /> Iteraciones
                 </div>
                 {versions.map((v) => (
                   <div
                     key={v.id}
                     className={[
-                      "flex items-start gap-3 rounded-lg border p-3 transition",
+                      "flex items-start gap-2 rounded-md border p-2 transition",
                       v.current
                         ? "border-primary/50 bg-primary/5"
                         : "border-border/60 bg-background/40 hover:bg-background/70",
@@ -930,7 +649,7 @@ function FlowCenter() {
                   >
                     <div
                       className={[
-                        "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md font-mono text-[10px] font-semibold",
+                        "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-[10px] font-semibold",
                         v.current
                           ? "bg-primary/15 text-primary"
                           : "bg-secondary/20 text-secondary",
@@ -939,17 +658,10 @@ function FlowCenter() {
                       {v.label}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs font-medium text-foreground">
-                          Versión {v.label}
-                        </p>
-                        {v.current && (
-                          <Badge className="h-4 border-0 bg-primary/15 px-1.5 text-[9px] text-primary">
-                            actual
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      <p className="text-[11px] font-medium text-foreground">
+                        Versión {v.label}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
                         {v.note}
                       </p>
                     </div>
@@ -961,7 +673,7 @@ function FlowCenter() {
         </Card>
       </div>
 
-      {/* Generar modal — video generation not yet integrated */}
+      {/* Generate modal */}
       <Dialog open={isGenerateOpen} onOpenChange={setIsGenerateOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -970,9 +682,8 @@ function FlowCenter() {
               Generación de video
             </DialogTitle>
             <DialogDescription>
-              La generación de video aún no está conectada. Puedes copiar el
-              prompt o guardarlo en Flow para usarlo en Flow, Veo, Kling o
-              YouTube Creator.
+              La generación de video aún no está conectada. Copia el prompt o
+              guárdalo en Flow.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 py-2">
@@ -1007,20 +718,6 @@ function FlowCenter() {
               className="gap-2"
               onClick={() => {
                 setIsGenerateOpen(false);
-                // Switch to the history tab by focusing the history tab trigger via DOM
-                const historyTrigger = document.querySelector(
-                  '[data-state="inactive"][value="history"]',
-                ) as HTMLElement | null;
-                historyTrigger?.click();
-              }}
-            >
-              <History className="h-4 w-4" /> Abrir historial
-            </Button>
-            <Button
-              variant="secondary"
-              className="gap-2"
-              onClick={() => {
-                setIsGenerateOpen(false);
                 handleSendToPublication();
               }}
               disabled={!promptText.trim()}
@@ -1038,7 +735,7 @@ function FlowCenter() {
 
       <FlowConnector
         title="Tu video está listo"
-        description="Guárdalo en tu biblioteca o prográmalo para publicación en tus redes."
+        description="Guárdalo en tu biblioteca o prográmalo para publicación."
         steps={[
           { label: "Guardar en Biblioteca", to: "/biblioteca/videos", icon: Film },
           { label: "Programar Publicación", to: "/publicar", icon: Share2 },
@@ -1048,24 +745,52 @@ function FlowCenter() {
   );
 }
 
-// ────────────────────────────── Helpers ──────────────────────────────
+// ───────────────────────── Helpers ─────────────────────────
 
-function Field({
-  label,
-  icon: Icon,
-  children,
-}: {
-  label: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-1.5">
-      <Label className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
-        {Icon && <Icon className="h-3 w-3" />}
+    <div className="space-y-1">
+      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
         {label}
       </Label>
       {children}
+    </div>
+  );
+}
+
+function PillRow({
+  value,
+  options,
+  onChange,
+  display,
+  match,
+}: {
+  value: string;
+  options: readonly string[];
+  onChange: (v: string) => void;
+  display?: (o: string) => string;
+  match?: (o: string) => boolean;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {options.map((o) => {
+        const isActive = match ? match(o) : o === value;
+        return (
+          <button
+            key={o}
+            type="button"
+            onClick={() => onChange(o)}
+            className={[
+              "rounded-md border px-1.5 py-1 text-[10px] font-medium transition",
+              isActive
+                ? "border-primary/50 bg-primary/10 text-primary"
+                : "border-border/60 bg-background/40 text-muted-foreground hover:bg-background/80",
+            ].join(" ")}
+          >
+            {display ? display(o) : o}
+          </button>
+        );
+      })}
     </div>
   );
 }
