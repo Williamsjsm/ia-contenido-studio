@@ -67,6 +67,14 @@ function fileToBase64(file: File): Promise<string> {
 
 const ALLOWED_MIME = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"] as const;
 
+function recoverableUploadMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error || "Error de red");
+  if (/timed out|timeout|522|connection/i.test(raw)) {
+    return "El backend tardó demasiado. La imagen local queda visible; reintenta la subida en unos segundos.";
+  }
+  return raw;
+}
+
 type Stage =
   | { kind: "idle" }
   | { kind: "compressing" }
@@ -203,27 +211,39 @@ export function ImportCharacterDialog({
     setStage({ kind: "uploading" });
     const ct = (working.type || "image/png") as (typeof ALLOWED_MIME)[number];
     try {
-      const base64 = await fileToBase64(working);
-      logStage("upload:start", { size: working.size, type: ct });
-      const r = await uploadFn({
-        data: { filename: working.name, contentType: ct, base64, scope: "character" },
+      logStage("upload:prepare", { size: working.size, type: ct });
+      const target = await createUploadTargetFn({
+        data: { filename: working.name, contentType: ct, scope: "character" },
       });
-      logStage("upload:done", { ms: Math.round(performance.now() - tUpload), ok: r.ok });
-      if (!r.ok) {
-        setStage({ kind: "error", at: "upload", message: r.message });
-        toast.error("No se pudo subir la imagen", { description: r.message });
+      if (!target.ok) {
+        setStage({ kind: "error", at: "upload", message: target.message });
+        toast.error("No se pudo preparar la subida", { description: target.message });
         return;
       }
-      setImagePath(r.path);
-      // Conservamos el preview local; cuando llegue la signed URL la usaremos.
-      if (r.url) setImageUrl(r.url);
+      logStage("upload:start", { path: target.path });
+      const uploaded = await supabase.storage
+        .from(target.bucket)
+        .uploadToSignedUrl(target.path, target.token, working, {
+          contentType: ct,
+          cacheControl: "31536000",
+        });
+      logStage("upload:done", { ms: Math.round(performance.now() - tUpload), ok: !uploaded.error });
+      if (uploaded.error) {
+        setStage({ kind: "error", at: "upload", message: uploaded.error.message });
+        toast.error("No se pudo subir la imagen", { description: uploaded.error.message });
+        return;
+      }
+      setImagePath(target.path);
+      void signImageFn({ data: { image_path: target.path } }).then((r) => {
+        if (r.ok && r.url) setImageUrl(r.url);
+      }).catch((e) => logStage("sign:error", { error: String(e) }));
       setStage({ kind: "uploaded" });
-      void analyze(r.path);
+      void analyze(target.path);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Error de red";
+      const msg = recoverableUploadMessage(e);
       logStage("upload:error", { error: msg });
       setStage({ kind: "error", at: "upload", message: msg });
-      toast.error("Error al subir la imagen", { description: "Pulsa Reintentar." });
+      toast.error("Error recuperable al subir", { description: "Pulsa Reintentar. La vista previa no se pierde." });
     }
   }
 
