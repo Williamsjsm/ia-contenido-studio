@@ -62,6 +62,14 @@ function recoverableUploadMessage(error: unknown): string {
   return raw;
 }
 
+function nameFromFilename(filename: string): string {
+  return filename
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[-_]+/g, " ")
+    .trim()
+    .slice(0, 80) || "Referencia visual";
+}
+
 type Stage =
   | { kind: "idle" }
   | { kind: "compressing" }
@@ -220,6 +228,7 @@ export function ImportCharacterDialog({
         return;
       }
       setImagePath(target.path);
+      setName((current) => current.trim() || nameFromFilename(working.name));
       void signImageFn({ data: { image_path: target.path } }).then((r) => {
         if (r.ok && r.url) setImageUrl(r.url);
       }).catch((e) => logStage("sign:error", { error: String(e) }));
