@@ -54,9 +54,13 @@ type Props = {
 
 const ALLOWED_MIME = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"] as const;
 
+function isTransientUploadText(value: unknown): boolean {
+  return /timed out|timeout|522|544|connection|schema cache|retrying/i.test(String(value || ""));
+}
+
 function recoverableUploadMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error || "Error de red");
-  if (/timed out|timeout|522|connection/i.test(raw)) {
+  if (isTransientUploadText(raw)) {
     return "El backend tardó demasiado. La imagen local queda visible; reintenta la subida en unos segundos.";
   }
   return raw;
@@ -70,16 +74,25 @@ function nameFromFilename(filename: string): string {
     .slice(0, 80) || "Referencia visual";
 }
 
-async function retryTransient<T>(label: string, fn: () => Promise<T>, attempts = 3): Promise<T> {
+async function retryTransient<T>(
+  label: string,
+  fn: () => Promise<T>,
+  attempts = 3,
+  shouldRetryResult?: (result: T) => boolean,
+): Promise<T> {
   let lastError: unknown;
   for (let i = 0; i < attempts; i += 1) {
     try {
-      return await fn();
+      const result = await fn();
+      if (!shouldRetryResult?.(result) || i === attempts - 1) return result;
+      lastError = new Error("Transient upload response");
+      logStage(`${label}:retry`, { attempt: i + 1, result });
     } catch (error) {
       lastError = error;
+      if (i === attempts - 1) throw error;
       logStage(`${label}:retry`, { attempt: i + 1, error: String(error) });
-      await new Promise((resolve) => setTimeout(resolve, 700 * (i + 1)));
     }
+    await new Promise((resolve) => setTimeout(resolve, 700 * (i + 1)));
   }
   throw lastError;
 }
@@ -224,6 +237,8 @@ export function ImportCharacterDialog({
         createUploadTargetFn({
           data: { filename: working.name, contentType: ct, scope: "character" },
         }),
+        3,
+        (result) => !result.ok && isTransientUploadText(result.message),
       );
       if (!target.ok) {
         setStage({ kind: "error", at: "upload", message: target.message });
@@ -238,6 +253,8 @@ export function ImportCharacterDialog({
             contentType: ct,
             cacheControl: "31536000",
           }),
+        3,
+        (result) => Boolean(result.error && isTransientUploadText(result.error.message)),
       );
       logStage("upload:done", { ms: Math.round(performance.now() - tUpload), ok: !uploaded.error });
       if (uploaded.error) {
