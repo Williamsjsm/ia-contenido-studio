@@ -20,7 +20,6 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   createVisualUploadTarget,
   signVisualImage,
-  uploadVisualImage,
   analyzeCharacterFromImage,
   createVirtualCharacter,
 } from "@/lib/visual-library.functions";
@@ -52,18 +51,6 @@ type Props = {
    */
   initialImage?: { path: string; url: string | null } | null;
 };
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => {
-      const s = r.result as string;
-      resolve(s.includes(",") ? s.split(",")[1] : s);
-    };
-    r.onerror = () => reject(r.error);
-    r.readAsDataURL(file);
-  });
-}
 
 const ALLOWED_MIME = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"] as const;
 
@@ -104,7 +91,6 @@ export function ImportCharacterDialog({
 }: Props) {
   const createUploadTargetFn = useServerFn(createVisualUploadTarget);
   const signImageFn = useServerFn(signVisualImage);
-  const uploadFn = useServerFn(uploadVisualImage);
   const analyzeFn = useServerFn(analyzeCharacterFromImage);
   const createFn = useServerFn(createVirtualCharacter);
   const qc = useQueryClient();
