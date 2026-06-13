@@ -61,6 +61,8 @@ import {
   duplicateFlowJob,
   type FlowJob,
 } from "@/lib/flow-jobs.functions";
+import { FlowContinuityStudio, type ContinuityContext } from "@/components/flow-continuity-studio";
+import type { ProviderId } from "@/lib/video-export-pack";
 
 const flowSearchSchema = z.object({
   from: fallback(z.string(), "").default(""),
@@ -69,6 +71,13 @@ const flowSearchSchema = z.object({
   titulo: fallback(z.string(), "").default(""),
   plataforma: fallback(z.string(), "").default(""),
   categoria: fallback(z.string(), "").default(""),
+  preset: fallback(z.string(), "").default(""),
+  proveedor: fallback(z.string(), "").default(""),
+  personaje: fallback(z.string(), "").default(""),
+  proyecto: fallback(z.string(), "").default(""),
+  imagenUrl: fallback(z.string(), "").default(""),
+  draftId: fallback(z.string(), "").default(""),
+  proyectoId: fallback(z.string(), "").default(""),
 });
 
 export const Route = createFileRoute("/crear/flow")({
@@ -258,6 +267,20 @@ function FlowCenter() {
     });
   }
 
+  const continuityCtx: ContinuityContext = {
+    sourceImage: search.imagenUrl || null,
+    projectTitle: search.proyecto || search.titulo || null,
+    characterName: search.personaje || null,
+    preset: search.preset || activePreset || null,
+    providerTarget: (search.proveedor as ProviderId) || "flow",
+    duration,
+    aspectRatio: aspect,
+    cameraMotion: null,
+    initialPrompt: promptText,
+    draftId: search.draftId || null,
+    projectId: search.proyectoId || null,
+  };
+
   return (
     <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-3 p-3 lg:p-4">
       <PageHeader
@@ -302,6 +325,9 @@ function FlowCenter() {
           </Button>
         </div>
       )}
+
+      {/* ───────── Continuity Studio (prioridad visual) ───────── */}
+      <FlowContinuityStudio ctx={continuityCtx} />
 
       {/* Main 70/30 workspace */}
       <div className="grid gap-3 lg:grid-cols-[7fr_3fr]">
