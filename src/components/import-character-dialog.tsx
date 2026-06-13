@@ -627,7 +627,14 @@ export function ImportCharacterDialog({
                           (result) => !result.ok && isTransientUploadText(result.message),
                         );
                         if (!target.ok) {
-                          toast.error(`${file.name}: ${target.message}`);
+                          const fallback = await uploadThroughServer(file, "character");
+                          if (fallback.ok) {
+                            setSecondaryPaths((arr) =>
+                              arr.length >= 10 ? arr : [...arr, { path: fallback.path, url: fallback.url }],
+                            );
+                          } else {
+                            toast.error(`${file.name}: ${recoverableUploadMessage(fallback.message)}`);
+                          }
                           continue;
                         }
                         const uploaded = await retryTransient(
