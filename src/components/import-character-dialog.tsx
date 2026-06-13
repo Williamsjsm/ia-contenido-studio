@@ -532,13 +532,13 @@ export function ImportCharacterDialog({
             >
               <Upload className="h-3.5 w-3.5" /> {imageUrl ? "Cambiar" : "Subir"}
             </Button>
-            {imagePath && !analyzed && !analyzing && !uploading && (
+            {hasUsableReference && !analyzed && !analyzing && !uploading && (
               <Button
                 type="button"
                 size="sm"
                 variant="secondary"
                 className="w-full gap-1"
-                onClick={() => analyze(imagePath)}
+                onClick={() => (imagePath ? analyze(imagePath) : pendingFile ? analyzeLocal(pendingFile) : undefined)}
               >
                 <Wand2 className="h-3.5 w-3.5" /> Analizar
               </Button>
@@ -557,7 +557,7 @@ export function ImportCharacterDialog({
           </div>
 
           <div className="space-y-3">
-            {!imagePath && (
+            {!hasUsableReference && (
               <div className="rounded-md border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground">
                 Sube una foto de tu personaje. La IA extraerá color de cabello, ojos, piel, edad, complexión, ropa, accesorios y estilo fotográfico.
               </div>
@@ -568,7 +568,7 @@ export function ImportCharacterDialog({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Nombre del personaje"
-                disabled={!imagePath}
+                disabled={!hasUsableReference}
               />
             </div>
             <div className="space-y-1.5">
@@ -578,7 +578,7 @@ export function ImportCharacterDialog({
                 onChange={(e) => setDescText(e.target.value)}
                 rows={3}
                 className="min-h-[56px] resize-y"
-                disabled={!imagePath}
+                disabled={!hasUsableReference}
               />
             </div>
             <div className="space-y-1.5">
@@ -588,7 +588,7 @@ export function ImportCharacterDialog({
                 onChange={(e) => setMasterPrompt(e.target.value)}
                 rows={5}
                 className="min-h-[96px] resize-y font-mono text-xs"
-                disabled={!imagePath}
+                disabled={!hasUsableReference}
               />
             </div>
             <div className="space-y-1.5">
@@ -597,7 +597,7 @@ export function ImportCharacterDialog({
                 value={tagsText}
                 onChange={(e) => setTagsText(e.target.value)}
                 placeholder="tag1, tag2"
-                disabled={!imagePath}
+                disabled={!hasUsableReference}
               />
             </div>
             {attrEntries.length > 0 && (
@@ -776,8 +776,13 @@ export function ImportCharacterDialog({
                 <RefreshCw className="h-3 w-3" /> Reintentar
               </Button>
             )}
-            {stage.kind === "error" && stage.at === "analyze" && imagePath && (
-              <Button size="sm" variant="outline" className="h-7 gap-1" onClick={() => analyze(imagePath)}>
+            {stage.kind === "error" && stage.at === "analyze" && hasUsableReference && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1"
+                onClick={() => (imagePath ? analyze(imagePath) : pendingFile ? analyzeLocal(pendingFile) : undefined)}
+              >
                 <RefreshCw className="h-3 w-3" /> Reintentar análisis
               </Button>
             )}
@@ -790,7 +795,7 @@ export function ImportCharacterDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={!imagePath || saving || !name.trim()}>
+          <Button onClick={handleConfirm} disabled={!hasUsableReference || saving || !name.trim()}>
             {saving ? (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
             ) : (
