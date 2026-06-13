@@ -16,8 +16,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 import {
-  uploadVisualImage,
+  createVisualUploadTarget,
+  signVisualImage,
   analyzeCharacterFromImage,
   createVirtualCharacter,
 } from "@/lib/visual-library.functions";
@@ -50,19 +52,50 @@ type Props = {
   initialImage?: { path: string; url: string | null } | null;
 };
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => {
-      const s = r.result as string;
-      resolve(s.includes(",") ? s.split(",")[1] : s);
-    };
-    r.onerror = () => reject(r.error);
-    r.readAsDataURL(file);
-  });
+const ALLOWED_MIME = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"] as const;
+
+function isTransientUploadText(value: unknown): boolean {
+  return /timed out|timeout|522|544|connection|schema cache|retrying/i.test(String(value || ""));
 }
 
-const ALLOWED_MIME = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"] as const;
+function recoverableUploadMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error || "Error de red");
+  if (isTransientUploadText(raw)) {
+    return "El backend tardó demasiado. La imagen local queda visible; reintenta la subida en unos segundos.";
+  }
+  return raw;
+}
+
+function nameFromFilename(filename: string): string {
+  return filename
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[-_]+/g, " ")
+    .trim()
+    .slice(0, 80) || "Referencia visual";
+}
+
+async function retryTransient<T>(
+  label: string,
+  fn: () => Promise<T>,
+  attempts = 3,
+  shouldRetryResult?: (result: T) => boolean,
+): Promise<T> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const result = await fn();
+      if (!shouldRetryResult?.(result) || i === attempts - 1) return result;
+      lastError = new Error("Transient upload response");
+      logStage(`${label}:retry`, { attempt: i + 1, result });
+    } catch (error) {
+      lastError = error;
+      if (i === attempts - 1) throw error;
+      logStage(`${label}:retry`, { attempt: i + 1, error: String(error) });
+    }
+    await new Promise((resolve) => setTimeout(resolve, 700 * (i + 1)));
+  }
+  throw lastError;
+}
 
 type Stage =
   | { kind: "idle" }
@@ -91,7 +124,8 @@ export function ImportCharacterDialog({
   description,
   initialImage,
 }: Props) {
-  const uploadFn = useServerFn(uploadVisualImage);
+  const createUploadTargetFn = useServerFn(createVisualUploadTarget);
+  const signImageFn = useServerFn(signVisualImage);
   const analyzeFn = useServerFn(analyzeCharacterFromImage);
   const createFn = useServerFn(createVirtualCharacter);
   const qc = useQueryClient();
@@ -198,27 +232,48 @@ export function ImportCharacterDialog({
     setStage({ kind: "uploading" });
     const ct = (working.type || "image/png") as (typeof ALLOWED_MIME)[number];
     try {
-      const base64 = await fileToBase64(working);
-      logStage("upload:start", { size: working.size, type: ct });
-      const r = await uploadFn({
-        data: { filename: working.name, contentType: ct, base64, scope: "character" },
-      });
-      logStage("upload:done", { ms: Math.round(performance.now() - tUpload), ok: r.ok });
-      if (!r.ok) {
-        setStage({ kind: "error", at: "upload", message: r.message });
-        toast.error("No se pudo subir la imagen", { description: r.message });
+      logStage("upload:prepare", { size: working.size, type: ct });
+      const target = await retryTransient("upload:prepare", () =>
+        createUploadTargetFn({
+          data: { filename: working.name, contentType: ct, scope: "character" },
+        }),
+        3,
+        (result) => !result.ok && isTransientUploadText(result.message),
+      );
+      if (!target.ok) {
+        setStage({ kind: "error", at: "upload", message: target.message });
+        toast.error("No se pudo preparar la subida", { description: target.message });
         return;
       }
-      setImagePath(r.path);
-      // Conservamos el preview local; cuando llegue la signed URL la usaremos.
-      if (r.url) setImageUrl(r.url);
+      logStage("upload:start", { path: target.path });
+      const uploaded = await retryTransient("upload:file", () =>
+        supabase.storage
+          .from(target.bucket)
+          .uploadToSignedUrl(target.path, target.token, working, {
+            contentType: ct,
+            cacheControl: "31536000",
+          }),
+        3,
+        (result) => Boolean(result.error && isTransientUploadText(result.error.message)),
+      );
+      logStage("upload:done", { ms: Math.round(performance.now() - tUpload), ok: !uploaded.error });
+      if (uploaded.error) {
+        setStage({ kind: "error", at: "upload", message: uploaded.error.message });
+        toast.error("No se pudo subir la imagen", { description: uploaded.error.message });
+        return;
+      }
+      setImagePath(target.path);
+      setName((current) => current.trim() || nameFromFilename(working.name));
+      void signImageFn({ data: { image_path: target.path } }).then((r) => {
+        if (r.ok && r.url) setImageUrl(r.url);
+      }).catch((e) => logStage("sign:error", { error: String(e) }));
       setStage({ kind: "uploaded" });
-      void analyze(r.path);
+      void analyze(target.path);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Error de red";
+      const msg = recoverableUploadMessage(e);
       logStage("upload:error", { error: msg });
       setStage({ kind: "error", at: "upload", message: msg });
-      toast.error("Error al subir la imagen", { description: "Pulsa Reintentar." });
+      toast.error("Error recuperable al subir", { description: "Pulsa Reintentar. La vista previa no se pierde." });
     }
   }
 
@@ -259,10 +314,6 @@ export function ImportCharacterDialog({
       toast.error("Sube una imagen primero.");
       return;
     }
-    if (!analyzed) {
-      toast.error("Espera al análisis de la IA.");
-      return;
-    }
     if (!name.trim()) {
       toast.error("Añade un nombre.");
       return;
@@ -272,7 +323,7 @@ export function ImportCharacterDialog({
       onAnalyzed?.({
         name: name.trim(),
         description: descText.trim(),
-        master_prompt: masterPrompt,
+          master_prompt: masterPrompt.trim() || descText.trim() || name.trim(),
         tags,
         image_path: imagePath,
         image_url: imageUrl,
@@ -289,7 +340,7 @@ export function ImportCharacterDialog({
         data: {
           name: name.trim(),
           description: descText.trim() || null,
-          master_prompt: masterPrompt,
+          master_prompt: masterPrompt.trim() || descText.trim() || name.trim(),
           tags,
           reference_image_path: imagePath,
           secondary_reference_paths: secondaryPaths.map((s) => s.path),
@@ -429,7 +480,7 @@ export function ImportCharacterDialog({
                 onChange={(e) => setDescText(e.target.value)}
                 rows={3}
                 className="min-h-[56px] resize-y"
-                disabled={!analyzed}
+                disabled={!imagePath}
               />
             </div>
             <div className="space-y-1.5">
@@ -439,7 +490,7 @@ export function ImportCharacterDialog({
                 onChange={(e) => setMasterPrompt(e.target.value)}
                 rows={5}
                 className="min-h-[96px] resize-y font-mono text-xs"
-                disabled={!analyzed}
+                disabled={!imagePath}
               />
             </div>
             <div className="space-y-1.5">
@@ -448,7 +499,7 @@ export function ImportCharacterDialog({
                 value={tagsText}
                 onChange={(e) => setTagsText(e.target.value)}
                 placeholder="tag1, tag2"
-                disabled={!analyzed}
+                disabled={!imagePath}
               />
             </div>
             {attrEntries.length > 0 && (
@@ -464,7 +515,7 @@ export function ImportCharacterDialog({
               </div>
             )}
 
-            {mode === "save" && analyzed && (
+            {mode === "save" && imagePath && (
               <div className="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -535,17 +586,43 @@ export function ImportCharacterDialog({
                         }
                         const ct = (file.type || "image/png") as (typeof ALLOWED_MIME)[number];
                         if (!ALLOWED_MIME.includes(ct)) continue;
-                        const base64 = await fileToBase64(file);
-                        const r = await uploadFn({
-                          data: { filename: file.name, contentType: ct, base64, scope: "character" },
-                        });
-                        if (r.ok) {
-                          setSecondaryPaths((arr) =>
-                            arr.length >= 10 ? arr : [...arr, { path: r.path, url: r.url }],
-                          );
-                        } else {
-                          toast.error(`${file.name}: ${r.message}`);
+                        const target = await retryTransient(
+                          "secondary:prepare",
+                          () => createUploadTargetFn({
+                            data: { filename: file.name, contentType: ct, scope: "character" },
+                          }),
+                          3,
+                          (result) => !result.ok && isTransientUploadText(result.message),
+                        );
+                        if (!target.ok) {
+                          toast.error(`${file.name}: ${target.message}`);
+                          continue;
                         }
+                        const uploaded = await retryTransient(
+                          "secondary:file",
+                          () => supabase.storage
+                            .from(target.bucket)
+                            .uploadToSignedUrl(target.path, target.token, file, {
+                              contentType: ct,
+                              cacheControl: "31536000",
+                            }),
+                          3,
+                          (result) => Boolean(result.error && isTransientUploadText(result.error.message)),
+                        );
+                        if (uploaded.error) {
+                          toast.error(`${file.name}: ${uploaded.error.message}`);
+                          continue;
+                        }
+                        let url: string | null = null;
+                        try {
+                          const signed = await signImageFn({ data: { image_path: target.path } });
+                          url = signed.ok ? signed.url : null;
+                        } catch {
+                          url = null;
+                        }
+                        setSecondaryPaths((arr) =>
+                          arr.length >= 10 ? arr : [...arr, { path: target.path, url }],
+                        );
                       }
                     } catch (err) {
                       console.error(err);
@@ -608,7 +685,7 @@ export function ImportCharacterDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={!analyzed || saving || !name.trim()}>
+          <Button onClick={handleConfirm} disabled={!imagePath || saving || !name.trim()}>
             {saving ? (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
             ) : (

@@ -10,6 +10,18 @@ function ownerId(): string {
 const BUCKET = "visual-references";
 const SIGNED_TTL = 60 * 60 * 24 * 7; // 7 días
 
+async function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timer = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error(`${label}: timeout`)), ms);
+  });
+  try {
+    return await Promise.race([promise, timer]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
 /**
  * Defensa en profundidad: garantiza que cualquier path recibido del cliente
  * pertenece al owner actual. Bloquea IDOR aunque el cliente envíe paths
@@ -26,9 +38,18 @@ function assertOwnedPath(path: string | null | undefined, owner: string): void {
 async function sign(path: string | null | undefined): Promise<string | null> {
   if (!path) return null;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, SIGNED_TTL);
-  if (error || !data?.signedUrl) return null;
-  return data.signedUrl;
+  try {
+    const { data, error } = await withTimeout(
+      supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, SIGNED_TTL),
+      8_000,
+      "createSignedUrl",
+    );
+    if (error || !data?.signedUrl) return null;
+    return data.signedUrl;
+  } catch (error) {
+    console.warn("sign visual image failed:", error);
+    return null;
+  }
 }
 
 // ------------------------ Upload ------------------------
@@ -41,6 +62,41 @@ const UploadSchema = z.object({
   scope: z.enum(["reference", "character"]).default("reference"),
 });
 
+const UploadTargetSchema = z.object({
+  filename: z.string().min(1).max(200),
+  contentType: z.enum(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]),
+  scope: z.enum(["reference", "character"]).default("reference"),
+});
+
+export const createVisualUploadTarget = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => UploadTargetSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const ext = (data.filename.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+    const path = `${owner}/${data.scope}/${crypto.randomUUID()}.${ext}`;
+    const { data: signed, error } = await withTimeout(
+      supabaseAdmin.storage.from(BUCKET).createSignedUploadUrl(path, { upsert: false }),
+      8_000,
+      "createSignedUploadUrl",
+    ).catch((error) => ({ data: null, error: error as Error }));
+    if (error || !signed?.token) {
+      console.error("createVisualUploadTarget failed:", error);
+      return { ok: false as const, message: error?.message ?? "No se pudo preparar la subida" };
+    }
+    return { ok: true as const, path, token: signed.token, bucket: BUCKET, contentType: data.contentType };
+  });
+
+export const signVisualImage = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => z.object({ image_path: z.string().min(1).max(500) }).parse(input))
+  .handler(async ({ data }) => {
+    const owner = ownerId();
+    assertOwnedPath(data.image_path, owner);
+    return { ok: true as const, url: await sign(data.image_path) };
+  });
+
 export const uploadVisualImage = createServerFn({ method: "POST" })
   .middleware([requireAccess])
   .inputValidator((input: unknown) => UploadSchema.parse(input))
@@ -50,9 +106,11 @@ export const uploadVisualImage = createServerFn({ method: "POST" })
     const ext = (data.filename.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
     const path = `${owner}/${data.scope}/${crypto.randomUUID()}.${ext}`;
     const bytes = Buffer.from(data.base64, "base64");
-    const { error } = await supabaseAdmin.storage
-      .from(BUCKET)
-      .upload(path, bytes, { contentType: data.contentType, upsert: false });
+    const { error } = await withTimeout(
+      supabaseAdmin.storage.from(BUCKET).upload(path, bytes, { contentType: data.contentType, upsert: false }),
+      12_000,
+      "uploadVisualImage",
+    ).catch((error) => ({ data: null, error: error as Error }));
     if (error) {
       console.error("uploadVisualImage failed:", error);
       return { ok: false as const, message: error.message };

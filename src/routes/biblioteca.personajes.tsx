@@ -43,13 +43,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { LoadingState } from "@/components/state/loading-state";
 import { ErrorState } from "@/components/state/error-state";
+import { supabase } from "@/integrations/supabase/client";
+import { maybeCompressImage } from "@/lib/image-compress";
 import {
   listVirtualCharacters,
   createVirtualCharacter,
   updateVirtualCharacter,
   deleteVirtualCharacter,
   duplicateVirtualCharacter,
-  uploadVisualImage,
+  createVisualUploadTarget,
+  signVisualImage,
   type VirtualCharacter,
 } from "@/lib/visual-library.functions";
 import { ImportCharacterDialog } from "@/components/import-character-dialog";
@@ -78,6 +81,28 @@ const emptyForm: FormState = {
   reference_image_url: null,
 };
 
+const ALLOWED_MIME = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"] as const;
+
+function isTransientUploadText(value: unknown): boolean {
+  return /timed out|timeout|522|544|connection|schema cache|retrying/i.test(String(value || ""));
+}
+
+async function retryTransient<T>(fn: () => Promise<T>, shouldRetryResult?: (result: T) => boolean): Promise<T> {
+  let lastError: unknown;
+  for (let i = 0; i < 3; i += 1) {
+    try {
+      const result = await fn();
+      if (!shouldRetryResult?.(result) || i === 2) return result;
+      lastError = new Error("Transient upload response");
+    } catch (error) {
+      lastError = error;
+      if (i === 2) throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 700 * (i + 1)));
+  }
+  throw lastError;
+}
+
 function PersonajesPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -86,7 +111,8 @@ function PersonajesPage() {
   const updateFn = useServerFn(updateVirtualCharacter);
   const deleteFn = useServerFn(deleteVirtualCharacter);
   const duplicateFn = useServerFn(duplicateVirtualCharacter);
-  const uploadFn = useServerFn(uploadVisualImage);
+  const createUploadTargetFn = useServerFn(createVisualUploadTarget);
+  const signImageFn = useServerFn(signVisualImage);
 
   const query = useQuery({ queryKey: ["library", "characters"], queryFn: () => list() });
 
@@ -115,29 +141,53 @@ function PersonajesPage() {
   }
 
   async function handleFile(file: File) {
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Máx. 10 MB");
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("Máx. 15 MB");
       return;
     }
+    const initialType = (file.type || "image/png") as (typeof ALLOWED_MIME)[number];
+    if (!ALLOWED_MIME.includes(initialType)) {
+      toast.error("Formato no soportado", { description: "Usa PNG, JPG, WEBP o GIF." });
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    setForm((f) => ({ ...f, reference_image_url: previewUrl }));
     setUploading(true);
     try {
-      const base64 = await fileToBase64(file);
-      const r = await uploadFn({
-        data: {
-          filename: file.name,
-          contentType: file.type || "image/png",
-          base64,
-          scope: "character",
-        },
-      });
-      if (!r.ok) {
-        toast.error("No se pudo subir la imagen", { description: r.message });
+      const c = await maybeCompressImage(file);
+      const working = c.file;
+      const contentType = (working.type || "image/png") as (typeof ALLOWED_MIME)[number];
+      const target = await retryTransient(
+        () => createUploadTargetFn({ data: { filename: working.name, contentType, scope: "character" } }),
+        (result) => !result.ok && isTransientUploadText(result.message),
+      );
+      if (!target.ok) {
+        toast.error("No se pudo preparar la subida", { description: target.message });
         return;
       }
-      setForm((f) => ({ ...f, reference_image_path: r.path, reference_image_url: r.url }));
+      const uploaded = await retryTransient(
+        () => supabase.storage
+          .from(target.bucket)
+          .uploadToSignedUrl(target.path, target.token, working, {
+            contentType,
+            cacheControl: "31536000",
+          }),
+        (result) => Boolean(result.error && isTransientUploadText(result.error.message)),
+      );
+      if (uploaded.error) {
+        toast.error("No se pudo subir la imagen", { description: uploaded.error.message });
+        return;
+      }
+      setForm((f) => ({ ...f, reference_image_path: target.path }));
+      signImageFn({ data: { image_path: target.path } })
+        .then((r) => {
+          if (r.ok && r.url) setForm((f) => ({ ...f, reference_image_url: r.url }));
+        })
+        .catch(() => {});
     } catch (e) {
       console.error(e);
-      toast.error("Error al subir la imagen.");
+      const message = e instanceof Error ? e.message : "Error de red";
+      toast.error("Error recuperable al subir", { description: message });
     } finally {
       setUploading(false);
     }
@@ -466,17 +516,4 @@ function PersonajesPage() {
       />
     </LibraryShell>
   );
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64 = result.includes(",") ? result.split(",")[1] : result;
-      resolve(base64);
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
 }
