@@ -145,6 +145,38 @@ export const uploadVisualImage = createServerFn({ method: "POST" })
     return { ok: true as const, path, url };
   });
 
+export const uploadVisualImageForm = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => {
+    if (!(input instanceof FormData)) throw new Error("FormData inválido");
+    return input;
+  })
+  .handler(async ({ data }) => {
+    const file = data.get("file");
+    const scopeRaw = data.get("scope");
+    if (!(file instanceof File)) return { ok: false as const, message: "Archivo inválido" };
+    const parsed = UploadTargetSchema.parse({
+      filename: file.name || "reference.png",
+      contentType: file.type || "image/png",
+      scope: scopeRaw === "reference" || scopeRaw === "character" ? scopeRaw : "reference",
+    });
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const ext = (parsed.filename.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+    const path = `${owner}/${parsed.scope}/${crypto.randomUUID()}.${ext}`;
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const { error } = await withTimeout(
+      supabaseAdmin.storage.from(BUCKET).upload(path, bytes, { contentType: parsed.contentType, upsert: false }),
+      10_000,
+      "uploadVisualImageForm",
+    ).catch((error) => ({ data: null, error: error as Error }));
+    if (error) {
+      console.error("uploadVisualImageForm failed:", error);
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: true as const, path, url: await sign(path) };
+  });
+
 // ------------------------ Visual References ------------------------
 
 export type VisualReference = {
