@@ -268,6 +268,14 @@ export function ImportCharacterDialog({
         toast.message("Preparación saturada", { description: "Intentando ruta alternativa de subida." });
         const fallback = await uploadThroughServer(working, "character");
         if (!fallback.ok) {
+          if (mode === "temporal") {
+            setName((current) => current.trim() || nameFromFilename(working.name));
+            toast.warning("Referencia local activa", {
+              description: "El backend está saturado; puedes usar la imagen para analizar y crear el prompt sin guardarla todavía.",
+            });
+            await analyzeLocal(working);
+            return;
+          }
           setStage({ kind: "error", at: "upload", message: fallback.message });
           toast.error("No se pudo subir la imagen", { description: recoverableUploadMessage(fallback.message) });
           return;
@@ -288,6 +296,14 @@ export function ImportCharacterDialog({
         );
         logStage("upload:done", { ms: Math.round(performance.now() - tUpload), ok: !uploaded.error });
         if (uploaded.error) {
+          if (mode === "temporal") {
+            setName((current) => current.trim() || nameFromFilename(working.name));
+            toast.warning("Referencia local activa", {
+              description: "La subida no completó; puedes usar la imagen local para analizar y crear el prompt.",
+            });
+            await analyzeLocal(working);
+            return;
+          }
           setStage({ kind: "error", at: "upload", message: uploaded.error.message });
           toast.error("No se pudo subir la imagen", { description: uploaded.error.message });
           return;
@@ -305,6 +321,14 @@ export function ImportCharacterDialog({
     } catch (e) {
       const msg = recoverableUploadMessage(e);
       logStage("upload:error", { error: msg });
+      if (mode === "temporal") {
+        setName((current) => current.trim() || nameFromFilename(working.name));
+        toast.warning("Referencia local activa", {
+          description: "El backend no respondió a la subida; puedes analizar la imagen local y usarla en el prompt.",
+        });
+        await analyzeLocal(working);
+        return;
+      }
       setStage({ kind: "error", at: "upload", message: msg });
       toast.error("Error recuperable al subir", { description: "Pulsa Reintentar. La vista previa no se pierde." });
     }
@@ -354,8 +378,37 @@ export function ImportCharacterDialog({
     }
   }
 
+  async function analyzeLocal(file: File) {
+    setStage({ kind: "analyzing" });
+    const t = performance.now();
+    try {
+      const contentType = (file.type || "image/png") as (typeof ALLOWED_MIME)[number];
+      const base64 = await fileToBase64(file);
+      const r = await analyzeDataFn({ data: { contentType, base64 } });
+      logStage("analyze-local:done", { ms: Math.round(performance.now() - t), ok: r.ok });
+      if (!r.ok) {
+        setStage({ kind: "error", at: "analyze", message: r.message });
+        toast.warning("Referencia local lista. Análisis pendiente.", { description: r.message });
+        return;
+      }
+      setName(r.name || nameFromFilename(file.name));
+      setDescText(r.description);
+      setMasterPrompt(r.master_prompt);
+      setTagsText(r.tags.join(", "));
+      setAttributes(r.attributes ?? {});
+      setAnalyzed(true);
+      setStage({ kind: "analyzed" });
+      toast.success("Imagen local analizada. Revisa y corrige los campos.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error inesperado";
+      logStage("analyze-local:error", { error: msg });
+      setStage({ kind: "error", at: "analyze", message: msg });
+      toast.warning("Referencia local lista. Análisis pendiente.", { description: "Puedes completar los campos manualmente." });
+    }
+  }
+
   async function handleConfirm() {
-    if (!imagePath) {
+    if (!hasUsableReference) {
       toast.error("Sube una imagen primero.");
       return;
     }
@@ -370,7 +423,7 @@ export function ImportCharacterDialog({
         description: descText.trim(),
           master_prompt: masterPrompt.trim() || descText.trim() || name.trim(),
         tags,
-        image_path: imagePath,
+        image_path: imagePath ?? "local-reference",
         image_url: imageUrl,
         attributes,
       });
