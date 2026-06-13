@@ -431,7 +431,7 @@ export function ImportCharacterDialog({
           description: descText.trim() || null,
           master_prompt: masterPrompt.trim() || descText.trim() || name.trim(),
           tags,
-          reference_image_path: imagePath,
+          reference_image_path: imagePath ?? null,
           secondary_reference_paths: secondaryPaths.map((s) => s.path),
         },
       });
