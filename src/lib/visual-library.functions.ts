@@ -19,7 +19,7 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: nu
     while (nextIndex < items.length) {
       const index = nextIndex;
       nextIndex += 1;
-      results[index] = await fn(items[index]);
+      results[index] = await fn(items[index], index);
     }
   });
   await Promise.all(workers);
