@@ -239,8 +239,8 @@ export function ImportCharacterDialog({
         if (!o) reset();
       }}
     >
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 border-b border-border/60 px-6 py-4">
           <DialogTitle>{title ?? (mode === "temporal" ? "Imagen de referencia" : "Importar personaje desde imagen")}</DialogTitle>
           <DialogDescription>
             {description ??
@@ -248,12 +248,12 @@ export function ImportCharacterDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 sm:grid-cols-[180px,1fr]">
+        <div className="grid flex-1 gap-4 overflow-y-auto px-6 py-4 sm:grid-cols-[180px,1fr]">
           <div className="space-y-2">
-            <div className="relative aspect-square overflow-hidden rounded-lg border border-dashed border-border/70 bg-muted/30">
+            <div className="relative mx-auto flex h-[180px] w-full max-h-[220px] items-center justify-center overflow-hidden rounded-lg border border-dashed border-border/70 bg-muted/30">
               {imageUrl ? (
                 <>
-                  <img src={imageUrl} alt="ref" className="h-full w-full object-cover" />
+                  <img src={imageUrl} alt="ref" className="h-full w-full object-contain" />
                   {(analyzing || uploading) && (
                     <div className="absolute inset-0 flex items-center justify-center gap-2 bg-background/70 text-xs text-muted-foreground">
                       <Loader2 className="h-5 w-5 animate-spin" />
@@ -339,7 +339,8 @@ export function ImportCharacterDialog({
               <Textarea
                 value={descText}
                 onChange={(e) => setDescText(e.target.value)}
-                className="min-h-[60px] resize-none"
+                rows={3}
+                className="min-h-[56px] resize-y"
                 disabled={!analyzed}
               />
             </div>
@@ -348,7 +349,8 @@ export function ImportCharacterDialog({
               <Textarea
                 value={masterPrompt}
                 onChange={(e) => setMasterPrompt(e.target.value)}
-                className="min-h-[140px] resize-none font-mono text-xs"
+                rows={5}
+                className="min-h-[96px] resize-y font-mono text-xs"
                 disabled={!analyzed}
               />
             </div>
@@ -366,7 +368,7 @@ export function ImportCharacterDialog({
                 <Label className="text-xs uppercase tracking-wider text-muted-foreground">Atributos detectados</Label>
                 <div className="flex flex-wrap gap-1">
                   {attrEntries.map(([k, v]) => (
-                    <Badge key={k} variant="secondary" className="text-[10px]">
+                    <Badge key={k} variant="secondary" className="px-1.5 py-0 text-[9px] leading-4">
                       {k.replace(/_/g, " ")}: {v}
                     </Badge>
                   ))}
@@ -470,7 +472,7 @@ export function ImportCharacterDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t border-border/60 bg-background/80 px-6 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
