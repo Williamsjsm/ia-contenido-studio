@@ -12,6 +12,7 @@ const SIGNED_TTL = 60 * 60 * 24 * 7; // 7 días
 const SIGN_CACHE_TTL_MS = 60 * 60 * 24 * 6 * 1000;
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 let uploadPrepBackoffUntil = 0;
+const STORAGE_BUSY_BACKOFF_MS = 60_000;
 
 function isStorageBusy(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error ?? "");
@@ -98,16 +99,16 @@ export const createVisualUploadTarget = createServerFn({ method: "POST" })
   .middleware([requireAccess])
   .inputValidator((input: unknown) => UploadTargetSchema.parse(input))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const owner = ownerId();
-    const ext = (data.filename.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
-    const path = `${owner}/${data.scope}/${crypto.randomUUID()}.${ext}`;
     if (uploadPrepBackoffUntil > Date.now()) {
       return {
         ok: false as const,
         message: "El backend está saturado preparando subidas. Usando ruta alternativa.",
       };
     }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const ext = (data.filename.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+    const path = `${owner}/${data.scope}/${crypto.randomUUID()}.${ext}`;
     const { data: signed, error } = await withTimeout(
       supabaseAdmin.storage.from(BUCKET).createSignedUploadUrl(path, { upsert: false }),
       4_000,
@@ -116,7 +117,7 @@ export const createVisualUploadTarget = createServerFn({ method: "POST" })
     if (error || !signed?.token) {
       console.error("createVisualUploadTarget failed:", error);
       if (isStorageBusy(error)) {
-        uploadPrepBackoffUntil = Date.now() + 15_000;
+        uploadPrepBackoffUntil = Date.now() + STORAGE_BUSY_BACKOFF_MS;
         return {
           ok: false as const,
           message: "El backend está saturado preparando subidas. Espera unos segundos y reintenta; la vista previa no se pierde.",
@@ -167,6 +168,9 @@ export const uploadVisualImageForm = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const file = data.get("file");
     const scopeRaw = data.get("scope");
+    if (uploadPrepBackoffUntil > Date.now()) {
+      return { ok: false as const, message: "El backend está saturado. La vista previa local no se pierde." };
+    }
     if (!(file instanceof File)) return { ok: false as const, message: "Archivo inválido" };
     const parsed = UploadTargetSchema.parse({
       filename: file.name || "reference.png",
@@ -185,6 +189,7 @@ export const uploadVisualImageForm = createServerFn({ method: "POST" })
     ).catch((error) => ({ data: null, error: error as Error }));
     if (error) {
       console.error("uploadVisualImageForm failed:", error);
+      if (isStorageBusy(error)) uploadPrepBackoffUntil = Date.now() + STORAGE_BUSY_BACKOFF_MS;
       return { ok: false as const, message: error.message };
     }
     return { ok: true as const, path, url: await sign(path) };
