@@ -49,7 +49,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { ImageLightbox, type LightboxItem } from "@/components/image-lightbox";
+import { InlineImageZoom, type InlineImageZoomHandle } from "@/components/inline-image-zoom";
 
 const searchSchema = z.object({
   personajeId: fallback(z.string(), "").default(""),
@@ -155,25 +155,8 @@ function ImagenIA() {
   >(null);
   const [busyDelete, setBusyDelete] = useState(false);
 
-  // Lightbox state
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
-  const [lightboxItems, setLightboxItems] = useState<LightboxItem[]>([]);
-
-  function openLightboxCurrent() {
-    const src = upscaledImage ?? imageData;
-    if (!src) return;
-    setLightboxItems([{
-      src,
-      prompt: lastPrompt,
-      provider,
-      resolution: finalResLabel || generatedResLabel || resolution,
-      character: selectedCharacter?.name ?? null,
-      date: new Date(),
-    }]);
-    setLightboxIndex(0);
-    setLightboxOpen(true);
-  }
+  // Inline zoom handle (for activating zoom from thumbnails)
+  const zoomRef = useRef<InlineImageZoomHandle | null>(null);
 
   const deleteOneFn = useServerFn(deleteImageGeneration);
   const deleteManyFn = useServerFn(deleteImageGenerations);
