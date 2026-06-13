@@ -412,7 +412,7 @@ export function ImportCharacterDialog({
       onAnalyzed?.({
         name: name.trim(),
         description: descText.trim(),
-          master_prompt: masterPrompt.trim() || descText.trim() || name.trim(),
+        master_prompt: masterPrompt.trim() || descText.trim() || name.trim(),
         tags,
         image_path: imagePath ?? "local-reference",
         image_url: imageUrl,
