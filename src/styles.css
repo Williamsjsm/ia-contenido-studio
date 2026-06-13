@@ -314,3 +314,38 @@
   }
 }
 
+/* ===========================================================================
+ * Global gradient + glow overrides — "no flat colors" rule.
+ * Reassign common solid utility backgrounds to gradients so every accent
+ * surface across the app reads as a luminous AI command-center element.
+ * =========================================================================== */
+@layer utilities {
+  .bg-primary       { background-image: var(--gradient-primary) !important; background-color: transparent !important; box-shadow: 0 0 16px -4px rgba(168, 85, 247, 0.55); }
+  .bg-secondary     { background-image: linear-gradient(135deg, #1e3a8a, #3b82f6) !important; background-color: transparent !important; box-shadow: 0 0 14px -4px rgba(59, 130, 246, 0.5); }
+  .bg-destructive   { background-image: linear-gradient(135deg, #7f1d1d, #ef4444) !important; background-color: transparent !important; box-shadow: 0 0 14px -4px rgba(239, 68, 68, 0.5); }
+  .bg-success       { background-image: linear-gradient(135deg, #064e3b, #10b981) !important; background-color: transparent !important; box-shadow: 0 0 14px -4px rgba(16, 185, 129, 0.5); }
+  .bg-warning       { background-image: linear-gradient(135deg, #78350f, #f59e0b) !important; background-color: transparent !important; box-shadow: 0 0 14px -4px rgba(245, 158, 11, 0.5); }
+  .bg-info          { background-image: linear-gradient(135deg, #155e75, #06b6d4) !important; background-color: transparent !important; box-shadow: 0 0 14px -4px rgba(6, 182, 212, 0.5); }
+
+  /* Translucent variants (e.g. bg-primary/15) keep their alpha tint, but
+   * gain a subtle radial sheen so they don't read as flat blocks. */
+  [class*="bg-primary/"]     { background-image: radial-gradient(120% 120% at 0% 0%, rgba(168, 85, 247, 0.18), transparent 60%); }
+  [class*="bg-secondary/"]   { background-image: radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.18), transparent 60%); }
+  [class*="bg-destructive/"] { background-image: radial-gradient(120% 120% at 0% 0%, rgba(239, 68, 68, 0.18), transparent 60%); }
+  [class*="bg-success/"]     { background-image: radial-gradient(120% 120% at 0% 0%, rgba(16, 185, 129, 0.18), transparent 60%); }
+  [class*="bg-warning/"]     { background-image: radial-gradient(120% 120% at 0% 0%, rgba(245, 158, 11, 0.18), transparent 60%); }
+  [class*="bg-info/"]        { background-image: radial-gradient(120% 120% at 0% 0%, rgba(6, 182, 212, 0.18), transparent 60%); }
+
+  /* Icon tinting via text-* on accent glyphs gets a soft glow halo. */
+  .text-primary   { text-shadow: 0 0 12px rgba(168, 85, 247, 0.45); }
+  .text-secondary { text-shadow: 0 0 12px rgba(59, 130, 246, 0.45); }
+  .text-success   { text-shadow: 0 0 12px rgba(16, 185, 129, 0.45); }
+  .text-warning   { text-shadow: 0 0 12px rgba(245, 158, 11, 0.45); }
+  .text-info      { text-shadow: 0 0 12px rgba(6, 182, 212, 0.45); }
+  .text-destructive { text-shadow: 0 0 12px rgba(239, 68, 68, 0.45); }
+
+  /* Cards lift with a soft outer glow on hover for a tactile feel. */
+  .surface-card { transition: transform var(--transition-smooth), box-shadow var(--transition-smooth), border-color var(--transition-smooth); }
+  .surface-card:hover { box-shadow: var(--shadow-card), 0 0 40px -10px rgba(168, 85, 247, 0.25); border-color: rgba(168, 85, 247, 0.25); }
+}
+
