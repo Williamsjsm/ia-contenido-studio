@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Sparkles, Image as ImageIcon, Radar, MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WeatherScene, sceneFromCode } from "@/components/weather-scene";
 
 type Geo = { city: string; region: string; country: string; lat: number; lon: number };
 type Weather = { temp: number; code: number; isDay: boolean };
@@ -111,6 +112,7 @@ export function SmartHero({ name = "Williams", subtext }: { name?: string; subte
   const isDay = weather?.isDay ?? (new Date().getHours() >= 6 && new Date().getHours() < 20);
   const bg = useMemo(() => weatherGradient(weather?.code ?? null, isDay), [weather, isDay]);
   const desc = weather ? describeWeather(weather.code, weather.isDay) : null;
+  const scene = useMemo(() => sceneFromCode(weather?.code ?? null, isDay), [weather, isDay]);
 
   const locationLine = geo
     ? [geo.city, [geo.region, geo.country].filter(Boolean).join(" - ")].filter(Boolean).join(", ")
@@ -118,11 +120,12 @@ export function SmartHero({ name = "Williams", subtext }: { name?: string; subte
 
   return (
     <section
-      className="relative overflow-hidden rounded-2xl border border-border/60 p-6 sm:p-8 animate-fade-in transition-[background] duration-700"
+      className="relative overflow-hidden rounded-2xl border border-border/60 p-6 sm:p-8 animate-fade-in transition-[background] duration-700 min-h-[220px]"
       style={{ backgroundImage: bg }}
     >
       <div className="absolute inset-0 bg-gradient-to-br from-background/10 via-background/0 to-background/30" aria-hidden />
       <div className="absolute inset-0 opacity-[0.08] mix-blend-overlay" aria-hidden style={{ backgroundImage: "radial-gradient(circle at 20% 20%, white 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
+      <WeatherScene scene={scene} />
 
       <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-2 text-primary-foreground">
