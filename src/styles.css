@@ -407,3 +407,23 @@
   }
   .animate-bird { animation: bird-fly linear infinite; }
 }
+
+/* SmartHero weather scene — extra realism */
+@layer utilities {
+  @keyframes sun-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .animate-sun-spin { animation: sun-spin 60s linear infinite; transform-origin: center; }
+
+  @keyframes snow-fall-drift {
+    0%   { transform: translate(0, -10px) rotate(0deg); opacity: 0; }
+    15%  { opacity: 1; }
+    100% { transform: translate(var(--drift, 0px), 240px) rotate(360deg); opacity: 0; }
+  }
+  .animate-snow { animation: snow-fall-drift linear infinite; }
+
+  @keyframes bolt-flash {
+    0%, 96%, 100% { opacity: 0; transform: translateY(-10px) scale(0.95); }
+    97%, 98%      { opacity: 1; transform: translateY(0) scale(1); }
+    99%           { opacity: 0; }
+  }
+  .animate-bolt { animation: bolt-flash 6s ease-out infinite; }
+}
