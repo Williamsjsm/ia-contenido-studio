@@ -159,10 +159,7 @@ function PersonajesPage() {
       const c = await maybeCompressImage(file);
       const working = c.file;
       const contentType = (working.type || "image/png") as (typeof ALLOWED_MIME)[number];
-      const target = await retryTransient(
-        () => createUploadTargetFn({ data: { filename: working.name, contentType, scope: "character" } }),
-        (result) => !result.ok && isTransientUploadText(result.message),
-      );
+      const target = await createUploadTargetFn({ data: { filename: working.name, contentType, scope: "character" } });
       if (!target.ok) {
         const body = new FormData();
         body.append("file", working);
