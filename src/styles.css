@@ -349,3 +349,61 @@
   .surface-card:hover { box-shadow: var(--shadow-card), 0 0 40px -10px rgba(168, 85, 247, 0.25); border-color: rgba(168, 85, 247, 0.25); }
 }
 
+
+/* ===========================================================================
+ * Weather scene animations (SmartHero)
+ * =========================================================================== */
+@layer utilities {
+  @keyframes cloud-drift {
+    from { transform: translateX(0) scale(var(--tw-scale-x, 1)); }
+    to   { transform: translateX(140vw) scale(var(--tw-scale-x, 1)); }
+  }
+  .animate-cloud { animation: cloud-drift linear infinite; will-change: transform; }
+
+  @keyframes rain-fall {
+    0%   { transform: translateY(-20px); opacity: 0; }
+    20%  { opacity: 1; }
+    100% { transform: translateY(220px); opacity: 0; }
+  }
+  .animate-rain { animation: rain-fall linear infinite; }
+
+  @keyframes snow-fall {
+    0%   { transform: translate(0, -10px); opacity: 0; }
+    15%  { opacity: 1; }
+    100% { transform: translate(20px, 220px); opacity: 0; }
+  }
+  .animate-snow { animation: snow-fall linear infinite; }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.25; }
+    50%      { opacity: 1; }
+  }
+  .animate-twinkle { animation: twinkle 3.5s ease-in-out infinite; }
+
+  @keyframes sun-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.95; }
+    50%      { transform: scale(1.08); opacity: 1; }
+  }
+  .animate-sun-pulse { animation: sun-pulse 5s ease-in-out infinite; }
+
+  @keyframes lightning-flash {
+    0%, 92%, 100% { opacity: 0; }
+    93%, 95%      { opacity: 0.7; }
+    94%           { opacity: 0; }
+  }
+  .animate-lightning { animation: lightning-flash 6s linear infinite; mix-blend-mode: overlay; }
+
+  @keyframes fog-drift {
+    0%   { transform: translateX(-15%); opacity: 0.4; }
+    50%  { opacity: 0.8; }
+    100% { transform: translateX(15%); opacity: 0.4; }
+  }
+  .animate-fog { animation: fog-drift 16s ease-in-out infinite alternate; }
+
+  @keyframes bird-fly {
+    0%   { transform: translate(0, 0); }
+    50%  { transform: translate(60vw, -20px); }
+    100% { transform: translate(120vw, 10px); }
+  }
+  .animate-bird { animation: bird-fly linear infinite; }
+}
