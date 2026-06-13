@@ -290,6 +290,18 @@ export function ImportCharacterDialog({
     await runUpload(pendingFile);
   }
 
+  async function uploadThroughServer(file: File, scope: "reference" | "character") {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("scope", scope);
+    return retryTransient(
+      "upload:server-fallback",
+      () => uploadFormFn({ data: body }),
+      2,
+      (result) => !result.ok && isTransientUploadText(result.message),
+    );
+  }
+
   async function analyze(path: string) {
     setStage({ kind: "analyzing" });
     const t = performance.now();
