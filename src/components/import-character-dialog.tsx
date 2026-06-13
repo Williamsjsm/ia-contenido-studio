@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import {
   createVisualUploadTarget,
+  uploadVisualImageForm,
   signVisualImage,
   analyzeCharacterFromImage,
   createVirtualCharacter,
@@ -125,6 +126,7 @@ export function ImportCharacterDialog({
   initialImage,
 }: Props) {
   const createUploadTargetFn = useServerFn(createVisualUploadTarget);
+  const uploadFormFn = useServerFn(uploadVisualImageForm);
   const signImageFn = useServerFn(signVisualImage);
   const analyzeFn = useServerFn(analyzeCharacterFromImage);
   const createFn = useServerFn(createVirtualCharacter);
