@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LibraryShell, EmptyState } from "@/components/library-shell";
 import { LibraryToolbar, DEFAULT_FILTERS, matchesFilters, type ViewMode, type LibraryFilters } from "@/components/library-toolbar";
 import { VIDEOS, fmtDate, type VideoItem } from "@/lib/library-data";
@@ -16,6 +16,10 @@ function VideosPage() {
   const [view, setView] = useState<ViewMode>("grid");
   const [filters, setFilters] = useState<LibraryFilters>(DEFAULT_FILTERS);
   const items = useMemo(() => VIDEOS.filter((v) => matchesFilters(v, filters)), [filters]);
+  const [visible, setVisible] = useState(20);
+  useEffect(() => { setVisible(20); }, [filters]);
+  const shown = items.slice(0, visible);
+  const hasMore = items.length > visible;
 
   return (
     <LibraryShell count={VIDEOS.length}>
@@ -23,19 +27,38 @@ function VideosPage() {
       {items.length === 0 ? (
         <EmptyState label="videos" />
       ) : view === "grid" ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {items.map((v) => <VideoCard key={v.id} v={v} />)}
-        </div>
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {shown.map((v) => <VideoCard key={v.id} v={v} />)}
+          </div>
+          {hasMore && <LoadMoreVideos onClick={() => setVisible((v) => v + 20)} remaining={items.length - visible} />}
+        </>
       ) : view === "list" ? (
-        <div className="space-y-2">
-          {items.map((v) => <VideoRow key={v.id} v={v} />)}
-        </div>
+        <>
+          <div className="space-y-2">
+            {shown.map((v) => <VideoRow key={v.id} v={v} />)}
+          </div>
+          {hasMore && <LoadMoreVideos onClick={() => setVisible((v) => v + 20)} remaining={items.length - visible} />}
+        </>
       ) : (
-        <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-          {items.map((v) => <VideoThumb key={v.id} v={v} />)}
-        </div>
+        <>
+          <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+            {shown.map((v) => <VideoThumb key={v.id} v={v} />)}
+          </div>
+          {hasMore && <LoadMoreVideos onClick={() => setVisible((v) => v + 20)} remaining={items.length - visible} />}
+        </>
       )}
     </LibraryShell>
+  );
+}
+
+function LoadMoreVideos({ onClick, remaining }: { onClick: () => void; remaining: number }) {
+  return (
+    <div className="mt-6 flex justify-center">
+      <Button variant="outline" size="sm" onClick={onClick}>
+        Cargar más ({remaining} restantes)
+      </Button>
+    </div>
   );
 }
 

@@ -95,7 +95,9 @@ function useDashboardData() {
   const fetchProd = useServerFn(getProductionStats);
   const fetchRecentVideos = useServerFn(listRecentVideos);
 
-  const opts = { retry: false, staleTime: 30_000, refetchOnWindowFocus: false };
+  // Higher staleTime so each block doesn't re-hit the server when revisiting the dashboard.
+  // Each query is independent so a single failure doesn't block the rest.
+  const opts = { retry: 1, staleTime: 60_000, gcTime: 5 * 60_000, refetchOnWindowFocus: false };
 
   return {
     stats: useQuery({ queryKey: ["dashboard"], queryFn: () => fetchStats(), ...opts }),
