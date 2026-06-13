@@ -233,9 +233,9 @@ export const listVisualReferences = createServerFn({ method: "GET" })
       .limit(200);
     if (error) throw new Error(error.message);
     const rows = data ?? [];
-    const signed = await mapLimit(rows, 4, async (r) => ({
+    const signed = await mapLimit(rows, 3, async (r, index) => ({
       ...r,
-      image_url: (await sign(r.image_path)) ?? r.image_url,
+      image_url: index < 40 ? ((await sign(r.image_path)) ?? r.image_url) : r.image_url,
     }));
     return signed as VisualReference[];
   });
@@ -385,9 +385,9 @@ export const listVirtualCharacters = createServerFn({ method: "GET" })
       .limit(200);
     if (error) throw new Error(error.message);
     const rows = data ?? [];
-    const signed = await mapLimit(rows, 4, async (r) => ({
+    const signed = await mapLimit(rows, 3, async (r, index) => ({
       ...r,
-      reference_image_url: r.reference_image_path
+      reference_image_url: index < 24 && r.reference_image_path
         ? ((await sign(r.reference_image_path)) ?? r.reference_image_url)
         : r.reference_image_url,
     }));
