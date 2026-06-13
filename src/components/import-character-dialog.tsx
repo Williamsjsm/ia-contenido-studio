@@ -445,7 +445,7 @@ export function ImportCharacterDialog({
                 onChange={(e) => setDescText(e.target.value)}
                 rows={3}
                 className="min-h-[56px] resize-y"
-                disabled={!analyzed}
+                disabled={!imagePath}
               />
             </div>
             <div className="space-y-1.5">
@@ -455,7 +455,7 @@ export function ImportCharacterDialog({
                 onChange={(e) => setMasterPrompt(e.target.value)}
                 rows={5}
                 className="min-h-[96px] resize-y font-mono text-xs"
-                disabled={!analyzed}
+                disabled={!imagePath}
               />
             </div>
             <div className="space-y-1.5">
@@ -464,7 +464,7 @@ export function ImportCharacterDialog({
                 value={tagsText}
                 onChange={(e) => setTagsText(e.target.value)}
                 placeholder="tag1, tag2"
-                disabled={!analyzed}
+                disabled={!imagePath}
               />
             </div>
             {attrEntries.length > 0 && (
@@ -480,7 +480,7 @@ export function ImportCharacterDialog({
               </div>
             )}
 
-            {mode === "save" && analyzed && (
+            {mode === "save" && imagePath && (
               <div className="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -640,7 +640,7 @@ export function ImportCharacterDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={!analyzed || saving || !name.trim()}>
+          <Button onClick={handleConfirm} disabled={!imagePath || saving || !name.trim()}>
             {saving ? (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
             ) : (
