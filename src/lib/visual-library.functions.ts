@@ -9,6 +9,22 @@ function ownerId(): string {
 
 const BUCKET = "visual-references";
 const SIGNED_TTL = 60 * 60 * 24 * 7; // 7 días
+const SIGN_CACHE_TTL_MS = 60 * 60 * 24 * 6 * 1000;
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await fn(items[index]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
 
 async function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -37,14 +53,18 @@ function assertOwnedPath(path: string | null | undefined, owner: string): void {
 
 async function sign(path: string | null | undefined): Promise<string | null> {
   if (!path) return null;
+  const cached = signedUrlCache.get(path);
+  if (cached && cached.expiresAt > Date.now()) return cached.url;
+  if (cached) signedUrlCache.delete(path);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   try {
     const { data, error } = await withTimeout(
       supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, SIGNED_TTL),
-      8_000,
+      5_000,
       "createSignedUrl",
     );
     if (error || !data?.signedUrl) return null;
+    signedUrlCache.set(path, { url: data.signedUrl, expiresAt: Date.now() + SIGN_CACHE_TTL_MS });
     return data.signedUrl;
   } catch (error) {
     console.warn("sign visual image failed:", error);
