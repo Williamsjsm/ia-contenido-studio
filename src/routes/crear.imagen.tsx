@@ -606,13 +606,11 @@ function ImagenIA() {
               </div>
             ) : imageData ? (
               <div className="flex flex-1 flex-col gap-4">
-                <div className="flex flex-1 items-center justify-center overflow-hidden rounded-md bg-muted/30">
-                  <img
+                <div className="relative flex min-h-[320px] max-h-[78vh] flex-1 items-center justify-center">
+                  <InlineImageZoom
+                    ref={zoomRef}
                     src={upscaledImage ?? imageData}
                     alt={lastPrompt}
-                    onDoubleClick={openLightboxCurrent}
-                    title="Doble clic para ver en grande"
-                    className="max-h-[78vh] max-w-full cursor-zoom-in object-contain"
                   />
                 </div>
                 <div className="flex flex-wrap gap-3 text-xs">
@@ -833,18 +831,13 @@ function ImagenIA() {
                           }}
                           onDoubleClick={(e) => {
                             e.stopPropagation();
-                            const mapped: LightboxItem[] = filtered.map((f) => ({
-                              src: `data:image/png;base64,${f.image_base64}`,
-                              prompt: f.prompt,
-                              provider: f.provider,
-                              resolution: (f as { resolution?: string }).resolution,
-                              character: f.character_name ?? null,
-                              date: f.created_at,
-                            }));
-                            const idx = filtered.findIndex((f) => f.id === it.id);
-                            setLightboxItems(mapped);
-                            setLightboxIndex(idx >= 0 ? idx : 0);
-                            setLightboxOpen(true);
+                            setUpscaledImage(null);
+                            setErrorDetails(null);
+                            setImageData(dataUrl);
+                            setLastPrompt(it.prompt);
+                            setStatus("success");
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                            setTimeout(() => zoomRef.current?.zoomIn(), 80);
                           }}
                         />
                         {/* Top-left: checkbox in select mode */}
