@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -49,7 +49,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { ImageLightbox, type LightboxItem } from "@/components/image-lightbox";
+import { InlineImageZoom, type InlineImageZoomHandle } from "@/components/inline-image-zoom";
 
 const searchSchema = z.object({
   personajeId: fallback(z.string(), "").default(""),
@@ -155,25 +155,8 @@ function ImagenIA() {
   >(null);
   const [busyDelete, setBusyDelete] = useState(false);
 
-  // Lightbox state
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
-  const [lightboxItems, setLightboxItems] = useState<LightboxItem[]>([]);
-
-  function openLightboxCurrent() {
-    const src = upscaledImage ?? imageData;
-    if (!src) return;
-    setLightboxItems([{
-      src,
-      prompt: lastPrompt,
-      provider,
-      resolution: finalResLabel || generatedResLabel || resolution,
-      character: selectedCharacter?.name ?? null,
-      date: new Date(),
-    }]);
-    setLightboxIndex(0);
-    setLightboxOpen(true);
-  }
+  // Inline zoom handle (for activating zoom from thumbnails)
+  const zoomRef = useRef<InlineImageZoomHandle | null>(null);
 
   const deleteOneFn = useServerFn(deleteImageGeneration);
   const deleteManyFn = useServerFn(deleteImageGenerations);
@@ -623,13 +606,11 @@ function ImagenIA() {
               </div>
             ) : imageData ? (
               <div className="flex flex-1 flex-col gap-4">
-                <div className="flex flex-1 items-center justify-center overflow-hidden rounded-md bg-muted/30">
-                  <img
+                <div className="relative flex min-h-[320px] max-h-[78vh] flex-1 items-center justify-center">
+                  <InlineImageZoom
+                    ref={zoomRef}
                     src={upscaledImage ?? imageData}
                     alt={lastPrompt}
-                    onDoubleClick={openLightboxCurrent}
-                    title="Doble clic para ver en grande"
-                    className="max-h-[78vh] max-w-full cursor-zoom-in object-contain"
                   />
                 </div>
                 <div className="flex flex-wrap gap-3 text-xs">
@@ -850,18 +831,13 @@ function ImagenIA() {
                           }}
                           onDoubleClick={(e) => {
                             e.stopPropagation();
-                            const mapped: LightboxItem[] = filtered.map((f) => ({
-                              src: `data:image/png;base64,${f.image_base64}`,
-                              prompt: f.prompt,
-                              provider: f.provider,
-                              resolution: (f as { resolution?: string }).resolution,
-                              character: f.character_name ?? null,
-                              date: f.created_at,
-                            }));
-                            const idx = filtered.findIndex((f) => f.id === it.id);
-                            setLightboxItems(mapped);
-                            setLightboxIndex(idx >= 0 ? idx : 0);
-                            setLightboxOpen(true);
+                            setUpscaledImage(null);
+                            setErrorDetails(null);
+                            setImageData(dataUrl);
+                            setLastPrompt(it.prompt);
+                            setStatus("success");
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                            setTimeout(() => zoomRef.current?.zoomIn(), 80);
                           }}
                         />
                         {/* Top-left: checkbox in select mode */}
@@ -1111,13 +1087,6 @@ function ImagenIA() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-    <ImageLightbox
-      open={lightboxOpen}
-      items={lightboxItems}
-      index={lightboxIndex}
-      onClose={() => setLightboxOpen(false)}
-      onIndexChange={setLightboxIndex}
-    />
     <Dialog open={moveTarget !== null} onOpenChange={(o) => { if (!o) { setMoveTarget(null); setMoveProjectId(""); } }}>
       <DialogContent>
         <DialogHeader>
