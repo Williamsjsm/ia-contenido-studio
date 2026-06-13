@@ -248,35 +248,47 @@ export function ImportCharacterDialog({
         3,
         (result) => !result.ok && isTransientUploadText(result.message),
       );
+      let uploadedPath: string;
+      let uploadedUrl: string | null = null;
       if (!target.ok) {
-        setStage({ kind: "error", at: "upload", message: target.message });
-        toast.error("No se pudo preparar la subida", { description: target.message });
-        return;
+        logStage("upload:prepare:fallback", { message: target.message });
+        toast.message("Preparación saturada", { description: "Intentando ruta alternativa de subida." });
+        const fallback = await uploadThroughServer(working, "character");
+        if (!fallback.ok) {
+          setStage({ kind: "error", at: "upload", message: fallback.message });
+          toast.error("No se pudo subir la imagen", { description: recoverableUploadMessage(fallback.message) });
+          return;
+        }
+        uploadedPath = fallback.path;
+        uploadedUrl = fallback.url;
+      } else {
+        logStage("upload:start", { path: target.path });
+        const uploaded = await retryTransient("upload:file", () =>
+          supabase.storage
+            .from(target.bucket)
+            .uploadToSignedUrl(target.path, target.token, working, {
+              contentType: ct,
+              cacheControl: "31536000",
+            }),
+          3,
+          (result) => Boolean(result.error && isTransientUploadText(result.error.message)),
+        );
+        logStage("upload:done", { ms: Math.round(performance.now() - tUpload), ok: !uploaded.error });
+        if (uploaded.error) {
+          setStage({ kind: "error", at: "upload", message: uploaded.error.message });
+          toast.error("No se pudo subir la imagen", { description: uploaded.error.message });
+          return;
+        }
+        uploadedPath = target.path;
       }
-      logStage("upload:start", { path: target.path });
-      const uploaded = await retryTransient("upload:file", () =>
-        supabase.storage
-          .from(target.bucket)
-          .uploadToSignedUrl(target.path, target.token, working, {
-            contentType: ct,
-            cacheControl: "31536000",
-          }),
-        3,
-        (result) => Boolean(result.error && isTransientUploadText(result.error.message)),
-      );
-      logStage("upload:done", { ms: Math.round(performance.now() - tUpload), ok: !uploaded.error });
-      if (uploaded.error) {
-        setStage({ kind: "error", at: "upload", message: uploaded.error.message });
-        toast.error("No se pudo subir la imagen", { description: uploaded.error.message });
-        return;
-      }
-      setImagePath(target.path);
+      setImagePath(uploadedPath);
       setName((current) => current.trim() || nameFromFilename(working.name));
-      void signImageFn({ data: { image_path: target.path } }).then((r) => {
+      if (uploadedUrl) setImageUrl(uploadedUrl);
+      void signImageFn({ data: { image_path: uploadedPath } }).then((r) => {
         if (r.ok && r.url) setImageUrl(r.url);
       }).catch((e) => logStage("sign:error", { error: String(e) }));
       setStage({ kind: "uploaded" });
-      void analyze(target.path);
+      void analyze(uploadedPath);
     } catch (e) {
       const msg = recoverableUploadMessage(e);
       logStage("upload:error", { error: msg });
