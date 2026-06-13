@@ -1094,13 +1094,6 @@ function ImagenIA() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-    <ImageLightbox
-      open={lightboxOpen}
-      items={lightboxItems}
-      index={lightboxIndex}
-      onClose={() => setLightboxOpen(false)}
-      onIndexChange={setLightboxIndex}
-    />
     <Dialog open={moveTarget !== null} onOpenChange={(o) => { if (!o) { setMoveTarget(null); setMoveProjectId(""); } }}>
       <DialogContent>
         <DialogHeader>
