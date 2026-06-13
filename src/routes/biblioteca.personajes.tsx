@@ -43,13 +43,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { LoadingState } from "@/components/state/loading-state";
 import { ErrorState } from "@/components/state/error-state";
+import { supabase } from "@/integrations/supabase/client";
+import { maybeCompressImage } from "@/lib/image-compress";
 import {
   listVirtualCharacters,
   createVirtualCharacter,
   updateVirtualCharacter,
   deleteVirtualCharacter,
   duplicateVirtualCharacter,
-  uploadVisualImage,
+  createVisualUploadTarget,
+  signVisualImage,
   type VirtualCharacter,
 } from "@/lib/visual-library.functions";
 import { ImportCharacterDialog } from "@/components/import-character-dialog";
@@ -86,7 +89,8 @@ function PersonajesPage() {
   const updateFn = useServerFn(updateVirtualCharacter);
   const deleteFn = useServerFn(deleteVirtualCharacter);
   const duplicateFn = useServerFn(duplicateVirtualCharacter);
-  const uploadFn = useServerFn(uploadVisualImage);
+  const createUploadTargetFn = useServerFn(createVisualUploadTarget);
+  const signImageFn = useServerFn(signVisualImage);
 
   const query = useQuery({ queryKey: ["library", "characters"], queryFn: () => list() });
 
@@ -115,29 +119,44 @@ function PersonajesPage() {
   }
 
   async function handleFile(file: File) {
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Máx. 10 MB");
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("Máx. 15 MB");
       return;
     }
+    const previewUrl = URL.createObjectURL(file);
+    setForm((f) => ({ ...f, reference_image_url: previewUrl }));
     setUploading(true);
     try {
-      const base64 = await fileToBase64(file);
-      const r = await uploadFn({
-        data: {
-          filename: file.name,
-          contentType: file.type || "image/png",
-          base64,
-          scope: "character",
-        },
+      const c = await maybeCompressImage(file);
+      const working = c.file;
+      const contentType = (working.type || "image/png") as "image/png" | "image/jpeg" | "image/jpg" | "image/webp" | "image/gif";
+      const target = await createUploadTargetFn({
+        data: { filename: working.name, contentType, scope: "character" },
       });
-      if (!r.ok) {
-        toast.error("No se pudo subir la imagen", { description: r.message });
+      if (!target.ok) {
+        toast.error("No se pudo preparar la subida", { description: target.message });
         return;
       }
-      setForm((f) => ({ ...f, reference_image_path: r.path, reference_image_url: r.url }));
+      const uploaded = await supabase.storage
+        .from(target.bucket)
+        .uploadToSignedUrl(target.path, target.token, working, {
+          contentType,
+          cacheControl: "31536000",
+        });
+      if (uploaded.error) {
+        toast.error("No se pudo subir la imagen", { description: uploaded.error.message });
+        return;
+      }
+      setForm((f) => ({ ...f, reference_image_path: target.path }));
+      signImageFn({ data: { image_path: target.path } })
+        .then((r) => {
+          if (r.ok && r.url) setForm((f) => ({ ...f, reference_image_url: r.url }));
+        })
+        .catch(() => {});
     } catch (e) {
       console.error(e);
-      toast.error("Error al subir la imagen.");
+      const message = e instanceof Error ? e.message : "Error de red";
+      toast.error("Error recuperable al subir", { description: message });
     } finally {
       setUploading(false);
     }
