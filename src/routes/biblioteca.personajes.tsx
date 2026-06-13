@@ -52,6 +52,7 @@ import {
   deleteVirtualCharacter,
   duplicateVirtualCharacter,
   createVisualUploadTarget,
+  uploadVisualImageForm,
   signVisualImage,
   type VirtualCharacter,
 } from "@/lib/visual-library.functions";
@@ -84,7 +85,7 @@ const emptyForm: FormState = {
 const ALLOWED_MIME = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"] as const;
 
 function isTransientUploadText(value: unknown): boolean {
-  return /timed out|timeout|522|544|connection|schema cache|retrying/i.test(String(value || ""));
+  return /timed out|timeout|522|544|connection|too many connections|database|schema cache|retrying/i.test(String(value || ""));
 }
 
 async function retryTransient<T>(fn: () => Promise<T>, shouldRetryResult?: (result: T) => boolean): Promise<T> {
