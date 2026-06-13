@@ -22,6 +22,7 @@ import {
   uploadVisualImageForm,
   signVisualImage,
   analyzeCharacterFromImage,
+  analyzeCharacterFromImageData,
   createVirtualCharacter,
 } from "@/lib/visual-library.functions";
 import { maybeCompressImage } from "@/lib/image-compress";
@@ -81,6 +82,16 @@ function nameFromFilename(filename: string): string {
     .slice(0, 80) || "Referencia visual";
 }
 
+async function fileToBase64(file: File): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen local"));
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.readAsDataURL(file);
+  });
+  return dataUrl.split(",")[1] || "";
+}
+
 async function retryTransient<T>(
   label: string,
   fn: () => Promise<T>,
@@ -135,6 +146,7 @@ export function ImportCharacterDialog({
   const uploadFormFn = useServerFn(uploadVisualImageForm);
   const signImageFn = useServerFn(signVisualImage);
   const analyzeFn = useServerFn(analyzeCharacterFromImage);
+  const analyzeDataFn = useServerFn(analyzeCharacterFromImageData);
   const createFn = useServerFn(createVirtualCharacter);
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -157,6 +169,7 @@ export function ImportCharacterDialog({
   const uploading = stage.kind === "uploading" || stage.kind === "compressing";
   const analyzing = stage.kind === "analyzing";
   const saving = stage.kind === "saving";
+  const hasUsableReference = Boolean(imagePath) || (mode === "temporal" && Boolean(previewUrl || pendingFile));
 
   // Auto-load a pre-uploaded image when the dialog opens.
   useEffect(() => {
