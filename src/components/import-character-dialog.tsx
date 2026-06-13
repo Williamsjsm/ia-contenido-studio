@@ -279,10 +279,6 @@ export function ImportCharacterDialog({
       toast.error("Sube una imagen primero.");
       return;
     }
-    if (!analyzed) {
-      toast.error("Espera al análisis de la IA.");
-      return;
-    }
     if (!name.trim()) {
       toast.error("Añade un nombre.");
       return;
@@ -292,7 +288,7 @@ export function ImportCharacterDialog({
       onAnalyzed?.({
         name: name.trim(),
         description: descText.trim(),
-        master_prompt: masterPrompt,
+          master_prompt: masterPrompt.trim() || descText.trim() || name.trim(),
         tags,
         image_path: imagePath,
         image_url: imageUrl,
@@ -309,7 +305,7 @@ export function ImportCharacterDialog({
         data: {
           name: name.trim(),
           description: descText.trim() || null,
-          master_prompt: masterPrompt,
+          master_prompt: masterPrompt.trim() || descText.trim() || name.trim(),
           tags,
           reference_image_path: imagePath,
           secondary_reference_paths: secondaryPaths.map((s) => s.path),
