@@ -169,7 +169,7 @@ export function ImportCharacterDialog({
   const uploading = stage.kind === "uploading" || stage.kind === "compressing";
   const analyzing = stage.kind === "analyzing";
   const saving = stage.kind === "saving";
-  const hasUsableReference = Boolean(imagePath) || (mode === "temporal" && Boolean(previewUrl || pendingFile));
+  const hasUsableReference = Boolean(imagePath || previewUrl || pendingFile);
 
   // Auto-load a pre-uploaded image when the dialog opens.
   useEffect(() => {
@@ -274,8 +274,11 @@ export function ImportCharacterDialog({
         toast.message("Preparación saturada", { description: "Intentando ruta alternativa de subida." });
         const fallback = await uploadThroughServer(working, "character");
         if (!fallback.ok) {
-          setStage({ kind: "error", at: "upload", message: fallback.message });
-          toast.error("No se pudo subir la imagen", { description: recoverableUploadMessage(fallback.message) });
+          setName((current) => current.trim() || nameFromFilename(working.name));
+          toast.warning("Referencia local activa", {
+            description: "El backend está saturado; puedes analizar y guardar el personaje sin imagen remota, o reintentar la subida.",
+          });
+          await analyzeLocal(working);
           return;
         }
         uploadedPath = fallback.path;
@@ -294,8 +297,11 @@ export function ImportCharacterDialog({
         );
         logStage("upload:done", { ms: Math.round(performance.now() - tUpload), ok: !uploaded.error });
         if (uploaded.error) {
-          setStage({ kind: "error", at: "upload", message: uploaded.error.message });
-          toast.error("No se pudo subir la imagen", { description: uploaded.error.message });
+          setName((current) => current.trim() || nameFromFilename(working.name));
+          toast.warning("Referencia local activa", {
+            description: "La subida no completó; puedes analizar y guardar el personaje sin imagen remota, o reintentar.",
+          });
+          await analyzeLocal(working);
           return;
         }
         uploadedPath = target.path;
@@ -311,8 +317,11 @@ export function ImportCharacterDialog({
     } catch (e) {
       const msg = recoverableUploadMessage(e);
       logStage("upload:error", { error: msg });
-      setStage({ kind: "error", at: "upload", message: msg });
-      toast.error("Error recuperable al subir", { description: "Pulsa Reintentar. La vista previa no se pierde." });
+      setName((current) => current.trim() || nameFromFilename(working.name));
+      toast.warning("Referencia local activa", {
+        description: "El backend no respondió a la subida; puedes analizar y guardar el personaje sin imagen remota, o reintentar.",
+      });
+      await analyzeLocal(working);
     }
   }
 
