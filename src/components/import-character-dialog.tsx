@@ -534,6 +534,17 @@ export function ImportCharacterDialog({
                 <Wand2 className="h-3.5 w-3.5" /> Analizar
               </Button>
             )}
+            {!imagePath && pendingFile && !uploading && !analyzing && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full gap-1"
+                onClick={retryUpload}
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Reintentar subida
+              </Button>
+            )}
             <input
               ref={fileRef}
               type="file"
