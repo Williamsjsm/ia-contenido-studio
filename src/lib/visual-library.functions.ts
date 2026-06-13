@@ -80,7 +80,7 @@ export const createVisualUploadTarget = createServerFn({ method: "POST" })
       supabaseAdmin.storage.from(BUCKET).createSignedUploadUrl(path, { upsert: false }),
       8_000,
       "createSignedUploadUrl",
-    );
+    ).catch((error) => ({ data: null, error: error as Error }));
     if (error || !signed?.token) {
       console.error("createVisualUploadTarget failed:", error);
       return { ok: false as const, message: error?.message ?? "No se pudo preparar la subida" };
@@ -110,7 +110,7 @@ export const uploadVisualImage = createServerFn({ method: "POST" })
       supabaseAdmin.storage.from(BUCKET).upload(path, bytes, { contentType: data.contentType, upsert: false }),
       12_000,
       "uploadVisualImage",
-    );
+    ).catch((error) => ({ data: null, error: error as Error }));
     if (error) {
       console.error("uploadVisualImage failed:", error);
       return { ok: false as const, message: error.message };
