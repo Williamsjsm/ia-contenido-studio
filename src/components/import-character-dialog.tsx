@@ -252,6 +252,12 @@ export function ImportCharacterDialog({
 
     setStage({ kind: "uploading" });
     const ct = (working.type || "image/png") as (typeof ALLOWED_MIME)[number];
+    if (mode === "temporal") {
+      setName((current) => current.trim() || nameFromFilename(working.name));
+      setStage({ kind: "uploaded" });
+      await analyzeLocal(working);
+      return;
+    }
     try {
       logStage("upload:prepare", { size: working.size, type: ct });
       const target = await retryTransient("upload:prepare", () =>
