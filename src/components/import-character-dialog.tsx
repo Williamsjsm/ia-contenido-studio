@@ -59,10 +59,16 @@ function isTransientUploadText(value: unknown): boolean {
   return /timed out|timeout|522|544|connection|schema cache|retrying/i.test(String(value || ""));
 }
 
+function isBackendBusyText(value: unknown): boolean {
+  return /too many connections|database.*connection|connection.*database/i.test(String(value || ""));
+}
+
 function recoverableUploadMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error || "Error de red");
   if (isTransientUploadText(raw)) {
-    return "El backend tardó demasiado. La imagen local queda visible; reintenta la subida en unos segundos.";
+    return isBackendBusyText(raw)
+      ? "El backend está saturado. La imagen local queda visible; espera unos segundos y reintenta."
+      : "El backend tardó demasiado. La imagen local queda visible; reintenta la subida en unos segundos.";
   }
   return raw;
 }
