@@ -231,6 +231,54 @@
   .module-publish   { border-left: 2px solid var(--publish);   box-shadow: var(--shadow-card), -1px 0 24px -6px rgba(16, 185, 129, 0.25); }
   .module-analytics { border-left: 2px solid var(--analytics); box-shadow: var(--shadow-card), -1px 0 24px -6px rgba(6, 182, 212, 0.25); }
 
+  /* === Premium luminous card borders ===
+   * Every Card gets a soft multicolor gradient border + top sheen so cards
+   * read like the screenshot reference (violet/blue/pink/amber/cyan glow).
+   */
+  [data-slot="card"],
+  .surface-card {
+    position: relative;
+    border: 1px solid transparent !important;
+    background-image:
+      var(--gradient-card),
+      linear-gradient(135deg,
+        rgba(168, 85, 247, 0.55) 0%,
+        rgba(59, 130, 246, 0.45) 35%,
+        rgba(236, 72, 153, 0.40) 70%,
+        rgba(245, 158, 11, 0.45) 100%);
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+  }
+  [data-slot="card"]::after,
+  .surface-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg,
+      rgba(168, 85, 247, 0.0),
+      rgba(168, 85, 247, 0.35) 30%,
+      rgba(59, 130, 246, 0.30) 55%,
+      rgba(236, 72, 153, 0.30) 80%,
+      rgba(245, 158, 11, 0.30));
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0.9;
+  }
+
+  /* Module-flavored card borders override the default rainbow border */
+  .module-radar     { background-image: var(--gradient-card), linear-gradient(135deg, rgba(59,130,246,0.65), rgba(96,165,250,0.35)) !important; }
+  .module-prompt    { background-image: var(--gradient-card), linear-gradient(135deg, rgba(139,92,246,0.65), rgba(196,181,253,0.35)) !important; }
+  .module-image     { background-image: var(--gradient-card), linear-gradient(135deg, rgba(245,158,11,0.65), rgba(252,211,77,0.35)) !important; }
+  .module-video     { background-image: var(--gradient-card), linear-gradient(135deg, rgba(236,72,153,0.65), rgba(249,168,212,0.35)) !important; }
+  .module-publish   { background-image: var(--gradient-card), linear-gradient(135deg, rgba(16,185,129,0.65), rgba(110,231,183,0.35)) !important; }
+  .module-analytics { background-image: var(--gradient-card), linear-gradient(135deg, rgba(6,182,212,0.65), rgba(103,232,249,0.35)) !important; }
+
   /* === Premium gradient + glow surfaces ===
    * Apply with `glow-radar`, `glow-prompt`, etc. to give chips, badges,
    * progress bars, icons, and accent zones a luminous gradient look.
