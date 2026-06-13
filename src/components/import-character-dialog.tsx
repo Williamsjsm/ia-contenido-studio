@@ -70,6 +70,20 @@ function nameFromFilename(filename: string): string {
     .slice(0, 80) || "Referencia visual";
 }
 
+async function retryTransient<T>(label: string, fn: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      logStage(`${label}:retry`, { attempt: i + 1, error: String(error) });
+      await new Promise((resolve) => setTimeout(resolve, 700 * (i + 1)));
+    }
+  }
+  throw lastError;
+}
+
 type Stage =
   | { kind: "idle" }
   | { kind: "compressing" }
@@ -206,21 +220,25 @@ export function ImportCharacterDialog({
     const ct = (working.type || "image/png") as (typeof ALLOWED_MIME)[number];
     try {
       logStage("upload:prepare", { size: working.size, type: ct });
-      const target = await createUploadTargetFn({
-        data: { filename: working.name, contentType: ct, scope: "character" },
-      });
+      const target = await retryTransient("upload:prepare", () =>
+        createUploadTargetFn({
+          data: { filename: working.name, contentType: ct, scope: "character" },
+        }),
+      );
       if (!target.ok) {
         setStage({ kind: "error", at: "upload", message: target.message });
         toast.error("No se pudo preparar la subida", { description: target.message });
         return;
       }
       logStage("upload:start", { path: target.path });
-      const uploaded = await supabase.storage
-        .from(target.bucket)
-        .uploadToSignedUrl(target.path, target.token, working, {
-          contentType: ct,
-          cacheControl: "31536000",
-        });
+      const uploaded = await retryTransient("upload:file", () =>
+        supabase.storage
+          .from(target.bucket)
+          .uploadToSignedUrl(target.path, target.token, working, {
+            contentType: ct,
+            cacheControl: "31536000",
+          }),
+      );
       logStage("upload:done", { ms: Math.round(performance.now() - tUpload), ok: !uploaded.error });
       if (uploaded.error) {
         setStage({ kind: "error", at: "upload", message: uploaded.error.message });
