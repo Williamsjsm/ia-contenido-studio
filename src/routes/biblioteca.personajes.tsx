@@ -129,7 +129,12 @@ function PersonajesPage() {
     try {
       const c = await maybeCompressImage(file);
       const working = c.file;
-      const contentType = (working.type || "image/png") as "image/png" | "image/jpeg" | "image/jpg" | "image/webp" | "image/gif";
+      const contentType = (working.type || "image/png") as
+        | "image/png"
+        | "image/jpeg"
+        | "image/jpg"
+        | "image/webp"
+        | "image/gif";
       const target = await createUploadTargetFn({
         data: { filename: working.name, contentType, scope: "character" },
       });
@@ -485,17 +490,4 @@ function PersonajesPage() {
       />
     </LibraryShell>
   );
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64 = result.includes(",") ? result.split(",")[1] : result;
-      resolve(base64);
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
 }
