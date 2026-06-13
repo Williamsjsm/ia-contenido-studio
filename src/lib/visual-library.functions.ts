@@ -232,12 +232,7 @@ export const listVisualReferences = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(error.message);
-    const rows = data ?? [];
-    const signed = await mapLimit(rows, 3, async (r, index) => ({
-      ...r,
-      image_url: index < 40 ? ((await sign(r.image_path)) ?? r.image_url) : r.image_url,
-    }));
-    return signed as VisualReference[];
+    return (data ?? []) as VisualReference[];
   });
 
 const IdSchema = z.object({ id: z.string().uuid() });
@@ -384,14 +379,7 @@ export const listVirtualCharacters = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(error.message);
-    const rows = data ?? [];
-    const signed = await mapLimit(rows, 3, async (r, index) => ({
-      ...r,
-      reference_image_url: index < 24 && r.reference_image_path
-        ? ((await sign(r.reference_image_path)) ?? r.reference_image_url)
-        : r.reference_image_url,
-    }));
-    return signed as VirtualCharacter[];
+    return (data ?? []) as VirtualCharacter[];
   });
 
 export const deleteVirtualCharacter = createServerFn({ method: "POST" })
