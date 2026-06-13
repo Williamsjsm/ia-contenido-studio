@@ -35,7 +35,6 @@ import {
 
   Play,
   Pause,
-  Plus,
   FastForward,
   GitMerge,
   Wand2,
@@ -53,7 +52,6 @@ import {
   Palette,
   ChevronRight,
   Image as ImageIcon,
-  Zap,
   AlertCircle,
   X,
   Save,
@@ -71,11 +69,6 @@ import {
   duplicateFlowJob,
   type FlowJob,
 } from "@/lib/flow-jobs.functions";
-import {
-  FlowPointsCalculator,
-  calculateFlowPoints,
-  type FlowPointsState,
-} from "@/components/flow-points-calculator";
 
 const flowSearchSchema = z.object({
   from: fallback(z.string(), "").default(""),
