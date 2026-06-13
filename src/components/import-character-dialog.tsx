@@ -274,14 +274,6 @@ export function ImportCharacterDialog({
         toast.message("Preparación saturada", { description: "Intentando ruta alternativa de subida." });
         const fallback = await uploadThroughServer(working, "character");
         if (!fallback.ok) {
-          if (mode === "temporal") {
-            setName((current) => current.trim() || nameFromFilename(working.name));
-            toast.warning("Referencia local activa", {
-              description: "El backend está saturado; puedes usar la imagen para analizar y crear el prompt sin guardarla todavía.",
-            });
-            await analyzeLocal(working);
-            return;
-          }
           setStage({ kind: "error", at: "upload", message: fallback.message });
           toast.error("No se pudo subir la imagen", { description: recoverableUploadMessage(fallback.message) });
           return;
@@ -302,14 +294,6 @@ export function ImportCharacterDialog({
         );
         logStage("upload:done", { ms: Math.round(performance.now() - tUpload), ok: !uploaded.error });
         if (uploaded.error) {
-          if (mode === "temporal") {
-            setName((current) => current.trim() || nameFromFilename(working.name));
-            toast.warning("Referencia local activa", {
-              description: "La subida no completó; puedes usar la imagen local para analizar y crear el prompt.",
-            });
-            await analyzeLocal(working);
-            return;
-          }
           setStage({ kind: "error", at: "upload", message: uploaded.error.message });
           toast.error("No se pudo subir la imagen", { description: uploaded.error.message });
           return;
@@ -327,14 +311,6 @@ export function ImportCharacterDialog({
     } catch (e) {
       const msg = recoverableUploadMessage(e);
       logStage("upload:error", { error: msg });
-      if (mode === "temporal") {
-        setName((current) => current.trim() || nameFromFilename(working.name));
-        toast.warning("Referencia local activa", {
-          description: "El backend no respondió a la subida; puedes analizar la imagen local y usarla en el prompt.",
-        });
-        await analyzeLocal(working);
-        return;
-      }
       setStage({ kind: "error", at: "upload", message: msg });
       toast.error("Error recuperable al subir", { description: "Pulsa Reintentar. La vista previa no se pierde." });
     }
