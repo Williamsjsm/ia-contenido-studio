@@ -22,6 +22,7 @@ import {
   uploadVisualImageForm,
   signVisualImage,
   analyzeCharacterFromImage,
+  analyzeCharacterFromImageData,
   createVirtualCharacter,
 } from "@/lib/visual-library.functions";
 import { maybeCompressImage } from "@/lib/image-compress";
@@ -81,6 +82,16 @@ function nameFromFilename(filename: string): string {
     .slice(0, 80) || "Referencia visual";
 }
 
+async function fileToBase64(file: File): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen local"));
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.readAsDataURL(file);
+  });
+  return dataUrl.split(",")[1] || "";
+}
+
 async function retryTransient<T>(
   label: string,
   fn: () => Promise<T>,
@@ -135,6 +146,7 @@ export function ImportCharacterDialog({
   const uploadFormFn = useServerFn(uploadVisualImageForm);
   const signImageFn = useServerFn(signVisualImage);
   const analyzeFn = useServerFn(analyzeCharacterFromImage);
+  const analyzeDataFn = useServerFn(analyzeCharacterFromImageData);
   const createFn = useServerFn(createVirtualCharacter);
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -157,6 +169,7 @@ export function ImportCharacterDialog({
   const uploading = stage.kind === "uploading" || stage.kind === "compressing";
   const analyzing = stage.kind === "analyzing";
   const saving = stage.kind === "saving";
+  const hasUsableReference = Boolean(imagePath || previewUrl || pendingFile);
 
   // Auto-load a pre-uploaded image when the dialog opens.
   useEffect(() => {
@@ -239,6 +252,12 @@ export function ImportCharacterDialog({
 
     setStage({ kind: "uploading" });
     const ct = (working.type || "image/png") as (typeof ALLOWED_MIME)[number];
+    if (mode === "temporal") {
+      setName((current) => current.trim() || nameFromFilename(working.name));
+      setStage({ kind: "uploaded" });
+      await analyzeLocal(working);
+      return;
+    }
     try {
       logStage("upload:prepare", { size: working.size, type: ct });
       const target = await retryTransient("upload:prepare", () =>
@@ -255,8 +274,11 @@ export function ImportCharacterDialog({
         toast.message("Preparación saturada", { description: "Intentando ruta alternativa de subida." });
         const fallback = await uploadThroughServer(working, "character");
         if (!fallback.ok) {
-          setStage({ kind: "error", at: "upload", message: fallback.message });
-          toast.error("No se pudo subir la imagen", { description: recoverableUploadMessage(fallback.message) });
+          setName((current) => current.trim() || nameFromFilename(working.name));
+          toast.warning("Referencia local activa", {
+            description: "El backend está saturado; puedes analizar y guardar el personaje sin imagen remota, o reintentar la subida.",
+          });
+          await analyzeLocal(working);
           return;
         }
         uploadedPath = fallback.path;
@@ -275,8 +297,11 @@ export function ImportCharacterDialog({
         );
         logStage("upload:done", { ms: Math.round(performance.now() - tUpload), ok: !uploaded.error });
         if (uploaded.error) {
-          setStage({ kind: "error", at: "upload", message: uploaded.error.message });
-          toast.error("No se pudo subir la imagen", { description: uploaded.error.message });
+          setName((current) => current.trim() || nameFromFilename(working.name));
+          toast.warning("Referencia local activa", {
+            description: "La subida no completó; puedes analizar y guardar el personaje sin imagen remota, o reintentar.",
+          });
+          await analyzeLocal(working);
           return;
         }
         uploadedPath = target.path;
@@ -292,8 +317,11 @@ export function ImportCharacterDialog({
     } catch (e) {
       const msg = recoverableUploadMessage(e);
       logStage("upload:error", { error: msg });
-      setStage({ kind: "error", at: "upload", message: msg });
-      toast.error("Error recuperable al subir", { description: "Pulsa Reintentar. La vista previa no se pierde." });
+      setName((current) => current.trim() || nameFromFilename(working.name));
+      toast.warning("Referencia local activa", {
+        description: "El backend no respondió a la subida; puedes analizar y guardar el personaje sin imagen remota, o reintentar.",
+      });
+      await analyzeLocal(working);
     }
   }
 
@@ -341,8 +369,37 @@ export function ImportCharacterDialog({
     }
   }
 
+  async function analyzeLocal(file: File) {
+    setStage({ kind: "analyzing" });
+    const t = performance.now();
+    try {
+      const contentType = (file.type || "image/png") as (typeof ALLOWED_MIME)[number];
+      const base64 = await fileToBase64(file);
+      const r = await analyzeDataFn({ data: { contentType, base64 } });
+      logStage("analyze-local:done", { ms: Math.round(performance.now() - t), ok: r.ok });
+      if (!r.ok) {
+        setStage({ kind: "error", at: "analyze", message: r.message });
+        toast.warning("Referencia local lista. Análisis pendiente.", { description: r.message });
+        return;
+      }
+      setName(r.name || nameFromFilename(file.name));
+      setDescText(r.description);
+      setMasterPrompt(r.master_prompt);
+      setTagsText(r.tags.join(", "));
+      setAttributes(r.attributes ?? {});
+      setAnalyzed(true);
+      setStage({ kind: "analyzed" });
+      toast.success("Imagen local analizada. Revisa y corrige los campos.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error inesperado";
+      logStage("analyze-local:error", { error: msg });
+      setStage({ kind: "error", at: "analyze", message: msg });
+      toast.warning("Referencia local lista. Análisis pendiente.", { description: "Puedes completar los campos manualmente." });
+    }
+  }
+
   async function handleConfirm() {
-    if (!imagePath) {
+    if (!hasUsableReference) {
       toast.error("Sube una imagen primero.");
       return;
     }
@@ -355,9 +412,9 @@ export function ImportCharacterDialog({
       onAnalyzed?.({
         name: name.trim(),
         description: descText.trim(),
-          master_prompt: masterPrompt.trim() || descText.trim() || name.trim(),
+        master_prompt: masterPrompt.trim() || descText.trim() || name.trim(),
         tags,
-        image_path: imagePath,
+        image_path: imagePath ?? "local-reference",
         image_url: imageUrl,
         attributes,
       });
@@ -374,7 +431,7 @@ export function ImportCharacterDialog({
           description: descText.trim() || null,
           master_prompt: masterPrompt.trim() || descText.trim() || name.trim(),
           tags,
-          reference_image_path: imagePath,
+          reference_image_path: imagePath ?? null,
           secondary_reference_paths: secondaryPaths.map((s) => s.path),
         },
       });
@@ -435,8 +492,11 @@ export function ImportCharacterDialog({
                     <button
                       type="button"
                       onClick={() => {
+                        if (previewUrl) URL.revokeObjectURL(previewUrl);
                         setImagePath(null);
                         setImageUrl(null);
+                        setPreviewUrl(null);
+                        setPendingFile(null);
                         setAnalyzed(false);
                       }}
                       className="absolute right-1 top-1 rounded-full bg-background/80 p-1 hover:bg-background"
@@ -466,15 +526,26 @@ export function ImportCharacterDialog({
             >
               <Upload className="h-3.5 w-3.5" /> {imageUrl ? "Cambiar" : "Subir"}
             </Button>
-            {imagePath && !analyzed && !analyzing && !uploading && (
+            {hasUsableReference && !analyzed && !analyzing && !uploading && (
               <Button
                 type="button"
                 size="sm"
                 variant="secondary"
                 className="w-full gap-1"
-                onClick={() => analyze(imagePath)}
+                onClick={() => (imagePath ? analyze(imagePath) : pendingFile ? analyzeLocal(pendingFile) : undefined)}
               >
                 <Wand2 className="h-3.5 w-3.5" /> Analizar
+              </Button>
+            )}
+            {!imagePath && pendingFile && !uploading && !analyzing && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full gap-1"
+                onClick={retryUpload}
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Reintentar subida
               </Button>
             )}
             <input
@@ -491,7 +562,7 @@ export function ImportCharacterDialog({
           </div>
 
           <div className="space-y-3">
-            {!imagePath && (
+            {!hasUsableReference && (
               <div className="rounded-md border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground">
                 Sube una foto de tu personaje. La IA extraerá color de cabello, ojos, piel, edad, complexión, ropa, accesorios y estilo fotográfico.
               </div>
@@ -502,7 +573,7 @@ export function ImportCharacterDialog({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Nombre del personaje"
-                disabled={!imagePath}
+                disabled={!hasUsableReference}
               />
             </div>
             <div className="space-y-1.5">
@@ -512,7 +583,7 @@ export function ImportCharacterDialog({
                 onChange={(e) => setDescText(e.target.value)}
                 rows={3}
                 className="min-h-[56px] resize-y"
-                disabled={!imagePath}
+                disabled={!hasUsableReference}
               />
             </div>
             <div className="space-y-1.5">
@@ -522,7 +593,7 @@ export function ImportCharacterDialog({
                 onChange={(e) => setMasterPrompt(e.target.value)}
                 rows={5}
                 className="min-h-[96px] resize-y font-mono text-xs"
-                disabled={!imagePath}
+                disabled={!hasUsableReference}
               />
             </div>
             <div className="space-y-1.5">
@@ -531,7 +602,7 @@ export function ImportCharacterDialog({
                 value={tagsText}
                 onChange={(e) => setTagsText(e.target.value)}
                 placeholder="tag1, tag2"
-                disabled={!imagePath}
+                disabled={!hasUsableReference}
               />
             </div>
             {attrEntries.length > 0 && (
@@ -710,8 +781,13 @@ export function ImportCharacterDialog({
                 <RefreshCw className="h-3 w-3" /> Reintentar
               </Button>
             )}
-            {stage.kind === "error" && stage.at === "analyze" && imagePath && (
-              <Button size="sm" variant="outline" className="h-7 gap-1" onClick={() => analyze(imagePath)}>
+            {stage.kind === "error" && stage.at === "analyze" && hasUsableReference && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1"
+                onClick={() => (imagePath ? analyze(imagePath) : pendingFile ? analyzeLocal(pendingFile) : undefined)}
+              >
                 <RefreshCw className="h-3 w-3" /> Reintentar análisis
               </Button>
             )}
@@ -724,7 +800,7 @@ export function ImportCharacterDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={!imagePath || saving || !name.trim()}>
+          <Button onClick={handleConfirm} disabled={!hasUsableReference || saving || !name.trim()}>
             {saving ? (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
             ) : (
