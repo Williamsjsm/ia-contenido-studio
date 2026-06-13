@@ -230,6 +230,18 @@
   .module-video     { border-left: 2px solid var(--video);     box-shadow: var(--shadow-card), -1px 0 24px -6px rgba(236, 72, 153, 0.25); }
   .module-publish   { border-left: 2px solid var(--publish);   box-shadow: var(--shadow-card), -1px 0 24px -6px rgba(16, 185, 129, 0.25); }
   .module-analytics { border-left: 2px solid var(--analytics); box-shadow: var(--shadow-card), -1px 0 24px -6px rgba(6, 182, 212, 0.25); }
+
+  /* === Premium gradient + glow surfaces ===
+   * Apply with `glow-radar`, `glow-prompt`, etc. to give chips, badges,
+   * progress bars, icons, and accent zones a luminous gradient look.
+   */
+  .glow-radar     { background: var(--gradient-radar);     box-shadow: 0 0 18px -2px rgba(59, 130, 246, 0.55), 0 0 40px -10px rgba(96, 165, 250, 0.45); }
+  .glow-prompt    { background: var(--gradient-prompt);    box-shadow: 0 0 18px -2px rgba(139, 92, 246, 0.55), 0 0 40px -10px rgba(196, 181, 253, 0.45); }
+  .glow-image     { background: var(--gradient-image);     box-shadow: 0 0 18px -2px rgba(245, 158, 11, 0.55), 0 0 40px -10px rgba(252, 211, 77, 0.45); }
+  .glow-video     { background: var(--gradient-video);     box-shadow: 0 0 18px -2px rgba(236, 72, 153, 0.55), 0 0 40px -10px rgba(249, 168, 212, 0.45); }
+  .glow-publish   { background: var(--gradient-publish);   box-shadow: 0 0 18px -2px rgba(16, 185, 129, 0.55), 0 0 40px -10px rgba(110, 231, 183, 0.45); }
+  .glow-analytics { background: var(--gradient-analytics); box-shadow: 0 0 18px -2px rgba(6, 182, 212, 0.55), 0 0 40px -10px rgba(103, 232, 249, 0.45); }
+  .glow-primary   { background: var(--gradient-primary);   box-shadow: 0 0 22px -2px rgba(168, 85, 247, 0.55), 0 0 50px -12px rgba(124, 58, 237, 0.45); }
   /* Subtle top sheen on premium cards */
   .surface-card::before {
     content: "";
