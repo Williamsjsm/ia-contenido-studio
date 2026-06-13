@@ -81,6 +81,28 @@ const emptyForm: FormState = {
   reference_image_url: null,
 };
 
+const ALLOWED_MIME = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"] as const;
+
+function isTransientUploadText(value: unknown): boolean {
+  return /timed out|timeout|522|544|connection|schema cache|retrying/i.test(String(value || ""));
+}
+
+async function retryTransient<T>(fn: () => Promise<T>, shouldRetryResult?: (result: T) => boolean): Promise<T> {
+  let lastError: unknown;
+  for (let i = 0; i < 3; i += 1) {
+    try {
+      const result = await fn();
+      if (!shouldRetryResult?.(result) || i === 2) return result;
+      lastError = new Error("Transient upload response");
+    } catch (error) {
+      lastError = error;
+      if (i === 2) throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 700 * (i + 1)));
+  }
+  throw lastError;
+}
+
 function PersonajesPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -123,31 +145,35 @@ function PersonajesPage() {
       toast.error("Máx. 15 MB");
       return;
     }
+    const initialType = (file.type || "image/png") as (typeof ALLOWED_MIME)[number];
+    if (!ALLOWED_MIME.includes(initialType)) {
+      toast.error("Formato no soportado", { description: "Usa PNG, JPG, WEBP o GIF." });
+      return;
+    }
     const previewUrl = URL.createObjectURL(file);
     setForm((f) => ({ ...f, reference_image_url: previewUrl }));
     setUploading(true);
     try {
       const c = await maybeCompressImage(file);
       const working = c.file;
-      const contentType = (working.type || "image/png") as
-        | "image/png"
-        | "image/jpeg"
-        | "image/jpg"
-        | "image/webp"
-        | "image/gif";
-      const target = await createUploadTargetFn({
-        data: { filename: working.name, contentType, scope: "character" },
-      });
+      const contentType = (working.type || "image/png") as (typeof ALLOWED_MIME)[number];
+      const target = await retryTransient(
+        () => createUploadTargetFn({ data: { filename: working.name, contentType, scope: "character" } }),
+        (result) => !result.ok && isTransientUploadText(result.message),
+      );
       if (!target.ok) {
         toast.error("No se pudo preparar la subida", { description: target.message });
         return;
       }
-      const uploaded = await supabase.storage
-        .from(target.bucket)
-        .uploadToSignedUrl(target.path, target.token, working, {
-          contentType,
-          cacheControl: "31536000",
-        });
+      const uploaded = await retryTransient(
+        () => supabase.storage
+          .from(target.bucket)
+          .uploadToSignedUrl(target.path, target.token, working, {
+            contentType,
+            cacheControl: "31536000",
+          }),
+        (result) => Boolean(result.error && isTransientUploadText(result.error.message)),
+      );
       if (uploaded.error) {
         toast.error("No se pudo subir la imagen", { description: uploaded.error.message });
         return;
