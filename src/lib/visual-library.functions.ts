@@ -385,14 +385,12 @@ export const listVirtualCharacters = createServerFn({ method: "GET" })
       .limit(200);
     if (error) throw new Error(error.message);
     const rows = data ?? [];
-    const signed = await Promise.all(
-      rows.map(async (r) => ({
-        ...r,
-        reference_image_url: r.reference_image_path
-          ? ((await sign(r.reference_image_path)) ?? r.reference_image_url)
-          : r.reference_image_url,
-      })),
-    );
+    const signed = await mapLimit(rows, 4, async (r) => ({
+      ...r,
+      reference_image_url: r.reference_image_path
+        ? ((await sign(r.reference_image_path)) ?? r.reference_image_url)
+        : r.reference_image_url,
+    }));
     return signed as VirtualCharacter[];
   });
 
@@ -466,12 +464,10 @@ export const listCharacterReferenceImages = createServerFn({ method: "POST" })
       .eq("character_id", data.character_id)
       .order("sort_order", { ascending: true });
     if (!rows) return [];
-    const signed = await Promise.all(
-      rows.map(async (r) => ({
-        ...r,
-        url: await sign(r.storage_path),
-      })),
-    );
+    const signed = await mapLimit(rows, 4, async (r) => ({
+      ...r,
+      url: await sign(r.storage_path),
+    }));
     return signed as CharacterReferenceImage[];
   });
 
