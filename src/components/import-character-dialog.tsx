@@ -245,7 +245,7 @@ export function ImportCharacterDialog({
         createUploadTargetFn({
           data: { filename: working.name, contentType: ct, scope: "character" },
         }),
-        3,
+        1,
         (result) => !result.ok && isTransientUploadText(result.message),
       );
       let uploadedPath: string;
@@ -623,7 +623,7 @@ export function ImportCharacterDialog({
                           () => createUploadTargetFn({
                             data: { filename: file.name, contentType: ct, scope: "character" },
                           }),
-                          3,
+                          1,
                           (result) => !result.ok && isTransientUploadText(result.message),
                         );
                         if (!target.ok) {
