@@ -476,6 +476,11 @@ const AnalyzeSchema = z.object({
   image_path: z.string().min(1).max(500),
 });
 
+const AnalyzeDataSchema = z.object({
+  contentType: z.enum(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]),
+  base64: z.string().min(1).max(15_000_000),
+});
+
 export type AnalyzeCharacterResult =
   | {
       ok: true;
@@ -487,27 +492,11 @@ export type AnalyzeCharacterResult =
     }
   | { ok: false; message: string };
 
-export const analyzeCharacterFromImage = createServerFn({ method: "POST" })
-  .middleware([requireAccess])
-  .inputValidator((input: unknown) => AnalyzeSchema.parse(input))
-  .handler(async ({ data }): Promise<AnalyzeCharacterResult> => {
-    const owner = ownerId();
-    assertOwnedPath(data.image_path, owner);
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) return { ok: false, message: "LOVABLE_API_KEY no configurado" };
+async function analyzeCharacterDataUrl(dataUrl: string): Promise<AnalyzeCharacterResult> {
+  const key = process.env.LOVABLE_API_KEY;
+  if (!key) return { ok: false, message: "LOVABLE_API_KEY no configurado" };
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: blob, error: dlErr } = await supabaseAdmin.storage
-      .from(BUCKET)
-      .download(data.image_path);
-    if (dlErr || !blob) {
-      return { ok: false, message: dlErr?.message ?? "No se pudo leer la imagen" };
-    }
-    const buf = Buffer.from(await blob.arrayBuffer());
-    const mime = blob.type || "image/png";
-    const dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
-
-    const system = `Eres un analista visual experto. Examina la imagen de una persona o personaje y devuelve SOLO un JSON válido (sin texto adicional, sin markdown) con esta forma exacta:
+  const system = `Eres un analista visual experto. Examina la imagen de una persona o personaje y devuelve SOLO un JSON válido (sin texto adicional, sin markdown) con esta forma exacta:
 {
   "name": "nombre sugerido (max 40 caracteres, en español)",
   "description": "1-2 frases descriptivas en español",
@@ -526,9 +515,10 @@ export const analyzeCharacterFromImage = createServerFn({ method: "POST" })
   }
 }`;
 
-    let resp: Response;
-    try {
-      resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  let resp: Response;
+  try {
+    resp = await withTimeout(
+      fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${key}`,
@@ -548,59 +538,88 @@ export const analyzeCharacterFromImage = createServerFn({ method: "POST" })
           ],
           response_format: { type: "json_object" },
         }),
-      });
-    } catch (e) {
-      console.error("analyzeCharacterFromImage fetch error", e);
-      return { ok: false, message: "No se pudo contactar al servicio de IA" };
+      }),
+      18_000,
+      "analyzeCharacterDataUrl",
+    );
+  } catch (e) {
+    console.error("analyzeCharacterDataUrl fetch error", e);
+    return { ok: false, message: "No se pudo contactar al servicio de IA" };
+  }
+
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => "");
+    if (resp.status === 429) return { ok: false, message: "Límite de uso alcanzado. Inténtalo más tarde." };
+    if (resp.status === 402) return { ok: false, message: "Créditos de IA agotados. Añade créditos en Lovable AI." };
+    return { ok: false, message: `Gateway ${resp.status}: ${txt.slice(0, 200)}` };
+  }
+
+  const j = (await resp.json().catch(() => null)) as { choices?: Array<{ message?: { content?: string } }> } | null;
+  const content = j?.choices?.[0]?.message?.content;
+  if (!content) return { ok: false, message: "Respuesta vacía de la IA" };
+
+  let parsed: {
+    name?: unknown;
+    description?: unknown;
+    master_prompt?: unknown;
+    tags?: unknown;
+    attributes?: unknown;
+  };
+  try {
+    parsed = typeof content === "string" ? JSON.parse(content) : (content as never);
+  } catch {
+    return { ok: false, message: "La IA no devolvió JSON válido" };
+  }
+
+  const toStr = (v: unknown, max: number) => (typeof v === "string" ? v : "").slice(0, max);
+  const tags = Array.isArray(parsed.tags)
+    ? parsed.tags
+        .map((t) => (typeof t === "string" ? t.trim() : ""))
+        .filter(Boolean)
+        .slice(0, 20)
+        .map((t) => t.slice(0, 40))
+    : [];
+  const attrsRaw =
+    parsed.attributes && typeof parsed.attributes === "object"
+      ? (parsed.attributes as Record<string, unknown>)
+      : {};
+  const attributes: Record<string, string> = {};
+  for (const [k, v] of Object.entries(attrsRaw)) {
+    if (typeof v === "string") attributes[k] = v.slice(0, 200);
+  }
+
+  return {
+    ok: true,
+    name: toStr(parsed.name, 120),
+    description: toStr(parsed.description, 2000),
+    master_prompt: toStr(parsed.master_prompt, 20_000),
+    tags,
+    attributes,
+  };
+}
+
+export const analyzeCharacterFromImageData = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => AnalyzeDataSchema.parse(input))
+  .handler(async ({ data }): Promise<AnalyzeCharacterResult> => {
+    return analyzeCharacterDataUrl(`data:${data.contentType};base64,${data.base64}`);
+  });
+
+export const analyzeCharacterFromImage = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => AnalyzeSchema.parse(input))
+  .handler(async ({ data }): Promise<AnalyzeCharacterResult> => {
+    const owner = ownerId();
+    assertOwnedPath(data.image_path, owner);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: blob, error: dlErr } = await supabaseAdmin.storage
+      .from(BUCKET)
+      .download(data.image_path);
+    if (dlErr || !blob) {
+      return { ok: false, message: dlErr?.message ?? "No se pudo leer la imagen" };
     }
-
-    if (!resp.ok) {
-      const txt = await resp.text().catch(() => "");
-      if (resp.status === 429) return { ok: false, message: "Límite de uso alcanzado. Inténtalo más tarde." };
-      if (resp.status === 402) return { ok: false, message: "Créditos de IA agotados. Añade créditos en Lovable AI." };
-      return { ok: false, message: `Gateway ${resp.status}: ${txt.slice(0, 200)}` };
-    }
-
-    const j = (await resp.json().catch(() => null)) as { choices?: Array<{ message?: { content?: string } }> } | null;
-    const content = j?.choices?.[0]?.message?.content;
-    if (!content) return { ok: false, message: "Respuesta vacía de la IA" };
-
-    let parsed: {
-      name?: unknown;
-      description?: unknown;
-      master_prompt?: unknown;
-      tags?: unknown;
-      attributes?: unknown;
-    };
-    try {
-      parsed = typeof content === "string" ? JSON.parse(content) : (content as never);
-    } catch {
-      return { ok: false, message: "La IA no devolvió JSON válido" };
-    }
-
-    const toStr = (v: unknown, max: number) => (typeof v === "string" ? v : "").slice(0, max);
-    const tags = Array.isArray(parsed.tags)
-      ? parsed.tags
-          .map((t) => (typeof t === "string" ? t.trim() : ""))
-          .filter(Boolean)
-          .slice(0, 20)
-          .map((t) => t.slice(0, 40))
-      : [];
-    const attrsRaw =
-      parsed.attributes && typeof parsed.attributes === "object"
-        ? (parsed.attributes as Record<string, unknown>)
-        : {};
-    const attributes: Record<string, string> = {};
-    for (const [k, v] of Object.entries(attrsRaw)) {
-      if (typeof v === "string") attributes[k] = v.slice(0, 200);
-    }
-
-    return {
-      ok: true,
-      name: toStr(parsed.name, 120),
-      description: toStr(parsed.description, 2000),
-      master_prompt: toStr(parsed.master_prompt, 20_000),
-      tags,
-      attributes,
-    };
+    const buf = Buffer.from(await blob.arrayBuffer());
+    const mime = blob.type || "image/png";
+    const dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
+    return analyzeCharacterDataUrl(dataUrl);
   });
