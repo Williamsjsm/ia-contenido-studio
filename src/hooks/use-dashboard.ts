@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { dashboardMock, type DashboardData } from "@/lib/mock-dashboard";
 
 export interface UseDashboardResult {
@@ -13,11 +14,16 @@ export interface UseDashboardResult {
  * the public shape stays the same so consumers do not break.
  */
 export function useDashboard(): UseDashboardResult {
-  const data = dashboardMock;
+  const q = useQuery({
+    queryKey: ["mock", "dashboard"],
+    queryFn: () => dashboardMock as DashboardData,
+    staleTime: 60_000,
+    placeholderData: (prev) => prev,
+  });
   return {
-    data,
-    isLoading: false,
-    error: null,
-    isEmpty: !data,
+    data: q.data ?? null,
+    isLoading: q.isLoading,
+    error: (q.error as Error | null) ?? null,
+    isEmpty: !q.data,
   };
 }
