@@ -561,6 +561,50 @@ export function ImportCharacterDialog({
         </div>
 
         <DialogFooter className="shrink-0 border-t border-border/60 bg-background/80 px-6 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="mr-auto flex items-center gap-2 text-xs">
+            {stage.kind === "compressing" && (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Optimizando imagen…</>
+            )}
+            {stage.kind === "uploading" && (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Subiendo imagen…</>
+            )}
+            {stage.kind === "uploaded" && (
+              <><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Imagen subida</>
+            )}
+            {stage.kind === "analyzing" && (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analizando…</>
+            )}
+            {stage.kind === "analyzed" && (
+              <><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Listo para guardar</>
+            )}
+            {stage.kind === "saving" && (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Guardando…</>
+            )}
+            {stage.kind === "error" && (
+              <span className="flex items-center gap-1.5 text-destructive">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {stage.at === "upload" && "No se pudo subir"}
+                {stage.at === "analyze" && "Análisis pendiente"}
+                {stage.at === "save" && "No se pudo guardar"}
+                {stage.at === "compress" && "Error al optimizar"}
+              </span>
+            )}
+            {stage.kind === "error" && stage.at === "upload" && pendingFile && (
+              <Button size="sm" variant="outline" className="h-7 gap-1" onClick={retryUpload}>
+                <RefreshCw className="h-3 w-3" /> Reintentar
+              </Button>
+            )}
+            {stage.kind === "error" && stage.at === "analyze" && imagePath && (
+              <Button size="sm" variant="outline" className="h-7 gap-1" onClick={() => analyze(imagePath)}>
+                <RefreshCw className="h-3 w-3" /> Reintentar análisis
+              </Button>
+            )}
+            {stage.kind === "error" && stage.at === "save" && (
+              <Button size="sm" variant="outline" className="h-7 gap-1" onClick={handleConfirm}>
+                <RefreshCw className="h-3 w-3" /> Reintentar guardar
+              </Button>
+            )}
+          </div>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
