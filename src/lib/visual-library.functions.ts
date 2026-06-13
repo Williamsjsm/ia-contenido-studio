@@ -98,11 +98,17 @@ export const createVisualUploadTarget = createServerFn({ method: "POST" })
     const path = `${owner}/${data.scope}/${crypto.randomUUID()}.${ext}`;
     const { data: signed, error } = await withTimeout(
       supabaseAdmin.storage.from(BUCKET).createSignedUploadUrl(path, { upsert: false }),
-      8_000,
+      4_000,
       "createSignedUploadUrl",
     ).catch((error) => ({ data: null, error: error as Error }));
     if (error || !signed?.token) {
       console.error("createVisualUploadTarget failed:", error);
+      if (/too many connections|database|connection|timeout|timed out/i.test(error?.message ?? "")) {
+        return {
+          ok: false as const,
+          message: "El backend está saturado preparando subidas. Espera unos segundos y reintenta; la vista previa no se pierde.",
+        };
+      }
       return { ok: false as const, message: error?.message ?? "No se pudo preparar la subida" };
     }
     return { ok: true as const, path, token: signed.token, bucket: BUCKET, contentType: data.contentType };
