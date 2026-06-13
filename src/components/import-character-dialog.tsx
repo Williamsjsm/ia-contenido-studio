@@ -492,8 +492,11 @@ export function ImportCharacterDialog({
                     <button
                       type="button"
                       onClick={() => {
+                        if (previewUrl) URL.revokeObjectURL(previewUrl);
                         setImagePath(null);
                         setImageUrl(null);
+                        setPreviewUrl(null);
+                        setPendingFile(null);
                         setAnalyzed(false);
                       }}
                       className="absolute right-1 top-1 rounded-full bg-background/80 p-1 hover:bg-background"
