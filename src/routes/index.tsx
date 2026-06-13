@@ -45,6 +45,7 @@ import { getProductionStats } from "@/lib/generated-videos.functions";
 import { listRecentVideos, type GeneratedVideoWithMeta } from "@/lib/generated-videos.functions";
 import { fmtDate } from "@/lib/library-data";
 import { cn } from "@/lib/utils";
+import { SmartHero } from "@/components/smart-hero";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -155,29 +156,8 @@ function Index() {
 
   return (
     <div className="mx-auto w-full max-w-[1800px] space-y-8 p-5 sm:p-8 xl:p-10">
-      {/* HERO */}
-      <section className="relative overflow-hidden rounded-2xl border border-border/60 bg-[image:var(--gradient-primary)] p-7 sm:p-10 animate-fade-in">
-        <div className="absolute inset-0 bg-gradient-to-br from-background/10 via-background/0 to-background/30" aria-hidden />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3 text-primary-foreground">
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-              {greeting()}, Williams <span className="inline-block">👋</span>
-            </h1>
-            <p className="text-[14px] sm:text-[15px] opacity-90">{subtext}</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild size="lg" variant="secondary" className="h-11 rounded-xl">
-              <Link to="/crear/prompts"><Sparkles className="mr-2 h-4 w-4" />Crear prompt</Link>
-            </Button>
-            <Button asChild size="lg" variant="secondary" className="h-11 rounded-xl bg-background/20 text-primary-foreground hover:bg-background/30">
-              <Link to="/crear/imagen"><ImageIcon className="mr-2 h-4 w-4" />Generar imagen</Link>
-            </Button>
-            <Button asChild size="lg" variant="secondary" className="h-11 rounded-xl bg-background/20 text-primary-foreground hover:bg-background/30">
-              <Link to="/investigar/tendencias"><Radar className="mr-2 h-4 w-4" />Radar Viral</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+      {/* HERO INTELIGENTE */}
+      <SmartHero name="Williams" subtext={subtext} />
 
       {/* KPIs */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
