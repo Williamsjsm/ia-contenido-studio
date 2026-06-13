@@ -9,6 +9,28 @@ function ownerId(): string {
 
 const BUCKET = "visual-references";
 const SIGNED_TTL = 60 * 60 * 24 * 7; // 7 días
+const SIGN_CACHE_TTL_MS = 60 * 60 * 24 * 6 * 1000;
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+let uploadPrepBackoffUntil = 0;
+
+function isStorageBusy(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /too many connections|database|connection|timeout|timed out/i.test(message);
+}
+
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await fn(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
 
 async function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -37,14 +59,18 @@ function assertOwnedPath(path: string | null | undefined, owner: string): void {
 
 async function sign(path: string | null | undefined): Promise<string | null> {
   if (!path) return null;
+  const cached = signedUrlCache.get(path);
+  if (cached && cached.expiresAt > Date.now()) return cached.url;
+  if (cached) signedUrlCache.delete(path);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   try {
     const { data, error } = await withTimeout(
       supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, SIGNED_TTL),
-      8_000,
+      5_000,
       "createSignedUrl",
     );
     if (error || !data?.signedUrl) return null;
+    signedUrlCache.set(path, { url: data.signedUrl, expiresAt: Date.now() + SIGN_CACHE_TTL_MS });
     return data.signedUrl;
   } catch (error) {
     console.warn("sign visual image failed:", error);
@@ -76,13 +102,26 @@ export const createVisualUploadTarget = createServerFn({ method: "POST" })
     const owner = ownerId();
     const ext = (data.filename.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
     const path = `${owner}/${data.scope}/${crypto.randomUUID()}.${ext}`;
+    if (uploadPrepBackoffUntil > Date.now()) {
+      return {
+        ok: false as const,
+        message: "El backend está saturado preparando subidas. Usando ruta alternativa.",
+      };
+    }
     const { data: signed, error } = await withTimeout(
       supabaseAdmin.storage.from(BUCKET).createSignedUploadUrl(path, { upsert: false }),
-      8_000,
+      4_000,
       "createSignedUploadUrl",
     ).catch((error) => ({ data: null, error: error as Error }));
     if (error || !signed?.token) {
       console.error("createVisualUploadTarget failed:", error);
+      if (isStorageBusy(error)) {
+        uploadPrepBackoffUntil = Date.now() + 15_000;
+        return {
+          ok: false as const,
+          message: "El backend está saturado preparando subidas. Espera unos segundos y reintenta; la vista previa no se pierde.",
+        };
+      }
       return { ok: false as const, message: error?.message ?? "No se pudo preparar la subida" };
     }
     return { ok: true as const, path, token: signed.token, bucket: BUCKET, contentType: data.contentType };
@@ -117,6 +156,38 @@ export const uploadVisualImage = createServerFn({ method: "POST" })
     }
     const url = await sign(path);
     return { ok: true as const, path, url };
+  });
+
+export const uploadVisualImageForm = createServerFn({ method: "POST" })
+  .middleware([requireAccess])
+  .inputValidator((input: unknown) => {
+    if (!(input instanceof FormData)) throw new Error("FormData inválido");
+    return input;
+  })
+  .handler(async ({ data }) => {
+    const file = data.get("file");
+    const scopeRaw = data.get("scope");
+    if (!(file instanceof File)) return { ok: false as const, message: "Archivo inválido" };
+    const parsed = UploadTargetSchema.parse({
+      filename: file.name || "reference.png",
+      contentType: file.type || "image/png",
+      scope: scopeRaw === "reference" || scopeRaw === "character" ? scopeRaw : "reference",
+    });
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const owner = ownerId();
+    const ext = (parsed.filename.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+    const path = `${owner}/${parsed.scope}/${crypto.randomUUID()}.${ext}`;
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const { error } = await withTimeout(
+      supabaseAdmin.storage.from(BUCKET).upload(path, bytes, { contentType: parsed.contentType, upsert: false }),
+      10_000,
+      "uploadVisualImageForm",
+    ).catch((error) => ({ data: null, error: error as Error }));
+    if (error) {
+      console.error("uploadVisualImageForm failed:", error);
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: true as const, path, url: await sign(path) };
   });
 
 // ------------------------ Visual References ------------------------
@@ -174,11 +245,7 @@ export const listVisualReferences = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(error.message);
-    const rows = data ?? [];
-    const signed = await Promise.all(
-      rows.map(async (r) => ({ ...r, image_url: (await sign(r.image_path)) ?? r.image_url })),
-    );
-    return signed as VisualReference[];
+    return (data ?? []) as VisualReference[];
   });
 
 const IdSchema = z.object({ id: z.string().uuid() });
@@ -325,16 +392,7 @@ export const listVirtualCharacters = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(error.message);
-    const rows = data ?? [];
-    const signed = await Promise.all(
-      rows.map(async (r) => ({
-        ...r,
-        reference_image_url: r.reference_image_path
-          ? ((await sign(r.reference_image_path)) ?? r.reference_image_url)
-          : r.reference_image_url,
-      })),
-    );
-    return signed as VirtualCharacter[];
+    return (data ?? []) as VirtualCharacter[];
   });
 
 export const deleteVirtualCharacter = createServerFn({ method: "POST" })
@@ -407,12 +465,10 @@ export const listCharacterReferenceImages = createServerFn({ method: "POST" })
       .eq("character_id", data.character_id)
       .order("sort_order", { ascending: true });
     if (!rows) return [];
-    const signed = await Promise.all(
-      rows.map(async (r) => ({
-        ...r,
-        url: await sign(r.storage_path),
-      })),
-    );
+    const signed = await mapLimit(rows, 4, async (r) => ({
+      ...r,
+      url: await sign(r.storage_path),
+    }));
     return signed as CharacterReferenceImage[];
   });
 

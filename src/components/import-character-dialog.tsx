@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import {
   createVisualUploadTarget,
+  uploadVisualImageForm,
   signVisualImage,
   analyzeCharacterFromImage,
   createVirtualCharacter,
@@ -58,10 +59,16 @@ function isTransientUploadText(value: unknown): boolean {
   return /timed out|timeout|522|544|connection|schema cache|retrying/i.test(String(value || ""));
 }
 
+function isBackendBusyText(value: unknown): boolean {
+  return /too many connections|database.*connection|connection.*database/i.test(String(value || ""));
+}
+
 function recoverableUploadMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error || "Error de red");
   if (isTransientUploadText(raw)) {
-    return "El backend tardó demasiado. La imagen local queda visible; reintenta la subida en unos segundos.";
+    return isBackendBusyText(raw)
+      ? "El backend está saturado. La imagen local queda visible; espera unos segundos y reintenta."
+      : "El backend tardó demasiado. La imagen local queda visible; reintenta la subida en unos segundos.";
   }
   return raw;
 }
@@ -125,6 +132,7 @@ export function ImportCharacterDialog({
   initialImage,
 }: Props) {
   const createUploadTargetFn = useServerFn(createVisualUploadTarget);
+  const uploadFormFn = useServerFn(uploadVisualImageForm);
   const signImageFn = useServerFn(signVisualImage);
   const analyzeFn = useServerFn(analyzeCharacterFromImage);
   const createFn = useServerFn(createVirtualCharacter);
@@ -237,38 +245,50 @@ export function ImportCharacterDialog({
         createUploadTargetFn({
           data: { filename: working.name, contentType: ct, scope: "character" },
         }),
-        3,
+        1,
         (result) => !result.ok && isTransientUploadText(result.message),
       );
+      let uploadedPath: string;
+      let uploadedUrl: string | null = null;
       if (!target.ok) {
-        setStage({ kind: "error", at: "upload", message: target.message });
-        toast.error("No se pudo preparar la subida", { description: target.message });
-        return;
+        logStage("upload:prepare:fallback", { message: target.message });
+        toast.message("Preparación saturada", { description: "Intentando ruta alternativa de subida." });
+        const fallback = await uploadThroughServer(working, "character");
+        if (!fallback.ok) {
+          setStage({ kind: "error", at: "upload", message: fallback.message });
+          toast.error("No se pudo subir la imagen", { description: recoverableUploadMessage(fallback.message) });
+          return;
+        }
+        uploadedPath = fallback.path;
+        uploadedUrl = fallback.url;
+      } else {
+        logStage("upload:start", { path: target.path });
+        const uploaded = await retryTransient("upload:file", () =>
+          supabase.storage
+            .from(target.bucket)
+            .uploadToSignedUrl(target.path, target.token, working, {
+              contentType: ct,
+              cacheControl: "31536000",
+            }),
+          3,
+          (result) => Boolean(result.error && isTransientUploadText(result.error.message)),
+        );
+        logStage("upload:done", { ms: Math.round(performance.now() - tUpload), ok: !uploaded.error });
+        if (uploaded.error) {
+          setStage({ kind: "error", at: "upload", message: uploaded.error.message });
+          toast.error("No se pudo subir la imagen", { description: uploaded.error.message });
+          return;
+        }
+        uploadedPath = target.path;
       }
-      logStage("upload:start", { path: target.path });
-      const uploaded = await retryTransient("upload:file", () =>
-        supabase.storage
-          .from(target.bucket)
-          .uploadToSignedUrl(target.path, target.token, working, {
-            contentType: ct,
-            cacheControl: "31536000",
-          }),
-        3,
-        (result) => Boolean(result.error && isTransientUploadText(result.error.message)),
-      );
-      logStage("upload:done", { ms: Math.round(performance.now() - tUpload), ok: !uploaded.error });
-      if (uploaded.error) {
-        setStage({ kind: "error", at: "upload", message: uploaded.error.message });
-        toast.error("No se pudo subir la imagen", { description: uploaded.error.message });
-        return;
-      }
-      setImagePath(target.path);
+      setImagePath(uploadedPath);
       setName((current) => current.trim() || nameFromFilename(working.name));
-      void signImageFn({ data: { image_path: target.path } }).then((r) => {
+      if (uploadedUrl) setImageUrl(uploadedUrl);
+      void signImageFn({ data: { image_path: uploadedPath } }).then((r) => {
         if (r.ok && r.url) setImageUrl(r.url);
       }).catch((e) => logStage("sign:error", { error: String(e) }));
       setStage({ kind: "uploaded" });
-      void analyze(target.path);
+      void analyze(uploadedPath);
     } catch (e) {
       const msg = recoverableUploadMessage(e);
       logStage("upload:error", { error: msg });
@@ -280,6 +300,18 @@ export function ImportCharacterDialog({
   async function retryUpload() {
     if (!pendingFile) return;
     await runUpload(pendingFile);
+  }
+
+  async function uploadThroughServer(file: File, scope: "reference" | "character") {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("scope", scope);
+    return retryTransient(
+      "upload:server-fallback",
+      () => uploadFormFn({ data: body }),
+      2,
+      (result) => !result.ok && isTransientUploadText(result.message),
+    );
   }
 
   async function analyze(path: string) {
@@ -591,11 +623,18 @@ export function ImportCharacterDialog({
                           () => createUploadTargetFn({
                             data: { filename: file.name, contentType: ct, scope: "character" },
                           }),
-                          3,
+                          1,
                           (result) => !result.ok && isTransientUploadText(result.message),
                         );
                         if (!target.ok) {
-                          toast.error(`${file.name}: ${target.message}`);
+                          const fallback = await uploadThroughServer(file, "character");
+                          if (fallback.ok) {
+                            setSecondaryPaths((arr) =>
+                              arr.length >= 10 ? arr : [...arr, { path: fallback.path, url: fallback.url }],
+                            );
+                          } else {
+                            toast.error(`${file.name}: ${recoverableUploadMessage(fallback.message)}`);
+                          }
                           continue;
                         }
                         const uploaded = await retryTransient(
