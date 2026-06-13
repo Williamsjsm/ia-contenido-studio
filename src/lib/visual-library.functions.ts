@@ -76,9 +76,11 @@ export const createVisualUploadTarget = createServerFn({ method: "POST" })
     const owner = ownerId();
     const ext = (data.filename.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
     const path = `${owner}/${data.scope}/${crypto.randomUUID()}.${ext}`;
-    const { data: signed, error } = await supabaseAdmin.storage
-      .from(BUCKET)
-      .createSignedUploadUrl(path, { upsert: false });
+    const { data: signed, error } = await withTimeout(
+      supabaseAdmin.storage.from(BUCKET).createSignedUploadUrl(path, { upsert: false }),
+      8_000,
+      "createSignedUploadUrl",
+    );
     if (error || !signed?.token) {
       console.error("createVisualUploadTarget failed:", error);
       return { ok: false as const, message: error?.message ?? "No se pudo preparar la subida" };
@@ -104,9 +106,11 @@ export const uploadVisualImage = createServerFn({ method: "POST" })
     const ext = (data.filename.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
     const path = `${owner}/${data.scope}/${crypto.randomUUID()}.${ext}`;
     const bytes = Buffer.from(data.base64, "base64");
-    const { error } = await supabaseAdmin.storage
-      .from(BUCKET)
-      .upload(path, bytes, { contentType: data.contentType, upsert: false });
+    const { error } = await withTimeout(
+      supabaseAdmin.storage.from(BUCKET).upload(path, bytes, { contentType: data.contentType, upsert: false }),
+      12_000,
+      "uploadVisualImage",
+    );
     if (error) {
       console.error("uploadVisualImage failed:", error);
       return { ok: false as const, message: error.message };
