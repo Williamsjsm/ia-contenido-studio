@@ -233,8 +233,10 @@ export const listVisualReferences = createServerFn({ method: "GET" })
       .limit(200);
     if (error) throw new Error(error.message);
     const rows = data ?? [];
-    const signed = await Promise.all(
+    const signed = await mapLimit(
       rows.map(async (r) => ({ ...r, image_url: (await sign(r.image_path)) ?? r.image_url })),
+      4,
+      async (r) => ({ ...r, image_url: (await sign(r.image_path)) ?? r.image_url }),
     );
     return signed as VisualReference[];
   });
