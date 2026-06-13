@@ -1,111 +1,66 @@
-# Fase Crear — Flujo unificado
+# v1.4.3 — Performance & Loading Optimization
 
-Convierto el módulo Crear en un flujo completo y conectado, sin tocar otros módulos.
+Optimizar tiempos de carga y navegación sin tocar diseño ni lógica de negocio. Trabajo dividido en fases independientes y verificables.
 
-## 1. Nueva pantalla "Crear Home" (`/crear`)
+## Fase 1 — Configuración global de TanStack Query y Router
 
-Nuevo route `src/routes/crear.index.tsx` con 4 tarjetas grandes que actúan como hub:
+- Ajustar `getRouter` (`src/router.tsx`) y el `QueryClient`:
+  - `defaultPreloadStaleTime: 0` (ya está) + `defaultPreload: "intent"` para prefetch al hover.
+  - `QueryClient` con defaults: `staleTime: 30_000`, `gcTime: 5 * 60_000`, `refetchOnWindowFocus: false`, `retry: 1`.
+- Sidebar (`app-sidebar.tsx`): los `<Link>` ya usan TanStack Router; con `defaultPreload: "intent"` se obtiene prefetch automático al hover/focus de cada item del sidebar — sin cambios extra.
 
-- **Prompt IA** → `/crear/prompts`
-- **Imagen IA** → `/crear/imagen`
-- **Video IA** → `/crear/video` (badge "Próximamente", navega pero muestra estado preparado)
-- **Personajes** → `/biblioteca/personajes`
+## Fase 2 — Hooks de datos a TanStack Query
 
-Hero con métricas rápidas (prompts, imágenes, personajes, proyectos activos) reusando hooks ya existentes. Sidebar: añado entrada "Crear" como índice del grupo.
+Reescribir los hooks "mock" para que pasen por Query (cache compartida, no refetch innecesario, listo para conectar a server functions reales):
 
-## 2. Conexión Prompt → Imagen
+- `use-dashboard.ts`, `use-trends.ts`, `use-inspiration.ts`, `use-publishing.ts`:
+  - Usar `useQuery` con `queryKey` estable, `staleTime: 60_000`, `placeholderData: keepPreviousData`.
+  - Mantener la misma forma pública (`data/isLoading/error/isEmpty`) — los consumidores no cambian.
 
-En `crear.prompts.tsx`, tras generar variantes añado por cada prompt:
+## Fase 3 — Historial de Imágenes y Videos (biblioteca)
 
-- Copiar (ya existe)
-- Guardar (ya existe)
-- **Generar Imagen** → navega a `/crear/imagen` con `search={{ promptText, personajeId? }}` y autorrellena el formulario.
+- `biblioteca.imagenes.tsx` y `biblioteca.videos.tsx`:
+  - Paginación en cliente: mostrar primero 20 items, botón "Cargar más" (+20) usando `useState` para el límite visible. (Los datos vienen ya de `library-data`; mantenemos la API simple, lista para sustituir por infinite query cuando exista backend real.)
+  - Thumbnails con `loading="lazy"` y `decoding="async"` donde haya `<img>`. Para los divs con `background-gradient` actuales se añade `content-visibility: auto` para reducir trabajo de render fuera de viewport.
+  - Mantener filtros, favoritos y selección.
 
-En `crear.imagen.tsx` leo `Route.useSearch()` y precargo prompt + personaje al montar.
+## Fase 4 — Dashboard
 
-## 3. Proyecto automático (`creation_projects`)
+- En el componente del dashboard, separar bloques en queries independientes (stats, trends, inspiration, publishing) con sus propios `Suspense`/skeletons ligeros, de modo que un fallo en uno no bloquee al resto.
+- `staleTime: 60_000`, `retry: 1`, timeout corto en server fn (`getDashboardStats` ya tiene `withTimeout` 2.5s — lo dejamos).
 
-Nueva tabla:
+## Fase 5 — Imagen IA, Flow Center, Video Hub
 
-```
-creation_projects
-  id uuid pk
-  user_id uuid not null            -- single-owner (sin FK a auth.users, como prompts)
-  title text
-  prompt_id uuid null
-  character_id uuid null
-  status text default 'draft'      -- draft | image_ready | video_queued | published
-  cover_image_id uuid null
-  created_at, updated_at
-```
+- `crear.imagen.tsx`: memoizar con `useMemo` el prompt final que combina personaje + prompt base; `useCallback` en handlers; invalidar solo la query del historial tras generar (no global).
+- `flow-continuity-studio.tsx`: memoizar `buildProviderPack` y los prompts de continuidad con `useMemo` basados en inputs reales (last frame, preset, provider).
+- Video Hub: lazy load del panel de export history con `React.lazy` + `Suspense`.
 
-```
-creation_project_assets
-  id uuid pk
-  project_id uuid fk creation_projects on delete cascade
-  kind text                        -- 'image' | 'flow_job' | 'publication'
-  ref_id uuid                      -- id en image_generations / flow_jobs / publication_projects
-  created_at
-```
+## Fase 6 — Signed URLs
 
-GRANTs a `authenticated` + `service_role`, RLS on, política `user_id = OWNER` vía `has_role`-style. Comentario `TODO(auth)` para restaurar FK a `auth.users`.
+- Crear helper `src/lib/signed-url-cache.ts`: cache en memoria `Map<path, { url, expiresAt }>` con TTL configurable (default 50 min para URLs de 1h). Función `getSignedUrl(path, ttlSec)` que reusa si no expiró. Reemplazar llamadas directas en los componentes de galería/thumbs.
 
-Server functions en `src/lib/creation-projects.functions.ts`:
-- `ensureProjectForPrompt({ promptId, characterId, title })` → crea proyecto draft si no existe.
-- `attachAssetToProject({ projectId, kind, refId })`.
-- `listCreationProjects()`.
+## Fase 7 — Code splitting de rutas pesadas
 
-En `image-generation.functions.ts` (función ya existente `saveImageGeneration`), tras insertar imagen llamo internamente a `ensureProjectForPrompt` + `attachAssetToProject('image', generation.id)` y guardo `cover_image_id` si es la primera. Pasos opcionales por `projectId` en input.
+- TanStack Router ya hace auto code-splitting de componentes por ruta. Verificamos que no se exporten funciones-componente desde route files (regla del code-splitter). Convertir cualquier `export function PageComponent` en función local + `component: PageComponent`.
+- Para componentes muy pesados dentro de una ruta (ej. `video-intelligence-panel`, `video-export-pack`, `flow-continuity-studio`), envolverlos en `React.lazy` + `Suspense` cuando se monten condicionalmente.
 
-## 4. Historial Imagen — acciones
+## Fase 8 — Medición ligera (dev)
 
-Las acciones (ver, descargar, copiar prompt, usar como referencia, eliminar, selección múltiple) ya se añadieron en iteración previa. Añado únicamente:
+- `src/lib/perf.ts`: helper `measure(label, fn)` que loguea `performance.now()` solo si `import.meta.env.DEV`. Instrumentar:
+  - carga inicial de dashboard
+  - carga de historial imágenes / videos
+  - cambio de ruta (via router subscribe a `onResolved`).
 
-- **Favorito** (toggle estrella en miniatura). Nueva columna `is_favorite boolean default false` en `image_generations` (migración) + server fn `toggleImageFavorite`.
-- Filtro adicional "Favoritos".
+## Fuera de alcance (no se toca)
 
-## 5. Crear personaje — múltiples referencias
+- Diseño visual / bordes de tarjetas / tokens.
+- Lógica de generación, importación de personajes, análisis IA, publicación.
+- Esquemas de BD, RLS, edge functions.
 
-`virtual_characters` ya admite ref principal. Añado tabla `character_reference_images` (id, character_id fk on delete cascade, storage_path, is_primary, sort_order). En `import-character-dialog.tsx` permito subir N imágenes; al guardar, una marcada como `is_primary` (la actual) y el resto como secundarias. Vista en `biblioteca/personajes` muestra galería.
+## Verificación
 
-(Si el alcance se infla, primera entrega: solo backend + alta múltiple; UI de galería en biblioteca queda básica.)
+- Build limpio (lo corre el harness).
+- Smoke test manual con `code--read_console_logs` y `read_network_requests` tras navegar Dashboard → Imagen IA → Flow Center → Biblioteca.
+- Confirmar que no hay refetch en focus y que el segundo render de cada ruta no dispara queries nuevas (cache hit).
 
-## 6. Preparar Video
-
-En `crear.imagen.tsx` (panel de imagen seleccionada) y en la nueva vista de proyecto, botón **Enviar a Video** que:
-
-- Crea `flow_jobs` row con `status='draft'`, `source_image_id`, `prompt`, `project_id`.
-- Navega a `/crear/video` mostrando un estado "Preparado, generación de video próximamente".
-
-No se llama a ningún proveedor de video.
-
-## 7. Build limpio
-
-- Migraciones nuevas con GRANTs.
-- Sin tocar módulos fuera de Crear / Biblioteca personajes / image-generation.
-- Reutilizo `requireAccess` + single-owner pattern (sin FK a auth.users).
-- Verificar tipos `tsc --noEmit` (lo corre el harness).
-
-## Archivos a crear / editar
-
-Crear:
-- `src/routes/crear.tsx` (layout con `<Outlet/>`) — si no existe, o convertir si choca; actualmente las rutas son `crear.prompts.tsx` planas sin layout, así que sólo añado `crear.index.tsx`.
-- `src/routes/crear.index.tsx`
-- `src/lib/creation-projects.functions.ts`
-- `supabase/migrations/<ts>_creation_projects.sql`
-- `supabase/migrations/<ts>_character_references_and_image_favorites.sql`
-
-Editar:
-- `src/lib/navigation.ts` (entrada "Crear" en sidebar)
-- `src/routes/crear.prompts.tsx` (botón Generar Imagen + navegación con search)
-- `src/routes/crear.imagen.tsx` (leer search params, favorito, botón Enviar a Video, integración proyecto)
-- `src/routes/crear.video.tsx` (estado "preparado" + recepción de flow draft)
-- `src/lib/image-generation.functions.ts` (ensure project + favorite toggle + filtros)
-- `src/components/import-character-dialog.tsx` (múltiples referencias)
-- `src/routes/biblioteca.personajes.tsx` (mostrar galería de referencias — mínimo)
-
-## Notas técnicas
-
-- Mantengo modo single-owner (`OWNER_USER_ID` / `FALLBACK_OWNER_ID`) en todas las nuevas server fns, con `TODO(auth)`.
-- RLS habilitada pero policies usan `user_id = current_setting('app.owner_id', true)::uuid` no es viable; uso policy permisiva `using (true)` solo para `service_role` (que es quien accede vía `supabaseAdmin`), y restrinjo `authenticated/anon` con `using (false)` — coincide con patrón de `prompts` actual.
-- No genero video real; `flow_jobs.status='draft'` queda esperando worker futuro.
+¿Apruebas este plan para empezar a implementar?
