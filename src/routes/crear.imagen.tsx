@@ -69,6 +69,8 @@ type FinalRes = "1024" | "2048" | "3840" | "7680" | "12288";
 type Upscale = "none" | "2k" | "4k" | "8k" | "12k";
 type Status = "idle" | "loading" | "success" | "error";
 
+const PENDING_VIDEO_DRAFT_KEY = "pending-video-draft-fast-path";
+
 const FINAL_LABEL: Record<FinalRes, string> = {
   "1024": "1024×1024",
   "2048": "2048×2048 (2K)",
@@ -84,6 +86,13 @@ const UPSCALE_LABEL: Record<Upscale, string> = {
   "8k": "Upscaling 8K",
   "12k": "Upscaling 12K",
 };
+
+function aspectRatioFromResolution(value: string): string {
+  const [w, h] = value.split("x").map((n) => Number.parseInt(n, 10));
+  if (!w || !h) return "1:1";
+  if (w === h) return "1:1";
+  return w > h ? "16:9" : "9:16";
+}
 
 async function upscaleDataUrl(dataUrl: string, targetW: number, targetH: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -356,36 +365,70 @@ function ImagenIA() {
       toast.error("Genera o selecciona una imagen primero.");
       return;
     }
+    const sourceImageUrl = lastImageId ? null : (upscaledImage ?? imageData);
+    const pendingPayload = {
+      title: lastPrompt.slice(0, 60) || "Video sin título",
+      prompt: lastPrompt,
+      sourceImageId: lastImageId || null,
+      sourceImageUrl,
+      characterId: selectedCharacter?.id ?? null,
+      provider: "flow",
+      duration: "8",
+      aspectRatio: aspectRatioFromResolution(finalResLabel || generatedResLabel || resolution),
+      preset: "imagen-ia",
+      fastPath: true,
+    };
     setSendingVideo(true);
     setVideoPrepareError(null);
     try {
-      // Flow Center sync es opcional: si falla NO debe bloquear la creación del video draft.
-      saveFlowFn({
-        data: {
-          title: lastPrompt.slice(0, 60) || "Video sin título",
-          prompt: lastPrompt,
-          source_variant: "imagen",
-          status: "draft",
-        },
-      }).catch((e) => console.warn("[sendToVideo] saveFlowJob failed (no bloqueante)", e));
       const d = await createDraftFn({
-        data: {
-          title: lastPrompt.slice(0, 60) || "Video sin título",
-          prompt: lastPrompt,
-          sourceImageId: lastImageId ?? undefined,
-          characterId: selectedCharacter?.id ?? undefined,
-        },
+        data: pendingPayload,
       });
       if (!d.ok) {
+        try {
+          localStorage.setItem(PENDING_VIDEO_DRAFT_KEY, JSON.stringify({ ...pendingPayload, sourceImageUrl: imageData }));
+        } catch {
+          try {
+            localStorage.setItem(PENDING_VIDEO_DRAFT_KEY, JSON.stringify({ ...pendingPayload, sourceImageUrl: null }));
+          } catch {
+            /* noop */
+          }
+        }
         setVideoPrepareError(d.message);
         toast.error("No se pudo preparar el video.", { description: d.message });
         return;
       }
+      localStorage.removeItem(PENDING_VIDEO_DRAFT_KEY);
       setVideoPrepareError(null);
       toast.success("Borrador de video creado. Generación próximamente.");
+      const flowStarted = Date.now();
+      saveFlowFn({
+        data: {
+          title: pendingPayload.title,
+          prompt: lastPrompt,
+          source_variant: "imagen",
+          status: "draft",
+          platform: "video",
+          flow_media_type: "video",
+        },
+      }).then(() => {
+        console.info("[sendToVideo] flow_sync ok", { stage: "flow_sync", duration_ms: Date.now() - flowStarted });
+      }).catch((e) => {
+        console.warn("[sendToVideo] flow_sync failed (no bloqueante)", {
+          stage: "flow_sync",
+          duration_ms: Date.now() - flowStarted,
+          code: (e as { code?: string })?.code,
+          message: (e as { message?: string })?.message,
+        });
+      });
       navigate({ to: "/crear/video", search: { draftId: d.draft.id, fromImage: "1", flowId: "" } });
     } catch (e) {
       console.error(e);
+      try {
+        localStorage.setItem(PENDING_VIDEO_DRAFT_KEY, JSON.stringify({ ...pendingPayload, sourceImageUrl: imageData }));
+      } catch {
+        /* noop */
+      }
       setVideoPrepareError("Error inesperado al preparar el video.");
       toast.error("Error al enviar a Video.");
     } finally {
@@ -656,14 +699,19 @@ function ImagenIA() {
                     ) : (
                       <Video className="mr-2 h-3.5 w-3.5" />
                     )}
-                    {videoPrepareError ? "Reintentar preparar video" : "Enviar a Video"}
+                    {videoPrepareError ? "Reintentar preparación rápida" : "Enviar a Video"}
                   </Button>
                 </div>
                 {videoPrepareError ? (
-                  <p className="text-meta text-destructive">
-                    No se pudo preparar el video: {videoPrepareError}. La imagen sigue guardada;
-                    puedes reintentar.
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-meta text-destructive">
+                      No se pudo preparar el video: {videoPrepareError}. La imagen sigue guardada;
+                      puedes reintentar.
+                    </p>
+                    <Button size="sm" variant="secondary" onClick={copyPrompt}>
+                      <Copy className="mr-2 h-3.5 w-3.5" /> Copiar prompt de video
+                    </Button>
+                  </div>
                 ) : null}
               </div>
             ) : (

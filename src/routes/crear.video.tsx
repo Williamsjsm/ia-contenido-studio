@@ -504,9 +504,9 @@ function DraftTabs({ draft }: { draft: import("@/lib/video-drafts.functions").Vi
             <TabsTrigger value="production">Producción</TabsTrigger>
           </TabsList>
           <TabsContent value="image" className="mt-4">
-            {draft.source_image_base64 ? (
+            {draft.source_image_base64 || draft.source_image_url ? (
               <img
-                src={`data:image/png;base64,${draft.source_image_base64}`}
+                src={draft.source_image_base64 ? `data:image/png;base64,${draft.source_image_base64}` : draft.source_image_url ?? ""}
                 alt="Imagen origen"
                 className="max-h-96 w-full rounded-md border border-border/40 object-contain bg-black/20"
               />
@@ -575,9 +575,9 @@ function ReferencePanel({
     <div className="overflow-hidden rounded-lg border border-border/50 bg-gradient-to-br from-muted/30 to-background">
       <div className="grid gap-4 p-4 md:grid-cols-[260px_1fr] md:p-5">
         <div className="relative overflow-hidden rounded-md border border-border/40 bg-black/20">
-          {detail.source_image_base64 ? (
+          {detail.source_image_base64 || detail.source_image_url ? (
             <img
-              src={`data:image/png;base64,${detail.source_image_base64}`}
+              src={detail.source_image_base64 ? `data:image/png;base64,${detail.source_image_base64}` : detail.source_image_url ?? ""}
               alt="Imagen origen"
               className="h-48 w-full object-cover md:h-56"
             />

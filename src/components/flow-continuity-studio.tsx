@@ -192,6 +192,7 @@ function optimizeFor(provider: ProviderId, base: string, ctx: ContinuityContext)
     project_id: ctx.projectId ?? null,
     character_id: null,
     source_image_id: null,
+    source_image_url: null,
     parent_draft_id: null,
     title: ctx.projectTitle ?? "Flow Job",
     prompt: base,
