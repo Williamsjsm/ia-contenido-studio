@@ -137,6 +137,8 @@ function ImagenIA() {
   const [upscaledImage, setUpscaledImage] = useState<string | null>(null);
   const [upscaling, setUpscaling] = useState(false);
   const [lastPrompt, setLastPrompt] = useState<string>("");
+  const [sendingVideo, setSendingVideo] = useState(false);
+  const [videoPrepareError, setVideoPrepareError] = useState<string | null>(null);
   const [useCharacter, setUseCharacter] = useState(false);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>("");
   const [importMode, setImportMode] = useState<"save" | "temporal" | null>(null);
@@ -354,16 +356,18 @@ function ImagenIA() {
       toast.error("Genera o selecciona una imagen primero.");
       return;
     }
+    setSendingVideo(true);
+    setVideoPrepareError(null);
     try {
-      // Mantenemos Flow Center sincronizado y creamos el video_draft principal.
-      await saveFlowFn({
+      // Flow Center sync es opcional: si falla NO debe bloquear la creación del video draft.
+      saveFlowFn({
         data: {
           title: lastPrompt.slice(0, 60) || "Video sin título",
           prompt: lastPrompt,
           source_variant: "imagen",
           status: "draft",
         },
-      });
+      }).catch((e) => console.warn("[sendToVideo] saveFlowJob failed (no bloqueante)", e));
       const d = await createDraftFn({
         data: {
           title: lastPrompt.slice(0, 60) || "Video sin título",
@@ -373,14 +377,19 @@ function ImagenIA() {
         },
       });
       if (!d.ok) {
+        setVideoPrepareError(d.message);
         toast.error("No se pudo preparar el video.", { description: d.message });
         return;
       }
+      setVideoPrepareError(null);
       toast.success("Borrador de video creado. Generación próximamente.");
       navigate({ to: "/crear/video", search: { draftId: d.draft.id, fromImage: "1", flowId: "" } });
     } catch (e) {
       console.error(e);
+      setVideoPrepareError("Error inesperado al preparar el video.");
       toast.error("Error al enviar a Video.");
+    } finally {
+      setSendingVideo(false);
     }
   }
 
