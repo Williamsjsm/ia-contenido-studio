@@ -402,12 +402,22 @@ export const duplicateVideoDraft = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = ownerId();
-    const { data: src } = await supabaseAdmin
+    const srcRead = (await supabaseAdmin
       .from("video_drafts")
       .select(SELECT_COLS_WITH_SOURCE_URL)
       .eq("id", data.id)
       .eq("user_id", owner)
-      .maybeSingle();
+      .maybeSingle()) as unknown as { data: unknown; error: unknown };
+    let src = srcRead.data;
+    if (isMissingSourceUrlColumn(srcRead.error)) {
+      const fallback = (await supabaseAdmin
+        .from("video_drafts")
+        .select(SELECT_COLS)
+        .eq("id", data.id)
+        .eq("user_id", owner)
+        .maybeSingle()) as unknown as { data: unknown };
+      src = fallback.data;
+    }
     if (!src) return { ok: false as const, message: "Borrador no encontrado." };
     const s = src as unknown as VideoDraft;
     const { data: siblings } = await supabaseAdmin
@@ -433,7 +443,7 @@ export const duplicateVideoDraft = createServerFn({ method: "POST" })
         camera_motion: s.camera_motion,
         status: "draft",
         version: nextVersion,
-      })
+      } as never)
       .select("id")
       .single();
     if (error || !inserted) return { ok: false as const, message: error?.message ?? "No se pudo duplicar." };
