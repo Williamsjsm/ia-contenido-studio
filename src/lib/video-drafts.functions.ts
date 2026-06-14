@@ -404,7 +404,7 @@ export const duplicateVideoDraft = createServerFn({ method: "POST" })
     const owner = ownerId();
     const { data: src } = await supabaseAdmin
       .from("video_drafts")
-      .select(SELECT_COLS)
+      .select(SELECT_COLS_WITH_SOURCE_URL)
       .eq("id", data.id)
       .eq("user_id", owner)
       .maybeSingle();
@@ -422,6 +422,7 @@ export const duplicateVideoDraft = createServerFn({ method: "POST" })
         project_id: s.project_id,
         character_id: s.character_id,
         source_image_id: s.source_image_id,
+        source_image_url: s.source_image_url,
         parent_draft_id: s.parent_draft_id ?? s.id,
         title: `${s.title} v${nextVersion}`,
         prompt: s.prompt,
