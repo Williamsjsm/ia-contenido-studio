@@ -177,14 +177,35 @@ export const completeSimulatedGeneration = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = ownerId();
 
-    const { data: draft, error: draftErr } = await supabaseAdmin
+    const draftRead = (await supabaseAdmin
       .from("video_drafts")
       .select(
         "id, user_id, project_id, character_id, source_image_id, source_image_url, title, prompt, provider, duration",
       )
       .eq("id", data.draftId)
       .eq("user_id", owner)
-      .maybeSingle();
+      .maybeSingle()) as unknown as { data: unknown; error: { message?: string; code?: string } | null };
+    let draft = draftRead.data as {
+      id: string;
+      project_id: string | null;
+      character_id: string | null;
+      source_image_id: string | null;
+      source_image_url?: string | null;
+      title: string | null;
+      provider: string | null;
+      duration: string | null;
+    } | null;
+    let draftErr = draftRead.error;
+    if (draftErr?.code === "PGRST204" || draftErr?.message?.includes("source_image_url")) {
+      const fallbackRead = await supabaseAdmin
+        .from("video_drafts")
+        .select("id, user_id, project_id, character_id, source_image_id, title, prompt, provider, duration")
+        .eq("id", data.draftId)
+        .eq("user_id", owner)
+        .maybeSingle();
+      draft = fallbackRead.data as typeof draft;
+      draftErr = fallbackRead.error;
+    }
     if (draftErr || !draft) {
       return { ok: false as const, message: draftErr?.message ?? "Borrador no encontrado." };
     }
