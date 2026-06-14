@@ -252,7 +252,7 @@ export const createVideoDraft = createServerFn({ method: "POST" })
           .from("video_drafts")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .insert(insertPayload as any)
-          .select(SELECT_COLS_WITH_SOURCE_URL)
+          .select(SELECT_COLS)
           .single();
         if (isMissingSourceUrlColumn(error)) {
           delete insertPayload.source_image_url;
@@ -425,9 +425,7 @@ export const duplicateVideoDraft = createServerFn({ method: "POST" })
       .select("version")
       .eq("parent_draft_id", s.parent_draft_id ?? s.id);
     const nextVersion = Math.max(s.version, ...(siblings ?? []).map((x) => x.version ?? 1)) + 1;
-    const { data: inserted, error } = await supabaseAdmin
-      .from("video_drafts")
-      .insert({
+    const duplicatePayload: Record<string, unknown> = {
         user_id: owner,
         project_id: s.project_id,
         character_id: s.character_id,
@@ -443,7 +441,11 @@ export const duplicateVideoDraft = createServerFn({ method: "POST" })
         camera_motion: s.camera_motion,
         status: "draft",
         version: nextVersion,
-      } as never)
+    };
+    const { data: inserted, error } = await supabaseAdmin
+      .from("video_drafts")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .insert(duplicatePayload as any)
       .select("id")
       .single();
     if (error || !inserted) return { ok: false as const, message: error?.message ?? "No se pudo duplicar." };
