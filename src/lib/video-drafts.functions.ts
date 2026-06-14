@@ -55,6 +55,52 @@ export type VideoDraft = {
 const SELECT_COLS =
   "id, user_id, project_id, character_id, source_image_id, parent_draft_id, title, prompt, preset, status, provider, duration, aspect_ratio, camera_motion, version, created_at, updated_at";
 
+/**
+ * Detecta errores transitorios de PostgREST / schema cache para reintentar.
+ * Ej: "Could not query the database for the schema cache", PGRST002, 503, etc.
+ */
+function isTransientPgError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { message?: string; code?: string; status?: number };
+  const msg = (e.message ?? "").toLowerCase();
+  return (
+    msg.includes("schema cache") ||
+    msg.includes("could not query the database") ||
+    msg.includes("timed out") ||
+    msg.includes("temporarily unavailable") ||
+    msg.includes("too many connections") ||
+    e.code === "PGRST002" ||
+    e.status === 503 ||
+    e.status === 504
+  );
+}
+
+async function withRetry<T>(label: string, fn: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (!isTransientPgError(err) || i === attempts - 1) break;
+      const delay = 400 * Math.pow(2, i);
+      console.warn(`[video-drafts] ${label} transient error, retry in ${delay}ms`, err);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
+/** Ejecuta una consulta opcional y degrada a null si falla (no bloquea el flujo). */
+async function safeOptional<T>(label: string, fn: () => Promise<T>): Promise<T | null> {
+  try {
+    return await fn();
+  } catch (err) {
+    console.warn(`[video-drafts] optional lookup '${label}' failed, continuing`, err);
+    return null;
+  }
+}
+
 const CreateSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   prompt: z.string().trim().max(20_000).optional().default(""),
@@ -83,11 +129,15 @@ export const createVideoDraft = createServerFn({ method: "POST" })
     let projectId = data.projectId ?? null;
 
     if (data.sourceImageId) {
-      const { data: img } = await supabaseAdmin
-        .from("image_generations")
-        .select("prompt, character_id, character_name")
-        .eq("id", data.sourceImageId)
-        .maybeSingle();
+      const img = await safeOptional("image_generations lookup", async () => {
+        const { data: row, error } = await supabaseAdmin
+          .from("image_generations")
+          .select("prompt, character_id, character_name")
+          .eq("id", data.sourceImageId!)
+          .maybeSingle();
+        if (error) throw error;
+        return row;
+      });
       if (img) {
         if (!prompt && img.prompt) prompt = img.prompt;
         if (!characterId && (img as { character_id?: string }).character_id) {
@@ -98,11 +148,15 @@ export const createVideoDraft = createServerFn({ method: "POST" })
     }
 
     if (characterId && !prompt) {
-      const { data: ch } = await supabaseAdmin
-        .from("virtual_characters")
-        .select("name, master_prompt, description")
-        .eq("id", characterId)
-        .maybeSingle();
+      const ch = await safeOptional("virtual_characters lookup", async () => {
+        const { data: row, error } = await supabaseAdmin
+          .from("virtual_characters")
+          .select("name, master_prompt, description")
+          .eq("id", characterId!)
+          .maybeSingle();
+        if (error) throw error;
+        return row;
+      });
       if (ch) {
         prompt = [ch.master_prompt, ch.description].filter(Boolean).join("\n");
         if (!inferredTitle) inferredTitle = `Video de ${ch.name}`;
@@ -112,38 +166,58 @@ export const createVideoDraft = createServerFn({ method: "POST" })
     // Calcular versión si hay parent
     let version = 1;
     if (data.parentDraftId) {
-      const { data: siblings } = await supabaseAdmin
-        .from("video_drafts")
-        .select("version")
-        .eq("parent_draft_id", data.parentDraftId);
+      const siblings = await safeOptional("video_drafts siblings", async () => {
+        const { data: rows, error } = await supabaseAdmin
+          .from("video_drafts")
+          .select("version")
+          .eq("parent_draft_id", data.parentDraftId!);
+        if (error) throw error;
+        return rows;
+      });
       version = Math.max(1, ...(siblings ?? []).map((s) => s.version ?? 1)) + 1;
     }
 
-    const { data: inserted, error } = await supabaseAdmin
-      .from("video_drafts")
-      .insert({
-        user_id: owner,
-        project_id: projectId,
-        character_id: characterId,
-        source_image_id: data.sourceImageId ?? null,
-        parent_draft_id: data.parentDraftId ?? null,
-        title: inferredTitle || "Video sin título",
-        prompt,
-        preset: data.preset ?? null,
-        provider: data.provider ?? null,
-        duration: data.duration ?? null,
-        aspect_ratio: data.aspectRatio ?? null,
-        camera_motion: data.cameraMotion ?? null,
-        status: "draft",
-        version,
-      })
-      .select(SELECT_COLS)
-      .single();
-    if (error || !inserted) {
-      console.error("createVideoDraft failed:", error);
-      return { ok: false as const, message: error?.message ?? "No se pudo crear el borrador." };
+    try {
+      const inserted = await withRetry("insert video_draft", async () => {
+        const { data: row, error } = await supabaseAdmin
+          .from("video_drafts")
+          .insert({
+            user_id: owner,
+            project_id: projectId,
+            character_id: characterId,
+            source_image_id: data.sourceImageId ?? null,
+            parent_draft_id: data.parentDraftId ?? null,
+            title: inferredTitle || "Video sin título",
+            prompt,
+            preset: data.preset ?? null,
+            provider: data.provider ?? null,
+            duration: data.duration ?? null,
+            aspect_ratio: data.aspectRatio ?? null,
+            camera_motion: data.cameraMotion ?? null,
+            status: "draft",
+            version,
+          })
+          .select(SELECT_COLS)
+          .single();
+        if (error) throw error;
+        return row;
+      });
+      return { ok: true as const, draft: inserted as unknown as VideoDraft };
+    } catch (err) {
+      const e = err as { message?: string; code?: string; hint?: string; details?: string };
+      console.error("createVideoDraft failed:", {
+        fn: "createVideoDraft",
+        table: "video_drafts",
+        message: e?.message,
+        code: e?.code,
+        hint: e?.hint,
+        details: e?.details,
+      });
+      const friendly = isTransientPgError(err)
+        ? "El backend está saturado. Espera unos segundos y reintenta."
+        : e?.message ?? "No se pudo crear el borrador.";
+      return { ok: false as const, message: friendly };
     }
-    return { ok: true as const, draft: inserted as unknown as VideoDraft };
   });
 
 const UpdateSchema = z.object({
