@@ -650,10 +650,21 @@ function ImagenIA() {
                   <Button size="sm" onClick={sendToPublish}>
                     <Send className="mr-2 h-3.5 w-3.5" /> Enviar a publicación
                   </Button>
-                  <Button size="sm" variant="outline" onClick={sendToVideo}>
-                    <Video className="mr-2 h-3.5 w-3.5" /> Enviar a Video
+                  <Button size="sm" variant="outline" onClick={sendToVideo} disabled={sendingVideo}>
+                    {sendingVideo ? (
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Video className="mr-2 h-3.5 w-3.5" />
+                    )}
+                    {videoPrepareError ? "Reintentar preparar video" : "Enviar a Video"}
                   </Button>
                 </div>
+                {videoPrepareError ? (
+                  <p className="text-meta text-destructive">
+                    No se pudo preparar el video: {videoPrepareError}. La imagen sigue guardada;
+                    puedes reintentar.
+                  </p>
+                ) : null}
               </div>
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
