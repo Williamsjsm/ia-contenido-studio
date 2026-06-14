@@ -38,6 +38,7 @@ export type VideoDraft = {
   project_id: string | null;
   character_id: string | null;
   source_image_id: string | null;
+  source_image_url: string | null;
   parent_draft_id: string | null;
   title: string;
   prompt: string;
@@ -54,6 +55,33 @@ export type VideoDraft = {
 
 const SELECT_COLS =
   "id, user_id, project_id, character_id, source_image_id, parent_draft_id, title, prompt, preset, status, provider, duration, aspect_ratio, camera_motion, version, created_at, updated_at";
+const SELECT_COLS_WITH_SOURCE_URL = SELECT_COLS.replace(
+  "source_image_id,",
+  "source_image_id, source_image_url,",
+);
+
+type DbErrorLike = { message?: string; code?: string; hint?: string; details?: string; status?: number };
+
+function logDbStage(
+  stage: "fast_insert" | "optional_enrich" | "flow_sync",
+  level: "warn" | "error",
+  startedAt: number,
+  err: unknown,
+  meta: { fn: string; table: string; columns: string },
+) {
+  const e = (err ?? {}) as DbErrorLike;
+  console[level](`[video-drafts] ${stage} failed`, {
+    stage,
+    duration_ms: Date.now() - startedAt,
+    fn: meta.fn,
+    table: meta.table,
+    columns: meta.columns,
+    code: e.code,
+    message: e.message,
+    hint: e.hint,
+    details: e.details,
+  });
+}
 
 /**
  * Detecta errores transitorios de PostgREST / schema cache para reintentar.
@@ -61,7 +89,7 @@ const SELECT_COLS =
  */
 function isTransientPgError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
-  const e = err as { message?: string; code?: string; status?: number };
+  const e = err as DbErrorLike;
   const msg = (e.message ?? "").toLowerCase();
   return (
     msg.includes("schema cache") ||
@@ -73,6 +101,19 @@ function isTransientPgError(err: unknown): boolean {
     e.status === 503 ||
     e.status === 504
   );
+}
+
+function isMissingSourceUrlColumn(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as DbErrorLike;
+  const msg = `${e.message ?? ""} ${e.details ?? ""} ${e.hint ?? ""}`.toLowerCase();
+  return (e.code === "PGRST204" || msg.includes("schema cache")) && msg.includes("source_image_url");
+}
+
+function isDuplicateDraftId(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as DbErrorLike;
+  return e.code === "23505" || (e.message ?? "").toLowerCase().includes("duplicate key");
 }
 
 async function withRetry<T>(label: string, fn: () => Promise<T>, attempts = 3): Promise<T> {
@@ -107,28 +148,37 @@ const CreateSchema = z.object({
   projectId: z.string().uuid().nullable().optional(),
   characterId: z.string().uuid().nullable().optional(),
   sourceImageId: z.string().uuid().nullable().optional(),
+  sourceImageUrl: z.string().trim().max(5_000_000).nullable().optional(),
   parentDraftId: z.string().uuid().nullable().optional(),
   preset: z.string().max(40).nullable().optional(),
   provider: z.string().max(40).nullable().optional(),
   duration: z.string().max(20).nullable().optional(),
   aspectRatio: z.string().max(20).nullable().optional(),
   cameraMotion: z.string().max(40).nullable().optional(),
+  fastPath: z.boolean().optional().default(false),
 });
+
+function normalizeDraft(row: unknown): VideoDraft {
+  const draft = row as VideoDraft;
+  return { ...draft, source_image_url: draft.source_image_url ?? null };
+}
 
 export const createVideoDraft = createServerFn({ method: "POST" })
   .middleware([requireAccess])
   .inputValidator((input: unknown) => CreateSchema.parse(input))
   .handler(async ({ data }) => {
+    const createStarted = Date.now();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = ownerId();
 
-    // Auto-prompt: si no se pasó prompt, intentar derivarlo de la imagen origen
+    // Fast path (Imagen IA): no hace lecturas opcionales antes de insertar.
     let prompt = data.prompt?.trim() ?? "";
     let inferredTitle = data.title?.trim();
     let characterId = data.characterId ?? null;
     let projectId = data.projectId ?? null;
+    const sourceImageUrl = data.sourceImageUrl?.trim() || null;
 
-    if (data.sourceImageId) {
+    if (!data.fastPath && data.sourceImageId) {
       const img = await safeOptional("image_generations lookup", async () => {
         const { data: row, error } = await supabaseAdmin
           .from("image_generations")
@@ -147,7 +197,7 @@ export const createVideoDraft = createServerFn({ method: "POST" })
       }
     }
 
-    if (characterId && !prompt) {
+    if (!data.fastPath && characterId && !prompt) {
       const ch = await safeOptional("virtual_characters lookup", async () => {
         const { data: row, error } = await supabaseAdmin
           .from("virtual_characters")
@@ -165,7 +215,7 @@ export const createVideoDraft = createServerFn({ method: "POST" })
 
     // Calcular versión si hay parent
     let version = 1;
-    if (data.parentDraftId) {
+    if (!data.fastPath && data.parentDraftId) {
       const siblings = await safeOptional("video_drafts siblings", async () => {
         const { data: rows, error } = await supabaseAdmin
           .from("video_drafts")
@@ -178,41 +228,111 @@ export const createVideoDraft = createServerFn({ method: "POST" })
     }
 
     try {
-      const inserted = await withRetry("insert video_draft", async () => {
+      const draftId = crypto.randomUUID();
+      const insertPayload: Record<string, unknown> = {
+        id: draftId,
+        user_id: owner,
+        project_id: projectId,
+        character_id: characterId,
+        source_image_id: data.sourceImageId ?? null,
+        source_image_url: sourceImageUrl,
+        parent_draft_id: data.parentDraftId ?? null,
+        title: inferredTitle || "Video sin título",
+        prompt,
+        preset: data.preset ?? null,
+        provider: data.provider ?? null,
+        duration: data.duration ?? null,
+        aspect_ratio: data.aspectRatio ?? null,
+        camera_motion: data.cameraMotion ?? null,
+        status: "draft",
+        version,
+      };
+      const inserted = await withRetry("fast_insert video_draft", async () => {
         const { data: row, error } = await supabaseAdmin
           .from("video_drafts")
-          .insert({
-            user_id: owner,
-            project_id: projectId,
-            character_id: characterId,
-            source_image_id: data.sourceImageId ?? null,
-            parent_draft_id: data.parentDraftId ?? null,
-            title: inferredTitle || "Video sin título",
-            prompt,
-            preset: data.preset ?? null,
-            provider: data.provider ?? null,
-            duration: data.duration ?? null,
-            aspect_ratio: data.aspectRatio ?? null,
-            camera_motion: data.cameraMotion ?? null,
-            status: "draft",
-            version,
-          })
-          .select(SELECT_COLS)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .insert(insertPayload as any)
+          .select(SELECT_COLS_WITH_SOURCE_URL)
           .single();
+        if (isMissingSourceUrlColumn(error)) {
+          delete insertPayload.source_image_url;
+          const { data: fallbackRow, error: fallbackError } = await supabaseAdmin
+            .from("video_drafts")
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .insert(insertPayload as any)
+            .select(SELECT_COLS)
+            .single();
+          if (fallbackError) throw fallbackError;
+          return fallbackRow;
+        }
+        if (isDuplicateDraftId(error)) {
+          const { data: existing, error: existingError } = await supabaseAdmin
+            .from("video_drafts")
+            .select(SELECT_COLS)
+            .eq("id", draftId)
+            .maybeSingle();
+          if (existingError) throw existingError;
+          return existing;
+        }
         if (error) throw error;
         return row;
       });
-      return { ok: true as const, draft: inserted as unknown as VideoDraft };
-    } catch (err) {
-      const e = err as { message?: string; code?: string; hint?: string; details?: string };
-      console.error("createVideoDraft failed:", {
+      console.info("[video-drafts] fast_insert ok", {
+        stage: "fast_insert",
+        duration_ms: Date.now() - createStarted,
         fn: "createVideoDraft",
         table: "video_drafts",
-        message: e?.message,
-        code: e?.code,
-        hint: e?.hint,
-        details: e?.details,
+        columns: Object.keys(insertPayload).join(", "),
       });
+      if (data.fastPath) {
+        void safeOptional("optional_enrich video_drafts", async () => {
+          const started = Date.now();
+          try {
+            if (!data.sourceImageId || (prompt && characterId)) return null;
+            const { data: img, error: imgError } = await supabaseAdmin
+              .from("image_generations")
+              .select("prompt, character_id")
+              .eq("id", data.sourceImageId)
+              .maybeSingle();
+            if (imgError) throw imgError;
+            const patch: Record<string, unknown> = {};
+            if (!prompt && img?.prompt) patch.prompt = img.prompt;
+            if (!characterId && img?.character_id) patch.character_id = img.character_id;
+            if (Object.keys(patch).length) {
+              const { error: updateError } = await supabaseAdmin
+                .from("video_drafts")
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .update(patch as any)
+                .eq("id", draftId)
+                .eq("user_id", owner);
+              if (updateError) throw updateError;
+            }
+            console.info("[video-drafts] optional_enrich ok", {
+              stage: "optional_enrich",
+              duration_ms: Date.now() - started,
+              fn: "createVideoDraft",
+              table: "video_drafts",
+              columns: Object.keys(patch).join(", ") || "none",
+            });
+            return null;
+          } catch (err) {
+            logDbStage("optional_enrich", "warn", started, err, {
+              fn: "createVideoDraft",
+              table: "video_drafts",
+              columns: "project_id, character_id, source_image_id, source_image_url",
+            });
+            throw err;
+          }
+        });
+      }
+      return { ok: true as const, draft: { ...normalizeDraft(inserted), source_image_url: sourceImageUrl } };
+    } catch (err) {
+      logDbStage("fast_insert", "error", createStarted, err, {
+        fn: "createVideoDraft",
+        table: "video_drafts",
+        columns: "user_id, project_id, character_id, source_image_id, source_image_url, title, prompt, preset, provider, duration, aspect_ratio, camera_motion, status, version",
+      });
+      const e = err as DbErrorLike;
       const friendly = isTransientPgError(err)
         ? "El backend está saturado. Espera unos segundos y reintenta."
         : e?.message ?? "No se pudo crear el borrador.";
@@ -333,14 +453,27 @@ export const getVideoDraftDetail = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<VideoDraftDetail | null> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = ownerId();
-    const { data: row } = await supabaseAdmin
+    const primaryRead = (await supabaseAdmin
       .from("video_drafts")
-      .select(SELECT_COLS)
+      .select(SELECT_COLS_WITH_SOURCE_URL)
       .eq("id", data.id)
       .eq("user_id", owner)
-      .maybeSingle();
+      .maybeSingle()) as unknown as { data: unknown; error: unknown };
+    let row = primaryRead.data;
+    let readError = primaryRead.error;
+    if (isMissingSourceUrlColumn(readError)) {
+      const fallback = (await supabaseAdmin
+        .from("video_drafts")
+        .select(SELECT_COLS)
+        .eq("id", data.id)
+        .eq("user_id", owner)
+        .maybeSingle()) as unknown as { data: unknown; error: unknown };
+      row = fallback.data;
+      readError = fallback.error;
+    }
+    if (readError) return null;
     if (!row) return null;
-    const draft = row as unknown as VideoDraft;
+    const draft = normalizeDraft(row);
 
     let img_b64: string | null = null;
     let img_prompt: string | null = null;

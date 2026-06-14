@@ -180,7 +180,7 @@ export const completeSimulatedGeneration = createServerFn({ method: "POST" })
     const { data: draft, error: draftErr } = await supabaseAdmin
       .from("video_drafts")
       .select(
-        "id, user_id, project_id, character_id, source_image_id, title, prompt, provider, duration",
+        "id, user_id, project_id, character_id, source_image_id, source_image_url, title, prompt, provider, duration",
       )
       .eq("id", data.draftId)
       .eq("user_id", owner)
@@ -198,6 +198,9 @@ export const completeSimulatedGeneration = createServerFn({ method: "POST" })
         .eq("id", draft.source_image_id)
         .maybeSingle();
       if (img?.image_base64) thumbnail = `data:image/png;base64,${img.image_base64}`;
+    }
+    if (!thumbnail && (draft as { source_image_url?: string | null }).source_image_url) {
+      thumbnail = (draft as { source_image_url?: string | null }).source_image_url ?? null;
     }
 
     const { data: inserted, error } = await supabaseAdmin
