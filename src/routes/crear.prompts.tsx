@@ -342,7 +342,7 @@ function PromptsGenerator() {
     <div className="mx-auto w-full max-w-[1800px] space-y-6 p-6 lg:p-10">
       <PageHeader
         title="Generador de Prompts"
-        subtitle="Crea prompts optimizados por categoría, plataforma y estilo, conectado a OpenAI."
+        subtitle="Crea prompts optimizados por categoría, plataforma y estilo, conectado a Lovable Gateway."
       />
 
       {keyConfigured === false && (
@@ -351,7 +351,7 @@ function PromptsGenerator() {
             <div className="flex items-start gap-3">
               <KeyRound className="mt-0.5 h-5 w-5 text-amber-400" />
               <p className="text-sm text-foreground/90">
-                Configura tu API Key de OpenAI en Integraciones para activar esta función.
+                Configura LOVABLE_API_KEY en Lovable para activar esta función sin usar OpenAI directo.
               </p>
             </div>
             <Button asChild size="sm">
@@ -745,7 +745,7 @@ function LoadingResult() {
   return (
     <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 text-muted-foreground">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <p className="text-sm">Generando con OpenAI...</p>
+      <p className="text-sm">Generando con Lovable Gateway...</p>
       <div className="w-full max-w-sm space-y-2">
         <div className="h-2 w-full animate-pulse rounded bg-muted/60" />
         <div className="h-2 w-4/5 animate-pulse rounded bg-muted/60" />

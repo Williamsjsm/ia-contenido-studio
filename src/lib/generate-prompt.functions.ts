@@ -76,8 +76,11 @@ function resolveProvider(): ProviderConfig | null {
       kind: "lovable",
       apiKey: lovableKey,
       url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-      model: "google/gemini-2.5-flash",
+      model: process.env.LOVABLE_PROMPT_MODEL?.trim() || "google/gemini-2.5-flash",
     };
+  }
+  if (process.env.ENABLE_OPENAI_DIRECT_FALLBACK !== "true") {
+    return null;
   }
   const openaiKey = process.env.OPENAI_API_KEY;
   if (openaiKey) {
@@ -91,8 +94,41 @@ function resolveProvider(): ProviderConfig | null {
   return null;
 }
 
+const CACHE_TTL_MS =
+  Math.max(0, Number.parseInt(process.env.PROMPT_GENERATOR_CACHE_MINUTES ?? "720", 10) || 720) *
+  60_000;
+const promptCache = new Map<string, { expiresAt: number; value: GeneratePromptVariants }>();
+
+function cacheKey(input: z.infer<typeof InputSchema>) {
+  return JSON.stringify(input);
+}
+
+function getCachedPrompt(key: string): GeneratePromptVariants | null {
+  if (CACHE_TTL_MS <= 0) return null;
+  const hit = promptCache.get(key);
+  if (!hit) return null;
+  if (hit.expiresAt <= Date.now()) {
+    promptCache.delete(key);
+    return null;
+  }
+  return hit.value;
+}
+
+function setCachedPrompt(key: string, value: GeneratePromptVariants) {
+  if (CACHE_TTL_MS <= 0) return;
+  promptCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, value });
+}
+
 export const hasGeneratorConfigured = createServerFn({ method: "GET" }).handler(
-  async () => ({ configured: Boolean(resolveProvider()) }),
+  async () => {
+    const provider = resolveProvider();
+    return {
+      configured: Boolean(provider),
+      provider: provider?.kind ?? null,
+      model: provider?.model ?? null,
+      directOpenAiEnabled: process.env.ENABLE_OPENAI_DIRECT_FALLBACK === "true",
+    };
+  },
 );
 
 export const generatePrompt = createServerFn({ method: "POST" })
@@ -105,8 +141,13 @@ export const generatePrompt = createServerFn({ method: "POST" })
         ok: false,
         error: "not_configured",
         message:
-          "La generación IA no está configurada. Añade LOVABLE_API_KEY u OPENAI_API_KEY en Integraciones.",
+          "La generación IA no está configurada. Añade LOVABLE_API_KEY. OpenAI directo solo se usa si habilitas ENABLE_OPENAI_DIRECT_FALLBACK=true.",
       };
+    }
+    const key = cacheKey(data);
+    const cached = getCachedPrompt(key);
+    if (cached) {
+      return { ok: true, ...cached };
     }
 
     const lines = [
@@ -264,5 +305,6 @@ export const generatePrompt = createServerFn({ method: "POST" })
       };
     }
 
+    setCachedPrompt(key, v);
     return { ok: true, ...v };
   });
