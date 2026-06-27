@@ -762,6 +762,17 @@ function ViralRadar({
     },
   });
 
+  const syncSummary = (
+    label: string,
+    res: { inserted: number; updated: number; skipped?: number; errors?: unknown[] | number },
+  ) => {
+    const skipped = res.skipped ?? 0;
+    const errorCount = Array.isArray(res.errors) ? res.errors.length : res.errors ?? 0;
+    return `${label} · ${res.inserted} nuevas, ${res.updated} actualizadas${
+      skipped ? ` · ${skipped} en caché` : ""
+    }${errorCount ? ` · ${errorCount} errores` : ""}`;
+  };
+
   const ytMut = useMutation({
     mutationFn: fetchYouTube,
     onSuccess: (res) => {
@@ -773,10 +784,7 @@ function ViralRadar({
         toast.error("YouTube API no configurada");
         return;
       }
-      toast.success(
-        `YouTube · ${res.inserted} nuevas, ${res.updated} actualizadas` +
-          (res.errors.length ? ` · ${res.errors.length} errores` : ""),
-      );
+      toast.success(syncSummary("YouTube", res));
       invalidate();
     },
     onError: (err: unknown) => {
@@ -791,7 +799,7 @@ function ViralRadar({
         toast.error(res.message ?? "Error búsqueda");
         return;
       }
-      toast.success(`Búsqueda · ${res.inserted} nuevas, ${res.updated} actualizadas`);
+      toast.success(syncSummary("Búsqueda", res));
       setSourceMode("youtube_real");
       setKeywordFilter(keywordInput.trim());
       invalidate();
@@ -806,7 +814,7 @@ function ViralRadar({
         toast.error(res.message);
         return;
       }
-      toast.success(`Instagram · ${res.inserted} nuevas, ${res.updated} actualizadas`);
+      toast.success(syncSummary("Instagram", res));
       invalidate();
     },
     onError: (err: unknown) => toast.error((err as Error)?.message ?? "Error Instagram"),
@@ -818,7 +826,7 @@ function ViralRadar({
         toast.error(res.message);
         return;
       }
-      toast.success(`Facebook · ${res.inserted} nuevas, ${res.updated} actualizadas`);
+      toast.success(syncSummary("Facebook", res));
       invalidate();
     },
     onError: (err: unknown) => toast.error((err as Error)?.message ?? "Error Facebook"),
@@ -952,6 +960,7 @@ function ViralRadar({
               data: {
                 countries: country ? [country] : undefined,
                 categories: category ? [category] : undefined,
+                perRequest: 5,
               },
             })
           }
@@ -1011,6 +1020,7 @@ function ViralRadar({
                   category: category ?? undefined,
                   duration,
                   order: "viewCount",
+                  limit: 6,
                 },
               });
             }
@@ -1040,6 +1050,7 @@ function ViralRadar({
                 category: category ?? undefined,
                 duration,
                 order: "viewCount",
+                limit: 6,
               },
             })
           }

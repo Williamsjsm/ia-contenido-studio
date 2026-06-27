@@ -346,6 +346,48 @@ const FetchYouTubeSchema = z.object({
   perRequest: z.number().int().min(1).max(25).optional(),
 });
 
+function envInt(name: string, fallback: number, min: number, max: number): number {
+  const raw = Number.parseInt(process.env[name] ?? "", 10);
+  if (!Number.isFinite(raw)) return fallback;
+  return Math.max(min, Math.min(max, raw));
+}
+
+function apiCooldownMs(): number {
+  const minutes = envInt("VIRAL_API_COOLDOWN_MINUTES", 360, 0, 24 * 60);
+  return minutes * 60_000;
+}
+
+function clampApiLimit(requested: number | undefined, fallback: number, envName: string, max: number): number {
+  const envMax = envInt(envName, fallback, 1, max);
+  return Math.min(requested ?? fallback, envMax, max);
+}
+
+async function countFreshTrends(opts: {
+  owner: string;
+  sourceType: string;
+  country?: string | null;
+  category?: string | null;
+  keyword?: string | null;
+}): Promise<number> {
+  const cooldown = apiCooldownMs();
+  if (cooldown <= 0) return 0;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  let q = supabaseAdmin
+    .from("viral_trends")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", opts.owner)
+    .eq("source_type", opts.sourceType)
+    .gte("updated_at", new Date(Date.now() - cooldown).toISOString());
+  if (opts.country) q = q.eq("country", opts.country);
+  if (opts.category) q = q.eq("category", opts.category);
+  if (opts.keyword) {
+    const term = opts.keyword.trim().replace(/[^\w\s\-#@]/g, "").slice(0, 80);
+    if (term) q = q.or(`title.ilike.%${term}%,keywords.ilike.%${term}%`);
+  }
+  const { count } = await q;
+  return count ?? 0;
+}
+
 type YouTubeVideoItem = {
   id: string;
   snippet?: {
@@ -373,18 +415,36 @@ export const fetchYouTubeTrends = createServerFn({ method: "POST" })
 
     const countries = (data.countries && data.countries.length > 0
       ? data.countries
-      : Object.keys(COUNTRY_TO_REGION)) as string[];
-    const categories = data.categories ?? ["Viral General", "Animales", "Tecnología", "Música"];
-    const perRequest = data.perRequest ?? 10;
+      : ["Estados Unidos"]) as string[];
+    const categories = data.categories ?? ["Viral General"];
+    const perRequest = clampApiLimit(data.perRequest, 5, "VIRAL_YOUTUBE_PER_REQUEST_MAX", 25);
+    const maxCombos = envInt("VIRAL_YOUTUBE_MAX_COMBOS", 4, 1, 30);
 
     let inserted = 0;
     let updated = 0;
+    let skipped = 0;
     const errors: string[] = [];
+    let scannedCombos = 0;
 
     for (const countryName of countries) {
       const regionCode = COUNTRY_TO_REGION[countryName];
       if (!regionCode) continue;
       for (const categoryName of categories) {
+        if (scannedCombos >= maxCombos) {
+          skipped++;
+          continue;
+        }
+        scannedCombos++;
+        const fresh = await countFreshTrends({
+          owner,
+          sourceType: "youtube_api",
+          country: countryName,
+          category: categoryName === "Viral General" ? null : categoryName,
+        });
+        if (fresh > 0) {
+          skipped++;
+          continue;
+        }
         const ytCategoryId = CATEGORY_TO_YT_ID[categoryName];
         const params = new URLSearchParams({
           part: "snippet,statistics",
@@ -495,6 +555,7 @@ export const fetchYouTubeTrends = createServerFn({ method: "POST" })
       configured: true as const,
       inserted,
       updated,
+      skipped,
       errors: errors.slice(0, 5),
     };
   });
@@ -574,9 +635,19 @@ export const fetchInstagramHashtagTrends = createServerFn({ method: "POST" })
       };
     }
     const owner = resolveOwnerId();
-    const limit = data.limit ?? 20;
+    const limit = clampApiLimit(data.limit, 10, "VIRAL_SOCIAL_FETCH_LIMIT_MAX", 50);
     try {
       const tag = data.hashtag.replace(/^#/, "");
+      const fresh = await countFreshTrends({
+        owner,
+        sourceType: "instagram_hashtag",
+        country: data.country ?? "Global",
+        category: data.category ?? "Viral General",
+        keyword: `#${tag}`,
+      });
+      if (fresh > 0) {
+        return { ok: true as const, configured: true as const, inserted: 0, updated: 0, errors: 0, skipped: fresh };
+      }
       // 1. Resolve hashtag id
       const tagRes = await fetch(
         `https://graph.facebook.com/v19.0/ig_hashtag_search?user_id=${encodeURIComponent(igUserId)}&q=${encodeURIComponent(tag)}&access_token=${encodeURIComponent(token)}`,
@@ -678,8 +749,18 @@ export const fetchFacebookPageTrends = createServerFn({ method: "POST" })
       };
     }
     const owner = resolveOwnerId();
-    const limit = data.limit ?? 15;
+    const limit = clampApiLimit(data.limit, 10, "VIRAL_SOCIAL_FETCH_LIMIT_MAX", 50);
     try {
+      const fresh = await countFreshTrends({
+        owner,
+        sourceType: "facebook_page",
+        country: data.country ?? "Global",
+        category: data.category ?? "Viral General",
+        keyword: data.page_id,
+      });
+      if (fresh > 0) {
+        return { ok: true as const, configured: true as const, inserted: 0, updated: 0, errors: 0, skipped: fresh };
+      }
       const fields =
         "id,message,permalink_url,created_time,full_picture,from,reactions.summary(true),comments.summary(true),shares";
       const res = await fetch(
@@ -713,6 +794,7 @@ export const fetchFacebookPageTrends = createServerFn({ method: "POST" })
           url: it.permalink_url ?? null,
           views: null,
           likes,
+          keywords: data.page_id,
           comment_count: comments,
           share_count: shares,
           published_at: it.created_time ?? null,
@@ -830,8 +912,18 @@ export const searchYouTubeTrends = createServerFn({ method: "POST" })
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const owner = resolveOwnerId();
-    const limit = data.limit ?? 12;
+    const limit = clampApiLimit(data.limit, 6, "VIRAL_YOUTUBE_SEARCH_LIMIT_MAX", 25);
     const regionCode = data.country ? COUNTRY_TO_REGION[data.country] : undefined;
+    const fresh = await countFreshTrends({
+      owner,
+      sourceType: "youtube_search",
+      country: regionCode ? REGION_TO_COUNTRY[regionCode] ?? data.country ?? "Global" : data.country ?? "Global",
+      category: data.category ?? null,
+      keyword: data.keyword,
+    });
+    if (fresh > 0) {
+      return { ok: true as const, configured: true as const, inserted: 0, updated: 0, errors: 0, skipped: fresh };
+    }
 
     const searchParams = new URLSearchParams({
       part: "snippet",
