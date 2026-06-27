@@ -439,7 +439,7 @@ function ImagenIA() {
   return (
     <>
     <div className="mx-auto w-full max-w-[1800px] space-y-6 p-6 lg:p-10">
-      <PageHeader title="Imagen IA" subtitle="Genera imágenes reales con Gemini Imagen o OpenAI Images." />
+      <PageHeader title="Imagen IA" subtitle="Genera imágenes reales con Gemini o ChatGPT Imagen vía Lovable Gateway." />
       <div className="grid gap-6 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr]">
         <Card className="border-border/60 bg-card">
           <CardHeader><CardTitle className="text-base">Configuración</CardTitle></CardHeader>
@@ -460,7 +460,7 @@ function ImagenIA() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="gemini">Gemini Imagen</SelectItem>
-                  <SelectItem value="openai">ChatGPT Imagen (OpenAI)</SelectItem>
+                  <SelectItem value="openai">ChatGPT Imagen vía Lovable</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -485,7 +485,7 @@ function ImagenIA() {
               </Select>
               {provider === "openai" && (
                 <p className="text-[10px] text-muted-foreground">
-                  OpenAI gpt-image solo admite 1024×1024, 1536×1024 y 1024×1536.
+                  ChatGPT Imagen vía Lovable admite 1024×1024, 1536×1024 y 1024×1536.
                 </p>
               )}
             </div>

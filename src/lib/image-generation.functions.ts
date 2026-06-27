@@ -79,6 +79,9 @@ function resolveProvider(requested: "gemini" | "openai"): ProviderResolved | nul
   if (lovableKey) {
     return { kind: "openai", apiKey: lovableKey, model: "openai/gpt-image-2" };
   }
+  if (process.env.ENABLE_OPENAI_DIRECT_FALLBACK !== "true") {
+    return null;
+  }
   const openaiKey = process.env.OPENAI_API_KEY;
   if (openaiKey) {
     return { kind: "openai", apiKey: openaiKey, model: "gpt-image-1" };
@@ -98,7 +101,7 @@ export const generateImage = createServerFn({ method: "POST" })
         message:
           data.provider === "gemini"
             ? "Proveedor no configurado: falta LOVABLE_API_KEY para Gemini Imagen."
-            : "Proveedor no configurado: falta LOVABLE_API_KEY u OPENAI_API_KEY.",
+            : "Proveedor no configurado: falta LOVABLE_API_KEY. OpenAI directo solo se usa si habilitas ENABLE_OPENAI_DIRECT_FALLBACK=true.",
       };
     }
 
