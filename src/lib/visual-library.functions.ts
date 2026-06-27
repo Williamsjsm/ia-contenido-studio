@@ -388,16 +388,24 @@ export const updateVirtualCharacter = createServerFn({ method: "POST" })
 export const listVirtualCharacters = createServerFn({ method: "GET" })
   .middleware([requireAccess])
   .handler(async (): Promise<VirtualCharacter[]> => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const owner = ownerId();
-    const { data, error } = await supabaseAdmin
-      .from("virtual_characters")
-      .select("*")
-      .eq("user_id", owner)
-      .order("created_at", { ascending: false })
-      .limit(200);
-    if (error) throw new Error(error.message);
-    return (data ?? []) as VirtualCharacter[];
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const owner = ownerId();
+      const { data, error } = await supabaseAdmin
+        .from("virtual_characters")
+        .select("*")
+        .eq("user_id", owner)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) {
+        console.warn("[listVirtualCharacters] Supabase error, using empty fallback:", error.message);
+        return [];
+      }
+      return (data ?? []) as VirtualCharacter[];
+    } catch (err) {
+      console.warn("[listVirtualCharacters] Supabase unavailable, using empty fallback:", err);
+      return [];
+    }
   });
 
 export const deleteVirtualCharacter = createServerFn({ method: "POST" })
